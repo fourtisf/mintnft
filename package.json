@@ -1,0 +1,13 @@
+{
+  "name": "proof",
+  "private": true,
+  "description": "Contract build and parity harness. The engine has its own package.json in signal-engine/.",
+  "dependencies": {
+    "@ethereumjs/common": "^3.2.0",
+    "@ethereumjs/vm": "^6.5.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "ethereumjs-util": "^7.1.5",
+    "jsdom": "^30.0.1",
+    "solc": "^0.8.24"
+  }
+}

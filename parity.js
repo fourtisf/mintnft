@@ -2,10 +2,11 @@ const solc=require('solc'),fs=require('fs'),path=require('path');
 const {VM}=require('@ethereumjs/vm');const {Common,Chain,Hardfork}=require('@ethereumjs/common');
 const {Address,keccak256}=require('ethereumjs-util');
 const {JSDOM,VirtualConsole}=require('jsdom');
-function findImports(p){const t=path.join('node_modules',p);
+const outDir=path.join(__dirname,'out');fs.mkdirSync(outDir,{recursive:true});
+function findImports(p){const t=path.join(__dirname,'node_modules',p);
   return fs.existsSync(t)?{contents:fs.readFileSync(t,'utf8')}:{error:'nf '+p}}
 const sources={};
-for(const f of ['ProofParts.sol','ProofRenderer.sol']) sources['contracts/'+f]={content:fs.readFileSync('contracts/'+f,'utf8')};
+for(const f of ['ProofParts.sol','ProofRenderer.sol']) sources['contracts/'+f]={content:fs.readFileSync(path.join(__dirname,'contracts',f),'utf8')};
 const out=JSON.parse(solc.compile(JSON.stringify({language:'Solidity',sources,
   settings:{optimizer:{enabled:true,runs:200},viaIR:true,outputSelection:{'*':{'*':['evm.bytecode.object']}}}}),{import:findImports}));
 const P=out.contracts['contracts/ProofParts.sol'].ProofParts.evm.bytecode.object;
@@ -38,7 +39,7 @@ const seed=Buffer.from('7f'.repeat(32),'hex');
   }
 
   // trait di browser
-  const dom=new JSDOM(fs.readFileSync('/mnt/user-data/outputs/proof.html','utf8'),
+  const dom=new JSDOM(fs.readFileSync(path.join(__dirname,'prototype','proof.html'),'utf8'),
    {runScripts:'dangerously',virtualConsole:new VirtualConsole(),url:'http://localhost/',beforeParse(w){
     w.IntersectionObserver=class{observe(){}unobserve(){}};w.matchMedia=()=>({matches:true});
     w.requestAnimationFrame=()=>{};w.scrollTo=()=>{};w.setInterval=()=>0;
@@ -67,7 +68,7 @@ const seed=Buffer.from('7f'.repeat(32),'hex');
     const svg=Buffer.from(j.image.split(',')[1],'base64').toString();
     const tr=j.attributes.map(a=>a.value).join('/');
     console.log(`  #${String(id).padStart(4,'0')}  ${g.toFixed(2)}M  SVG ${(svg.length/1024).toFixed(1)}KB  ${tr}`);
-    if(id===264) fs.writeFileSync('/mnt/user-data/outputs/onchain-0264.svg',svg);
+    if(id===264) fs.writeFileSync(path.join(outDir,'onchain-0264.svg'),svg);
   }
   console.log(`\n  terburuk ${worst.toFixed(2)}M (#${wid})  ${worst<10?'di bawah 10M':'LEWAT 10M'}`);
 })();
