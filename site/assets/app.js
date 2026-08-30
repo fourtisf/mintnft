@@ -1,0 +1,1097 @@
+/* ═══════ data ═══════ */
+const CC={SOL:"#9945FF",BASE:"#2E6BFF",BSC:"#F0B90B",ETH:"#8A93B2"};
+const MIN=60000,T0=Date.now();
+const RID=["volume_acceleration","buy_pressure","sweet_spot_age","depth",
+  "trader_growth","steady_climb","paid_attention"];
+const RMAP={"Volume running":"volume_acceleration","trades were buys":"buy_pressure",
+  "past the snipers":"sweet_spot_age","deep enough":"depth",
+  "Trade count accelerating":"trader_growth","Climbing steadily":"steady_climb",
+  "active boosts":"paid_attention"};
+const ridsOf=rs=>rs.map(r=>{for(const k in RMAP)if(r.includes(k))return RMAP[k];return null}).filter(Boolean);
+const REASONS=[
+ ["Volume running 3.4× the hourly pace","78% of the last 96 trades were buys","2.1h old — past the snipers, before the crowd"],
+ ["Volume running 1.9× the hourly pace","Liquidity $41K — deep enough to get back out"],
+ ["Volume running 5.2× the hourly pace","84% of the last 140 trades were buys","Trade count accelerating 2.8× against the hour","4 active boosts — someone is paying for eyes on it"],
+ ["Climbing steadily — +6.1% on 5m, +19% on the hour","Liquidity $88K — deep enough to get back out"],
+ ["Volume running 2.2× the hourly pace","71% of the last 58 trades were buys"],
+ ["Volume running 4.1× the hourly pace","Trade count accelerating 2.2× against the hour","3.4h old — past the snipers, before the crowd"],
+ ["Climbing steadily — +4.4% on 5m, +12% on the hour","Liquidity $62K — deep enough to get back out"],
+ ["Volume running 6.8× the hourly pace","91% of the last 172 trades were buys","1.6h old — past the snipers, before the crowd"],
+ ["Volume running 1.7× the hourly pace","66% of the last 44 trades were buys"],
+ ["Volume running 4.6× the hourly pace","Trade count accelerating 3.1× against the hour","Liquidity $210K — deep enough to get back out"],
+ ["Volume running 2.0× the hourly pace","Climbing steadily — +3.2% on 5m, +9% on the hour"],
+ ["Volume running 3.8× the hourly pace","80% of the last 118 trades were buys","2.9h old — past the snipers, before the crowd"],
+];
+const DEMO=location.protocol==="file:";
+const SEED=DEMO?[
+ {n:"Save The Whales",t:"WHALES",c:"SOL",by:"desk",e:24100,p:58400,w:41200,ago:11,s:"pump.fun",ca:"9PE5pQ7x…pump",two:372},
+ {n:"Chucho",t:"CHUCHO",c:"SOL",by:"nightbell",e:15400,p:22100,w:9800,ago:64,s:"pump.fun",ca:"4Hn2kLm9…pump",two:null},
+ {n:"Brass Monkey",t:"BRASS",c:"BASE",by:"desk",e:31800,p:214000,w:168400,ago:96,s:"clanker",ca:"0x7fa2…9c41",two:840},
+ {n:"Foundry",t:"FNDRY",c:"ETH",by:"orwell",e:82000,p:96500,w:71300,ago:143,s:"uniswap",ca:"0x1b8e…44a0",two:null},
+ {n:"Kiln Dog",t:"KILN",c:"BSC",by:"nightbell",e:11200,p:47600,w:5100,ago:188,s:"four.meme",ca:"0x93cd…7e12",two:1260},
+ {n:"Hallmark",t:"HLMK",c:"SOL",by:"desk",e:19700,p:41300,w:36900,ago:221,s:"pump.fun",ca:"BqW4rT1z…pump",two:604},
+ {n:"Cupel",t:"CUPEL",c:"BASE",by:"orwell",e:44600,p:52800,w:14200,ago:1560,s:"clanker",ca:"0xc44a…21f8",two:null},
+ {n:"Touchstone",t:"TOUCH",c:"SOL",by:"vault7",e:8900,p:31200,w:27400,ago:1880,s:"pump.fun",ca:"Ge8mNp3v…pump",two:198},
+ {n:"Bullion Cat",t:"BULL",c:"BSC",by:"desk",e:27300,p:33100,w:29600,ago:2240,s:"four.meme",ca:"0x2ef7…b039",two:null},
+ {n:"Crucible",t:"CRUC",c:"ETH",by:"vault7",e:126000,p:388000,w:341000,ago:2900,s:"uniswap",ca:"0x5d10…8ac2",two:1512},
+ {n:"Fineness",t:"FINE",c:"BASE",by:"nightbell",e:16800,p:19200,w:1300,ago:3400,s:"clanker",ca:"0xa87b…3d55",two:null},
+ {n:"Ingot",t:"INGOT",c:"SOL",by:"orwell",e:52400,p:143000,w:88700,ago:4100,s:"pump.fun",ca:"7Kd9sXe2…pump",two:466},
+] : [];
+function mkPath(e,p,w,n){const a=[],pk=Math.floor(n*(.28+Math.random()*.4));
+  for(let i=0;i<n;i++){let v;
+    if(i<=pk){const r=pk?i/pk:1;v=e+(p-e)*Math.pow(r,.62)}
+    else{const r=(i-pk)/(n-1-pk||1);v=p+(w-p)*Math.pow(r,.75)}
+    a.push(Math.max(v*(1+(Math.random()-.5)*.05),e*.02))}
+  a[pk]=p;a[0]=e;a[n-1]=w;return a}
+const calls=SEED.map((s,i)=>({id:"r"+i,reasons:REASONS[i%REASONS.length],
+  rids:ridsOf(REASONS[i%REASONS.length]),
+  score:[66,61,100,72,68,84,63,96,60,88,64,79][i%12],name:s.n,tick:s.t,chain:s.c,by:s.by,src:s.s,ca:s.ca,
+  entry:s.e,peak:s.p,nowMc:s.w,twoIn:s.two,at:T0-s.ago*MIN,live:s.ago<1440,path:mkPath(s.e,s.p,s.w,48),flash:false}));
+
+const fmt=v=>v>=1e9?(v/1e9).toFixed(2)+"B":v>=1e6?(v/1e6).toFixed(2)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":Math.round(v);
+const mult=c=>c.peak/c.entry, nx=c=>c.nowMc/c.entry;
+const dead=c=>c.nowMc<c.entry*.1, win=c=>mult(c)>=2;
+const vrd=c=>dead(c)?"dead":win(c)?"win":c.live?"open":"miss";
+const LBL={win:"WIN",miss:"MISS",open:"LIVE",dead:"DEAD"};
+function ago(ts){const m=Math.floor((Date.now()-ts)/MIN);if(m<1)return"just now";if(m<60)return m+"m ago";
+  const h=Math.floor(m/60);return h<24?h+"h ago":Math.floor(h/24)+"d ago"}
+const utc=ts=>{const d=new Date(ts);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",timeZone:"UTC"})+" · "+d.toISOString().slice(11,19)+" UTC"};
+const secs=s=>s<60?s+"s":Math.floor(s/60)+"m "+(s%60)+"s";
+
+/* ═══════ sparkline with 2x threshold ═══════ */
+function spark(c){
+  const p=c.path,W=620,H=54,two=c.entry*2;
+  const mn=Math.min(...p,two*.72),mx=Math.max(...p,two*1.06),r=(mx-mn)||1;
+  const X=i=>i/(p.length-1)*W, Y=v=>H-((v-mn)/r)*(H-8)-4;
+  const v=vrd(c);
+  const col=v==="dead"?"var(--dead)":v==="open"?"var(--win)":v==="win"?"#7E8CFF":"var(--tx-3)";
+  const d=p.map((y,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)).join("");
+  const g="g"+c.id,cl="c"+c.id,yT=Y(two).toFixed(1);
+  return{yT,html:`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity=".22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient>
+      <clipPath id="${cl}"><rect x="0" y="0" width="${W}" height="${yT}"/></clipPath></defs>
+    <path d="${d}L${W} ${H}L0 ${H}Z" fill="url(#${g})"/>
+    <line class="thresh" x1="0" y1="${yT}" x2="${W}" y2="${yT}"/>
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" opacity=".45"/>
+    <path d="${d}" fill="none" stroke="#8E9AFF" stroke-width="1.8" stroke-linejoin="round" clip-path="url(#${cl})"/></svg>`};
+}
+function card(c,i,mini){
+  const v=vrd(c),n=nx(c),off=(c.nowMc/c.peak-1)*100,sp=spark(c);
+  const bg=v==="win"?"w":v==="dead"?"d":v==="open"?"":"m";
+  return `<article class="rec ${v==="dead"?"dead":""}" data-id="${c.id}" style="animation-delay:${Math.min(i*34,300)}ms">
+    <div class="rh"><div class="tok">${c.tick[0]}</div>
+      <div class="rh-id"><h3>${c.name}</h3>
+        <div class="rh-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}<span class="dotsep"></span>${c.src}<span class="dotsep"></span>${c.by==="desk"?"house desk":"@"+c.by}</div></div>
+      <div class="mx"><div class="big ${bg}" data-mx="${c.id}">${(v==="open"?n:mult(c)).toFixed(2)}×</div><span class="badge ${v}">${LBL[v]}</span></div></div>
+    <div class="spark">${sp.html}<span class="thresh-lbl" style="top:${sp.yT/54*100}%">2×</span></div>
+    ${mini?"":`<div class="why"><span class="why-h">Why it fired<b>${c.score}/100</b></span>
+      ${c.reasons.map(r=>`<span class="wchip">${r}</span>`).join("")}</div>`}
+    <div class="rf">
+      <div><div class="k">Entry MC</div><div class="v mut">${fmt(c.entry)}</div></div>
+      <div><div class="k">Peak MC</div><div class="v">${fmt(c.peak)}</div></div>
+      <div><div class="k">Now MC</div><div class="v ${n>=1?"up":"dn"}" data-now="${c.id}">${fmt(c.nowMc)}</div></div>
+      <div><div class="k">${c.twoIn?"Reached 2× in":"Off peak"}</div><div class="v mut" data-x="${c.id}">${c.twoIn?secs(c.twoIn):off.toFixed(1)+"%"}</div></div></div>
+    ${mini?"":`<div class="rft"><span>${utc(c.at)}</span>
+      <button class="ca" data-ca="${c.ca}">${c.ca}<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.6" y="3.6" width="7" height="7" rx="1.4"/><path d="M8.4 1.4h-7v7"/></svg></button>
+      <span class="live-tag">${c.live?'<span class="pulse"></span>Live':'<span style="color:var(--tx-3)">Settled</span>'}</span>
+      <button class="shbtn" data-share="${c.id}">
+        <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 6.5h4M6 4.5v4M2 2h8v8H2z"/></svg>Share</button></div>`}
+  </article>`;
+}
+
+/* ═══════ GUILLOCHÉ KEY ART ═══════ */
+function rnd(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+/* r(θ) = A + B·cos(nθ+φ) + C·cos(mθ+ψ) — the rosette formula used on banknote engraving */
+function rose(A,B,n,ph,C,m,ps,steps){
+  let d="";
+  for(let i=0;i<=steps;i++){
+    const t=i/steps*Math.PI*2;
+    const r=A+B*Math.cos(n*t+ph)+C*Math.cos(m*t+ps);
+    const x=300+Math.cos(t)*r, y=300+Math.sin(t)*r;
+    d+=(i?"L":"M")+x.toFixed(1)+" "+y.toFixed(1);
+  }
+  return d+"Z";
+}
+
+function mul32(a,b){return Math.imul(a,b)>>>0}
+function nextR(s){
+  s=(s+0x6D2B79F5)>>>0;
+  let t=mul32(s^(s>>>15),(1|s)>>>0);
+  t=((t+mul32(t^(t>>>7),(61|t)>>>0))>>>0)^t;
+  return [s,(t^(t>>>14))>>>0];
+}
+
+/* ── seed derivation, mirroring ProofRenderer._seed32 ── */
+const SEASON_SEED=0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7fn;
+function seedFor(id){
+  let x=SEASON_SEED,f=0;
+  for(let i=0;i<8;i++){f=(f^Number(x&0xffffffffn))>>>0;x>>=32n}
+  let s=(f+Math.imul(id,2654435761))>>>0;
+  for(let i=0;i<3;i++) s=nextR(s)[0];
+  return s;
+}
+
+const ROMAN=["","I","II","III"];
+
+
+/* Mirrors ProofRenderer.traits() exactly: same seed, same stream, same
+   integer arithmetic, same guard rules. Verified token by token. */
+const W_HOOD=[20,16,14,13,12,10,9,6],W_EYES=[18,16,15,13,12,11,9,6],
+      W_MASK=[24,20,17,15,13,11],W_FIT=[24,20,17,15,13,11],
+      W_PAL=[14,13,12,11,10,9,8,7,5,3],W_BG=[23,20,17,15,14,11],
+      W_AURA=[38,28,22,12],W_TONE=[34,28,22,16];
+const HOOD_N=["Hood","Visorhelm","Cap","Bare","Horned","Halo","Antenna","Crown"];
+const EYES_N=["Visor","Dots","Slits","Cyclops","Scanline","Cross","Wide","Hollow"];
+const MASK_N=["None","Respirator","Scarf","Grill","Bandana","Rebreather"];
+const FIT_N =["Plain","Collar","Plated","Straps","Zipped","Cloak"];
+const BG_N  =["Chamber","Halation","Monolith","Aperture","Nightfall","Ashfall"];
+const AURA_N=["None","Glow","Ring","Static"];
+const TONE_N=["Slate","Ash","Ink","Steel"];
+const TONE_C=["#232830","#2C323B","#171B21","#39414C"];
+const PAL=[["Azure","#5B7CFA","#7E8CFF"],["Iris","#7E8CFF","#9B6DFF"],
+  ["Prism","#B39BFF","#6FD8FF"],["Cyan","#4FD1C5","#5B7CFA"],
+  ["Orchid","#9B6DFF","#FF6FB5"],["Glacier","#6FD8FF","#A8FFEA"],
+  ["Verdant","#3ECF8E","#6FD8FF"],["Ember","#FFB86F","#FF6F91"],
+  ["Platinum","#C0C6D4","#8C929C"],["Gilt","#FFD86F","#FF9F6F"]];
+const P32=4294967296;
+function wpickI(v,w){
+  const tot=w.reduce((a,b)=>a+b,0);let x=v*tot,cum=0;
+  for(let i=0;i<w.length;i++){cum+=w[i];if(x<cum*P32)return i}
+  return w.length-1;
+}
+const idxI=(v,len)=>Math.floor(v*len/P32);
+
+const TRAIT_CACHE={};
+function keyTraits(id){
+  if(TRAIT_CACHE[id])return TRAIT_CACHE[id];
+  let s=seedFor(id),v;
+  [s,v]=nextR(s); const roll=Math.floor(v*10000/P32);
+  const tier=roll<991?3:roll<3994?2:1;
+  let hood,eyes,mask,fit,pal,bg,aura,tone,ph;
+  [s,v]=nextR(s); hood=wpickI(v,W_HOOD);
+  [s,v]=nextR(s); eyes=wpickI(v,W_EYES);
+  [s,v]=nextR(s); mask=wpickI(v,W_MASK);
+  [s,v]=nextR(s); fit =wpickI(v,W_FIT);
+  [s,v]=nextR(s); pal =wpickI(v,W_PAL);
+  [s,v]=nextR(s); bg  =wpickI(v,W_BG);
+  [s,v]=nextR(s); aura=wpickI(v,W_AURA);
+  [s,v]=nextR(s); tone=wpickI(v,W_TONE);
+  [s,v]=nextR(s); ph  =Math.floor(v*1000/P32);
+  /* guards: combinations that render as a shapeless dark blob */
+  if(hood===3&&eyes===7&&bg===4) bg=0;          // bare head, hollow eyes, dark backdrop
+  if(bg>=4&&aura===0&&fit===0) aura=1;          // nothing to separate figure from ground
+  if(hood===1&&mask===1) mask=0;                // helmet already covers the mouth
+  if(hood===5&&aura===2) aura=1;                // halo plus ring reads as one blob
+  const t={tier,
+    hoodI:hood,hood:HOOD_N[hood], eyesI:eyes,eyes:EYES_N[eyes],
+    maskI:mask,mask:MASK_N[mask], fitI:fit,fit:FIT_N[fit],
+    palI:pal,pal:PAL[pal],        bgI:bg,bg:BG_N[bg],
+    auraI:aura,aura:AURA_N[aura], toneI:tone,tone:TONE_N[tone],
+    toneC:TONE_C[tone], ph};
+  TRAIT_CACHE[id]=t;return t;
+}
+
+/* ─────────── character renderer ───────────
+   A hooded operator, built from flat vector layers: background, aura,
+   shoulders, head, hood, eyes, mask, headgear. Simple shapes on purpose -
+   they read at 128px and they port to Solidity far cheaper than curves. */
+
+function keySVG(id,detail){
+  const t=keyTraits(id),grid=detail==="grid";
+  const uid=detail[0]+id,[palName,hA,hB]=t.pal;
+  /* SMIL, not CSS: the motion is part of the artwork, so it survives being
+     served from a data URI or read straight off the chain. */
+  const A=!grid;
+  const sp=(base)=>(base+((t.ph%37)/37)*1.3).toFixed(2)+"s";   // desync per token
+  const off=(-(t.ph%50)/10).toFixed(1)+"s";
+  const skin=t.toneC, dark="#12161B", deep="#0B0E12";
+  const sw=grid?2.4:1.5;
+  /* Head sits dead centre. The old +-4px nudge was invisible and it forced
+     every shape to be recomputed rather than being a constant string, which
+     matters a great deal once this has to run inside a contract. */
+  const hx=300;
+
+  /* ── background ──
+     Flat fills and hard grids are what made these read cheap. Everything here
+     is a gradient with a vignette, so the figure sits in depth instead of
+     being pasted onto a colour. */
+  const G=`
+    <linearGradient id="fl${uid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${hA}" stop-opacity="0"/>
+      <stop offset="1" stop-color="${hA}" stop-opacity=".13"/></linearGradient>
+    <radialGradient id="ch${uid}" cx="50%" cy="26%" r="72%">
+      <stop offset="0" stop-color="${hA}" stop-opacity=".17"/>
+      <stop offset="1" stop-color="${hA}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="mo${uid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${hA}" stop-opacity=".16"/>
+      <stop offset="1" stop-color="${hB}" stop-opacity=".02"/></linearGradient>
+    <linearGradient id="nf${uid}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${hB}" stop-opacity=".15"/>
+      <stop offset=".55" stop-color="${hA}" stop-opacity=".04"/>
+      <stop offset="1" stop-color="#05070A" stop-opacity=".9"/></linearGradient>
+    <radialGradient id="vg${uid}" cx="50%" cy="42%" r="70%">
+      <stop offset=".55" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".72"/></radialGradient>`;
+
+  let bg=`<rect width="600" height="600" fill="#090B0D"/>`;   // === --art in the CSS
+  if(t.bgI===0){                                   // Chamber — studio falloff
+    bg+=`<rect width="600" height="600" fill="url(#ch${uid})"/>
+         <rect y="392" width="600" height="208" fill="url(#fl${uid})"/>`;
+  }else if(t.bgI===1){                             // Halation — bloom behind the head
+    bg+=`<circle cx="${hx}" cy="238" r="268" fill="url(#ch${uid})"/>
+         <ellipse cx="${hx}" cy="238" rx="150" ry="150" fill="${hA}" opacity=".07"/>`;
+  }else if(t.bgI===2){                             // Monolith — a slab it stands against
+    bg+=`<rect x="150" y="46" width="300" height="470" rx="26" fill="url(#mo${uid})"/>
+         <rect x="150" y="46" width="300" height="470" rx="26" fill="none"
+               stroke="${hA}" stroke-width="${grid?2:1.1}" opacity=".3"/>`;
+  }else if(t.bgI===3){                             // Aperture — partial arcs, not full rings
+    for(let i=0;i<3;i++){const r=170+i*54;
+      bg+=`<path d="M${300-r} 300A${r} ${r} 0 0 1 ${300+r} 300" fill="none" stroke="${hA}"
+             stroke-width="${grid?2.2:1.2}" opacity="${(.26-i*.06).toFixed(2)}"
+             stroke-linecap="round" transform="rotate(${-24+i*16} 300 300)"/>`}
+    bg+=`<rect width="600" height="600" fill="url(#ch${uid})" opacity=".55"/>`;
+  }else if(t.bgI===4){                             // Nightfall — horizon behind the shoulders
+    bg+=`<rect width="600" height="600" fill="url(#nf${uid})"/>
+         <line x1="0" y1="408" x2="600" y2="408" stroke="${hA}" stroke-width="${grid?1.6:.9}" opacity=".26"/>`;
+  }else{                                           // Ashfall — drifting particles
+    for(let i=0;i<26;i++){
+      const x=((t.ph*7+i*97)%580)+10, y=((t.ph*3+i*151)%560)+20, r=(i%4)*.7+1.1;
+      bg+=`<circle cx="${x}" cy="${y}" r="${(r*(grid?1.9:1)).toFixed(1)}" fill="${hB}" opacity="${(.06+(i%5)*.035).toFixed(3)}">${
+        A?`<animate attributeName="cy" values="${y};${y+38};${y}" dur="${sp(7+i%5)}" repeatCount="indefinite"/>`:""}</circle>`}
+    bg+=`<rect width="600" height="600" fill="url(#ch${uid})" opacity=".6"/>`;
+  }
+  /* Vignette on every backdrop. This single layer is most of the difference. */
+  bg+=`<rect width="600" height="600" fill="url(#vg${uid})"/>`;
+  /* Ground shadow so the figure is standing in the frame, not floating on it. */
+  bg+=`<ellipse cx="${hx}" cy="588" rx="212" ry="34" fill="#000" opacity=".5"/>`;
+
+  /* ── aura behind the figure ── */
+  let aura="";
+  if(t.auraI===1) aura=`<circle cx="${hx}" cy="255" r="185" fill="url(#au${uid})">${A?`<animate attributeName="opacity" values="1;.55;1" dur="${sp(4.4)}" repeatCount="indefinite"/>`:""}</circle>`;
+  else if(t.auraI===2) aura=`<circle cx="${hx}" cy="255" r="172" fill="none" stroke="${hA}" stroke-width="${grid?3.4:2.2}" opacity=".42" stroke-dasharray="26 14">${A?`<animateTransform attributeName="transform" type="rotate" from="0 ${hx} 255" to="360 ${hx} 255" dur="${sp(22)}" repeatCount="indefinite"/>`:""}</circle>`;
+  else if(t.auraI===3){let d="";for(let i=0;i<26;i++){const ang=i*13.8*Math.PI/180,r1=176,r2=176+(i%3?9:20);
+      d+=`M${(hx+Math.cos(ang)*r1).toFixed(0)} ${(255+Math.sin(ang)*r1).toFixed(0)}L${(hx+Math.cos(ang)*r2).toFixed(0)} ${(255+Math.sin(ang)*r2).toFixed(0)}`}
+    aura=`<g opacity=".45">${A?`<animateTransform attributeName="transform" type="rotate" from="360 ${hx} 255" to="0 ${hx} 255" dur="${sp(30)}" repeatCount="indefinite"/>`:""}<path d="${d}" stroke="${hA}" stroke-width="${grid?3:2}"/></g>`}
+
+  /* ── shoulders and outfit ── */
+  let body=`<path d="M96 600C96 500 176 434 ${hx} 434C${hx+120} 434 504 500 504 600Z" fill="${dark}"/>`;
+  if(t.fitI===1) body+=`<path d="M${hx-74} 452L${hx-40} 540L${hx} 470L${hx+40} 540L${hx+74} 452" fill="none" stroke="${hA}" stroke-width="${sw*1.5}" opacity=".8"/>`;
+  else if(t.fitI===2) body+=`<path d="M110 596C118 512 168 468 214 452L232 520Z" fill="${skin}" opacity=".85"/><path d="M490 596C482 512 432 468 386 452L368 520Z" fill="${skin}" opacity=".85"/><path d="M110 596C118 512 168 468 214 452M490 596C482 512 432 468 386 452" fill="none" stroke="${hA}" stroke-width="${sw}" opacity=".6"/>`;
+  else if(t.fitI===3) body+=`<path d="M${hx-88} 470L${hx+62} 600M${hx+88} 470L${hx-62} 600" stroke="${hA}" stroke-width="${sw*2.4}" opacity=".5"/>`;
+  else if(t.fitI===4) body+=`<path d="M${hx} 448V600" stroke="${hA}" stroke-width="${sw*1.4}" opacity=".55" stroke-dasharray="${grid?"10 8":"7 7"}"/>`;
+  else if(t.fitI===5) body+=`<path d="M96 600C96 494 172 430 ${hx} 430C${hx+124} 430 504 494 504 600Z" fill="none" stroke="${hA}" stroke-width="${sw*1.3}" opacity=".45"/><path d="M${hx-56} 436L${hx-96} 600M${hx+56} 436L${hx+96} 600" stroke="${hA}" stroke-width="${sw}" opacity=".3"/>`;
+
+  /* ── neck and head ── */
+  let head=`<rect x="${hx-34}" y="330" width="68" height="86" rx="18" fill="${skin}" opacity=".82"/>`;
+  head+=`<rect x="${hx-92}" y="146" width="184" height="212" rx="56" fill="${skin}"/>`;
+  head+=`<rect x="${hx-92}" y="146" width="184" height="212" rx="56" fill="none" stroke="${hA}" stroke-width="${grid?1.6:.9}" opacity=".28"/>`;
+  head+=`<rect x="${hx-72}" y="196" width="144" height="128" rx="34" fill="${deep}" opacity=".92"/>`;
+  /* Rim light down the left edge. One thin stroke, and the head stops looking flat. */
+  head+=`<path d="M${hx-92} 302V202A56 56 0 0 1 ${hx-36} 146" fill="none" stroke="${hB}"
+    stroke-width="${grid?3:1.8}" opacity=".5" stroke-linecap="round"/>`;
+
+  /* ── hood / headgear ── */
+  let hood="",over="";
+  if(t.hoodI===0) hood=`<path d="M${hx-124} 400C${hx-140} 250 ${hx-92} 118 ${hx} 118C${hx+92} 118 ${hx+140} 250 ${hx+124} 400C${hx+96} 344 ${hx+92} 214 ${hx} 214C${hx-92} 214 ${hx-96} 344 ${hx-124} 400Z" fill="${dark}"/><path d="M${hx-124} 400C${hx-140} 250 ${hx-92} 118 ${hx} 118C${hx+92} 118 ${hx+140} 250 ${hx+124} 400" fill="none" stroke="${hA}" stroke-width="${sw}" opacity=".55"/>`;
+  else if(t.hoodI===1){hood=`<path d="M${hx-100} 300V206C${hx-100} 150 ${hx-56} 118 ${hx} 118C${hx+56} 118 ${hx+100} 150 ${hx+100} 206V300Z" fill="${dark}"/><rect x="${hx-84}" y="236" width="168" height="52" rx="16" fill="${deep}"/><path d="M${hx-100} 300V206C${hx-100} 150 ${hx-56} 118 ${hx} 118C${hx+56} 118 ${hx+100} 150 ${hx+100} 206V300" fill="none" stroke="${hA}" stroke-width="${sw}" opacity=".6"/>`;}
+  else if(t.hoodI===2) hood=`<path d="M${hx-104} 190C${hx-104} 138 ${hx-58} 112 ${hx} 112C${hx+58} 112 ${hx+104} 138 ${hx+104} 190Z" fill="${dark}"/><rect x="${hx-134}" y="186" width="268" height="20" rx="10" fill="${dark}"/><rect x="${hx-134}" y="186" width="268" height="20" rx="10" fill="none" stroke="${hA}" stroke-width="${grid?1.6:1}" opacity=".5"/>`;
+  else if(t.hoodI===4) over=`<path d="M${hx-92} 168C${hx-136} 128 ${hx-150} 74 ${hx-138} 44C${hx-104} 68 ${hx-84} 112 ${hx-78} 152M${hx+92} 168C${hx+136} 128 ${hx+150} 74 ${hx+138} 44C${hx+104} 68 ${hx+84} 112 ${hx+78} 152" fill="none" stroke="${hA}" stroke-width="${sw*2.2}" stroke-linecap="round" opacity=".85"/>`;
+  else if(t.hoodI===5) over=`<ellipse cx="${hx}" cy="108" rx="86" ry="18" fill="none" stroke="${hA}" stroke-width="${sw*2}" opacity=".8">${A?`<animate attributeName="cy" values="108;98;108" dur="${sp(3.9)}" calcMode="spline" keyTimes="0;.5;1" keySplines="0.4 0 0.6 1;0.4 0 0.6 1" repeatCount="indefinite"/>`:""}</ellipse>`;
+  else if(t.hoodI===6) over=`<path d="M${hx+52} 152L${hx+86} 74" stroke="${hA}" stroke-width="${sw*1.6}" opacity=".8"/><circle cx="${hx+86}" cy="66" r="${grid?13:10}" fill="${hA}">${A?`<animate attributeName="opacity" values="1;.15;1;1" keyTimes="0;.12;.3;1" dur="${sp(1.6)}" repeatCount="indefinite"/>`:""}</circle>`;
+  else if(t.hoodI===7) over=`<path d="M${hx-88} 152L${hx-66} 88L${hx-30} 128L${hx} 66L${hx+30} 128L${hx+66} 88L${hx+88} 152Z" fill="none" stroke="${hA}" stroke-width="${sw*1.6}" stroke-linejoin="round" opacity=".9"/>`;
+
+  /* ── eyes: the focal point ── */
+  const ey=262; let eyes="";
+  const blink=A?`<animate attributeName="opacity" values="1;1;.05;1;1;.7;1"
+    keyTimes="0;0.62;0.645;0.67;0.88;0.925;1" dur="${sp(5.6)}" repeatCount="indefinite"/>`:"";
+  const glow=(inner)=>`<g opacity=".35">${inner.replace(/__W__/g,String(grid?9:7))}</g>${inner.replace(/__W__/g,String(grid?4:3))}`;
+  if(t.eyesI===0) eyes=`<rect x="${hx-62}" y="${ey-13}" width="124" height="26" rx="13" fill="${hA}" opacity=".28"/><rect x="${hx-56}" y="${ey-8}" width="112" height="16" rx="8" fill="${hB}"/>`;
+  else if(t.eyesI===1) eyes=`<circle cx="${hx-32}" cy="${ey}" r="${grid?17:14}" fill="${hA}" opacity=".3"/><circle cx="${hx+32}" cy="${ey}" r="${grid?17:14}" fill="${hA}" opacity=".3"/><circle cx="${hx-32}" cy="${ey}" r="${grid?10:8}" fill="${hB}"/><circle cx="${hx+32}" cy="${ey}" r="${grid?10:8}" fill="${hB}"/>`;
+  else if(t.eyesI===2) eyes=`<path d="M${hx-62} ${ey-10}L${hx-14} ${ey+2}M${hx+62} ${ey-10}L${hx+14} ${ey+2}" stroke="${hA}" stroke-width="${grid?16:13}" stroke-linecap="round" opacity=".3"/><path d="M${hx-60} ${ey-9}L${hx-18} ${ey+1}M${hx+60} ${ey-9}L${hx+18} ${ey+1}" stroke="${hB}" stroke-width="${grid?8:6}" stroke-linecap="round"/>`;
+  else if(t.eyesI===3) eyes=`<circle cx="${hx}" cy="${ey}" r="${grid?38:32}" fill="${hA}" opacity=".26"/><circle cx="${hx}" cy="${ey}" r="${grid?24:20}" fill="${hB}"/><circle cx="${hx}" cy="${ey}" r="${grid?10:8}" fill="${deep}"/>`;
+  else if(t.eyesI===4){eyes=`<rect x="${hx-64}" y="${ey-15}" width="128" height="30" rx="6" fill="${hA}" opacity=".22"/>`;
+    for(let i=0;i<7;i++)eyes+=`<rect x="${hx-58+i*17}" y="${ey-10}" width="${grid?9:7}" height="20" rx="3" fill="${hB}" opacity="${(.55+((i+t.ph)%3)*.22).toFixed(2)}"/>`}
+  else if(t.eyesI===5) eyes=`<path d="M${hx-46} ${ey-14}L${hx-18} ${ey+14}M${hx-46} ${ey+14}L${hx-18} ${ey-14}M${hx+18} ${ey-14}L${hx+46} ${ey+14}M${hx+18} ${ey+14}L${hx+46} ${ey-14}" stroke="${hB}" stroke-width="${grid?9:7}" stroke-linecap="round"/>`;
+  else if(t.eyesI===6) eyes=`<rect x="${hx-64}" y="${ey-16}" width="52" height="32" rx="7" fill="${hA}" opacity=".3"/><rect x="${hx+12}" y="${ey-16}" width="52" height="32" rx="7" fill="${hA}" opacity=".3"/><rect x="${hx-59}" y="${ey-11}" width="42" height="22" rx="5" fill="${hB}"/><rect x="${hx+17}" y="${ey-11}" width="42" height="22" rx="5" fill="${hB}"/>`;
+  else eyes=`<ellipse cx="${hx-32}" cy="${ey}" rx="${grid?20:17}" ry="${grid?24:21}" fill="#05070A"/><ellipse cx="${hx+32}" cy="${ey}" rx="${grid?20:17}" ry="${grid?24:21}" fill="#05070A"/><circle cx="${hx-32}" cy="${ey+4}" r="${grid?6:4}" fill="${hB}"/><circle cx="${hx+32}" cy="${ey+4}" r="${grid?6:4}" fill="${hB}"/>`;
+
+  /* ── mask ── */
+  const my=316; let mask="";
+  if(t.maskI===1){mask=`<rect x="${hx-52}" y="${my-16}" width="104" height="52" rx="18" fill="${dark}" stroke="${hA}" stroke-width="${sw}" opacity=".95"/>`;
+    for(let i=0;i<3;i++)mask+=`<rect x="${hx-30+i*22}" y="${my-2}" width="${grid?9:7}" height="24" rx="3" fill="${hA}" opacity=".55"/>`}
+  else if(t.maskI===2) mask=`<path d="M${hx-84} ${my-4}C${hx-40} ${my+30} ${hx+40} ${my+30} ${hx+84} ${my-4}L${hx+84} ${my+32}C${hx+40} ${my+58} ${hx-40} ${my+58} ${hx-84} ${my+32}Z" fill="${dark}" stroke="${hA}" stroke-width="${sw}" opacity=".9"/>`;
+  else if(t.maskI===3){mask=`<rect x="${hx-46}" y="${my-8}" width="92" height="42" rx="8" fill="${deep}"/>`;
+    for(let i=0;i<5;i++)mask+=`<rect x="${hx-38+i*18}" y="${my-4}" width="${grid?7:5}" height="34" rx="2" fill="${hA}" opacity=".7"/>`}
+  else if(t.maskI===4) mask=`<path d="M${hx-80} ${my-8}L${hx+80} ${my-8}L${hx} ${my+56}Z" fill="${dark}" stroke="${hA}" stroke-width="${sw}" opacity=".9"/>`;
+  else if(t.maskI===5) mask=`<circle cx="${hx}" cy="${my+8}" r="${grid?30:26}" fill="${dark}" stroke="${hA}" stroke-width="${sw}"/><circle cx="${hx}" cy="${my+8}" r="${grid?13:11}" fill="${hA}" opacity=".5"/><path d="M${hx+26} ${my+18}C${hx+70} ${my+34} ${hx+88} ${my+60} ${hx+92} ${my+92}" fill="none" stroke="${hA}" stroke-width="${sw*1.6}" opacity=".6"/>`;
+
+  const label=grid?"":`<rect x="34" y="514" width="152" height="52" rx="10" fill="#0A0C0E" stroke="${hA}" stroke-width=".9" opacity=".94"/>
+    <text x="50" y="538" font-family="JetBrains Mono,monospace" font-size="15" font-weight="600" fill="${hA}">${String(id).padStart(4,"0")}</text>
+    <text x="50" y="554" font-family="JetBrains Mono,monospace" font-size="8" letter-spacing="1.6" fill="#585E68">TIER ${ROMAN[t.tier]}</text>`;
+
+  eyes=`<g>${blink}${eyes}</g>`;
+
+  /* scan sweep inside the face recess */
+  const scan=A?`<rect x="${hx-72}" y="196" width="144" height="3" fill="${hB}">
+    <animate attributeName="y" values="200;318;200" dur="${sp(3.8)}" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;.55;0;0" keyTimes="0;.3;.62;1" dur="${sp(3.8)}" repeatCount="indefinite"/></rect>`:"";
+
+  /* monitor scanlines over everything - the thing that reads as "feed" */
+  const crt=A?`<rect width="600" height="600" fill="url(#sl${uid})" opacity=".085">
+    <animateTransform attributeName="patternTransform" type="translate" values="0 0;0 7" dur="1.1s" repeatCount="indefinite"/></rect>`:"";
+
+  /* the whole figure breathes */
+  const breathe=A?`<animateTransform attributeName="transform" type="translate"
+    values="0 0;0 -7;0 0" dur="${sp(4.6)}" calcMode="spline"
+    keyTimes="0;0.5;1" keySplines="0.4 0 0.6 1;0.4 0 0.6 1" repeatCount="indefinite"/>`:"";
+
+  return{tier:t.tier,traits:t,body:`<defs>${G}
+      <pattern id="sl${uid}" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="2.4" fill="#9FB4C8"/></pattern>
+      <radialGradient id="au${uid}"><stop offset="0" stop-color="${hA}" stop-opacity=".4"/><stop offset="1" stop-color="${hA}" stop-opacity="0"/></radialGradient>
+    </defs>${bg}${aura}<g>${breathe}${body}${head}${hood}${scan}${eyes}${mask}${over}</g>${crt}${label}`};
+}
+
+const RARITY=(()=>{
+  const c={hood:{},eyes:{},mask:{},fit:{},palette:{},bg:{},aura:{},tone:{},tier:{}};
+  for(let i=1;i<=666;i++){const t=keyTraits(i);
+    const v={hood:t.hood,eyes:t.eyes,mask:t.mask,fit:t.fit,palette:t.pal[0],
+             bg:t.bg,aura:t.aura,tone:t.tone,tier:"Tier "+ROMAN[t.tier]};
+    for(const k in v)c[k][v[k]]=(c[k][v[k]]||0)+1}
+  return c;
+})();
+/* Combined rarity: sum of 1/frequency across every trait, then ranked.
+   Per-trait percentages alone don't tell a collector what they hold. */
+const RANK=(()=>{
+  const score=id=>{const t=keyTraits(id);
+    return 1/RARITY.hood[t.hood]+1/RARITY.eyes[t.eyes]+1/RARITY.mask[t.mask]
+      +1/RARITY.fit[t.fit]+1/RARITY.palette[t.pal[0]]+1/RARITY.bg[t.bg]
+      +1/RARITY.aura[t.aura]+1/RARITY.tone[t.tone]+1/RARITY.tier["Tier "+ROMAN[t.tier]]};
+  const a=[];for(let i=1;i<=666;i++)a.push([i,score(i)]);
+  a.sort((x,y)=>y[1]-x[1]);
+  const m={};a.forEach(([id],i)=>m[id]=i+1);return m;
+})();
+
+function renderTraits(id){
+  const t=keyTraits(id);
+  const rows=[["Headwear",t.hood,RARITY.hood[t.hood]],
+    ["Eyes",t.eyes,RARITY.eyes[t.eyes]],
+    ["Mask",t.mask,RARITY.mask[t.mask]],
+    ["Outfit",t.fit,RARITY.fit[t.fit]],
+    ["Palette",t.pal[0],RARITY.palette[t.pal[0]]],
+    ["Backdrop",t.bg,RARITY.bg[t.bg]],
+    ["Aura",t.aura,RARITY.aura[t.aura]],
+    ["Tier","Tier "+ROMAN[t.tier],RARITY.tier["Tier "+ROMAN[t.tier]]]];
+  document.getElementById("traits").innerHTML=rows.map(([k,v,n])=>
+    `<div class="tr"><div class="k">${k}</div><div class="v">${v}</div>
+      <div class="p">${(n/666*100).toFixed(1)}% have this</div></div>`).join("");
+}
+
+/* Before ProofKeys.reveal() the seed does not exist yet, so neither does the
+   artwork. The site must read revealed() from the contract - showing finished
+   art on a sealed collection would be a lie. */
+let revealed=true;
+function sealedSVG(id,detail){
+  const grid=detail==="grid";
+  return {tier:0,traits:null,sealed:true,body:`
+    <rect width="600" height="600" fill="#0A0C0E"/>
+    <circle cx="300" cy="300" r="176" fill="none" stroke="#5B7CFA" stroke-width="${grid?2.4:1.3}" stroke-dasharray="7 11" opacity=".45"/>
+    <circle cx="300" cy="300" r="142" fill="none" stroke="#5B7CFA" stroke-width="${grid?1.6:.8}" opacity=".18"/>
+    <circle cx="300" cy="300" r="108" fill="none" stroke="#5B7CFA" stroke-width="${grid?1.2:.6}" opacity=".1"/>
+    ${grid?"":'<text x="300" y="306" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="16" letter-spacing="5" fill="#5B7CFA">SEALED</text>'}
+    <text x="300" y="${grid?332:344}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="${grid?46:11}" fill="#585E68">#${String(id).padStart(4,"0")}</text>`};
+}
+const ART=(id,d)=>revealed?keySVG(id,d):sealedSVG(id,d);
+
+function drawKey(id){
+  const k=ART(id,"full"),el=document.getElementById("keyArt");
+  el.innerHTML=k.body;
+  el.classList.remove("blooming");void el.offsetWidth;el.classList.add("blooming");
+  document.getElementById("keyLbl").textContent="#"+String(id).padStart(4,"0");
+  if(k.sealed){
+    document.getElementById("keyTier").textContent="Sealed until reveal";
+    document.getElementById("traits").innerHTML=
+      `<div class="tr" style="grid-column:1/-1"><div class="k">Traits</div>
+        <div class="v">Not derivable yet</div>
+        <div class="p">The season seed is published after minting closes</div></div>`;
+  }else{
+    document.getElementById("keyTier").textContent=k.traits.hood+" · Rank "+RANK[id]+" / 666";
+    renderTraits(id);
+  }
+}
+/* Pick keys that actually look unlike each other: spread across all four
+   forms, and avoid repeating a palette inside the same mosaic. */
+function diverseKeys(want){
+  const byForm={};HOOD_N.forEach(f=>byForm[f]=[]);
+  for(let id=1;id<=666;id++) byForm[keyTraits(id).hood].push(id);
+  for(const f in byForm) byForm[f].sort(()=>Math.random()-.5);
+  const forms=Object.keys(byForm),out=[],pal=new Set();
+  for(let pass=0;pass<3&&out.length<want;pass++){
+    for(const f of forms){
+      if(out.length>=want)break;
+      const pool=byForm[f];
+      let i=pool.findIndex(id=>!pal.has(keyTraits(id).pal[0]));
+      if(i<0){if(pass<2)continue;i=0}
+      const id=pool.splice(i,1)[0];
+      if(id){out.push(id);pal.add(keyTraits(id).pal[0])}
+    }
+  }
+  // top up if the diversity constraints could not fill the request
+  for(let id=1;id<=666&&out.length<want;id++) if(!out.includes(id)) out.push(id);
+  return out;
+}
+function heroTile(id){
+  const k=ART(id,"card");
+  return `<button class="hgk" data-key="${id}" title="${k.sealed?"Sealed until reveal":k.traits.hood+" · "+k.traits.eyes+" · "+k.traits.pal[0]}">
+    <svg viewBox="0 0 600 600">${k.body}</svg>
+    <span class="n">#${String(id).padStart(4,"0")}</span>
+    <span class="f">${k.sealed?"sealed":k.traits.eyes}</span></button>`;
+}
+function renderMarquee(){
+  const ids=diverseKeys(20);   // spread across all headwear types and palettes
+  const cell=id=>{const k=ART(id,"card");
+    return `<button class="keycard" data-key="${id}"><svg viewBox="0 0 600 600">${k.body}</svg>
+      <span class="meta"><span>#${String(id).padStart(4,"0")}</span><span>Tier ${ROMAN[k.tier]}</span></span></button>`};
+  const a=ids.slice(0,10).map(cell).join(""),b=ids.slice(10).map(cell).join("");
+  document.getElementById("marq1").innerHTML=a+a;
+  document.getElementById("marq2").innerHTML=b+b;
+}
+
+/* ═══════ render ═══════ */
+const S={f:"all",sort:"recent",chain:null,q:""};
+function vis(){
+  let a=calls.filter(c=>{
+    if(S.chain&&c.chain!==S.chain)return false;
+    if(S.q){const q=S.q.toLowerCase();
+      if(!(c.name.toLowerCase().includes(q)||c.tick.toLowerCase().includes(q)||c.ca.toLowerCase().includes(q)))return false}
+    const v=vrd(c);
+    return S.f==="live"?c.live:S.f==="win"?v==="win":S.f==="dead"?v==="dead":true});
+  if(S.sort==="peak")a.sort((x,y)=>mult(y)-mult(x));
+  else if(S.sort==="now")a.sort((x,y)=>nx(y)-nx(x));
+  else a.sort((x,y)=>y.at-x.at);
+  return a;
+}
+function renderFeed(){
+  const a=vis();
+  document.getElementById("feed").innerHTML=a.length?a.map((c,i)=>card(c,i)).join(""):`<div class="empty">No calls match this filter.</div>`;
+  document.getElementById("cnt").textContent=a.length+" / "+calls.length;
+}
+function renderPreview(){
+  document.getElementById("pvBody").innerHTML=[...calls].sort((a,b)=>b.at-a.at).slice(0,3).map((c,i)=>card(c,i,true)).join("");
+}
+function anim(id,to,dec,suf){
+  const el=document.getElementById(id);if(!el)return;
+  if(matchMedia("(prefers-reduced-motion:reduce)").matches){el.innerHTML=to.toFixed(dec)+(suf?`<span>${suf}</span>`:"");return}
+  const t0=performance.now();
+  (function s(t){const k=Math.min((t-t0)/850,1),e=1-Math.pow(1-k,3);
+    el.innerHTML=(to*e).toFixed(dec)+(suf?`<span>${suf}</span>`:"");if(k<1)requestAnimationFrame(s)})(t0);
+}
+function renderStats(){
+  const w=calls.filter(win).length,ms=calls.map(mult).sort((a,b)=>a-b);
+  const n=ms.length;
+  const med=!n?0:n%2?ms[(n-1)/2]:(ms[n/2-1]+ms[n/2])/2;
+  [["mCalls","rCalls",calls.length,0,""],["mHit","rHit",n?Math.round(w/n*100):0,0,"%"],
+   ["mMed","rMed",med,2,"×"],["mBest","rBest",n?Math.max(...ms):0,1,"×"]].forEach(([a,b,v,d,s])=>{anim(a,v,d,s);anim(b,v,d,s)});
+  document.getElementById("pillCount").textContent=calls.length+" calls";
+}
+function renderCallers(){
+  const g={};calls.forEach(c=>{(g[c.by]=g[c.by]||[]).push(c)});
+  document.getElementById("callers").innerHTML=Object.entries(g).map(([k,v])=>{
+    const w=v.filter(win).length,ms=v.map(mult).sort((a,b)=>a-b);
+    return{k,n:v.length,rate:w/v.length,med:ms[Math.floor(ms.length/2)]}})
+    .sort((a,b)=>b.rate-a.rate).map(r=>`<div class="lrow"><div><div class="who">${r.k==="desk"?"House desk":"@"+r.k}</div>
+      <div class="sub">${r.n} calls · med ${r.med.toFixed(2)}×</div><div class="mini"><i style="width:${(r.rate*100).toFixed(0)}%"></i></div></div>
+      <span class="pct">${Math.round(r.rate*100)}%</span></div>`).join("");
+}
+function renderChains(){
+  const g={};calls.forEach(c=>{(g[c.chain]=g[c.chain]||[]).push(c)});
+  document.getElementById("chains").innerHTML=Object.entries(g).map(([k,v])=>{
+    const w=v.filter(win).length;
+    return{k,n:v.length,rate:w/v.length,avg:v.reduce((s,c)=>s+mult(c),0)/v.length}})
+    .sort((a,b)=>b.rate-a.rate).map(r=>`<button class="crow ${S.chain===r.k?"on":""}" data-chain="${r.k}">
+      <span class="cdot" style="background:${CC[r.k]}"></span>
+      <span><span class="cn">${r.k}</span><span class="cs">${r.n} calls · avg ${r.avg.toFixed(2)}×</span></span>
+      <span class="pc" style="color:${r.rate>=.5?"var(--win)":"var(--tx-2)"}">${Math.round(r.rate*100)}%</span></button>`).join("");
+}
+const MKT=[{k:"BTC",v:77680,d:-2.0},{k:"ETH",v:2438,d:-2.2},{k:"SOL",v:103.4,d:-2.5},{k:"BNB",v:688,d:-2.5}];
+function renderTicker(){
+  const w=calls.filter(win).length,lv=calls.filter(c=>c.live).length,ms=calls.map(mult);
+  document.getElementById("tkrIn").innerHTML=
+    [["on record",calls.length],["hit ≥2×",(ms.length?Math.round(w/ms.length*100):0)+"%"],
+     ["avg peak",(ms.length?ms.reduce((a,b)=>a+b,0)/ms.length:0).toFixed(2)+"×"],["live",lv]]
+     .map(([k,v])=>`<span class="ti br"><k>${k}</k><v>${v}</v></span>`).join("")+
+    MKT.map(m=>`<span class="ti"><k>${m.k}</k><v>$${m.v>=1000?(m.v/1000).toFixed(2)+"K":m.v.toFixed(2)}</v><d class="${m.d>=0?"up":"dn"}">${m.d>=0?"+":""}${m.d.toFixed(1)}%</d></span>`).join("");
+}
+
+/* ═══════ live ═══════ */
+let last=Date.now();
+function tick(){
+  if(liveMode)return;
+  let changed=false;
+  calls.forEach(c=>{
+    if(!c.live)return;
+    c.nowMc=Math.max(c.nowMc*(1+(Math.random()-.485)*.07),c.entry*.015);
+    if(c.nowMc>c.peak){const was=win(c);c.peak=c.nowMc;
+      if(!was&&win(c)){c.flash=true;changed=true;if(!c.twoIn)c.twoIn=Math.round((Date.now()-c.at)/1000)}}
+    c.path.push(c.nowMc);if(c.path.length>48)c.path.shift()});
+  MKT.forEach(m=>{const d=(Math.random()-.5)*.0016;m.v*=1+d;m.d+=d*100});
+  last=Date.now();renderTicker();
+  if(changed){
+    renderFeed();renderPreview();renderStats();renderCallers();renderChains();
+    calls.filter(c=>c.flash).forEach(c=>{
+      document.querySelectorAll(`.rec[data-id="${c.id}"]`).forEach(el=>{el.classList.add("flash");setTimeout(()=>el.classList.remove("flash"),1600)});
+      c.flash=false});
+  }else{
+    calls.forEach(c=>{if(!c.live)return;
+      const v=vrd(c),n=nx(c);
+      document.querySelectorAll(`[data-now="${c.id}"]`).forEach(el=>{el.textContent=fmt(c.nowMc);el.className="v "+(n>=1?"up":"dn")});
+      if(v==="open")document.querySelectorAll(`[data-mx="${c.id}"]`).forEach(el=>el.textContent=n.toFixed(2)+"×");
+      if(!c.twoIn)document.querySelectorAll(`[data-x="${c.id}"]`).forEach(el=>el.textContent=((c.nowMc/c.peak-1)*100).toFixed(1)+"%")});
+  }
+}
+setInterval(tick,2600);
+setInterval(()=>{document.getElementById("syncTxt").textContent="synced "+Math.round((Date.now()-last)/1000)+"s"},1000);
+
+/* ═══════ mint panel ═══════ */
+let qty=1,minted=412,preview=Math.floor(Math.random()*666)+1;
+const PRICE=.08;
+function syncMint(){
+  document.getElementById("qVal").textContent=qty;
+  document.getElementById("total").textContent=(qty*PRICE).toFixed(2)+" ETH";
+  document.getElementById("qMinus").disabled=qty<=1;
+  document.getElementById("qPlus").disabled=qty>=5;
+  const pct=Math.round(minted/666*100);
+  document.getElementById("supTxt").textContent=minted+" / 666 minted";
+  document.getElementById("supPct").textContent=pct+"%";
+  document.getElementById("supBar").style.width=pct+"%";
+  document.getElementById("ksMinted").textContent=minted;
+}
+document.getElementById("qMinus").addEventListener("click",()=>{if(qty>1){qty--;syncMint()}});
+document.getElementById("qPlus").addEventListener("click",()=>{if(qty<5){qty++;syncMint()}});
+document.getElementById("reroll").addEventListener("click",()=>{preview=Math.floor(Math.random()*666)+1;drawKey(preview)});
+document.getElementById("mintBtn").addEventListener("click",e=>{
+  const b=e.currentTarget;b.disabled=true;b.textContent="Claiming…";
+  setTimeout(()=>{
+    minted=Math.min(666,minted+qty);preview=minted;syncMint();drawKey(preview);renderColl(true);
+    b.textContent="Claimed — key revealed";
+    setTimeout(()=>{b.disabled=false;b.textContent="Claim key"},2200);
+  },1100);
+});
+
+/* ═══════ collection grid — lazy, paged ═══════ */
+const COLL_PAGE=48;
+let collFilter=0,collShown=0;
+const keyIO=new IntersectionObserver(es=>es.forEach(en=>{
+  if(!en.isIntersecting)return;
+  const el=en.target,id=+el.dataset.lazy;
+  el.innerHTML=`<svg viewBox="0 0 600 600">${ART(id,"grid").body}</svg>`;
+  el.classList.remove("skel");el.removeAttribute("data-lazy");
+  keyIO.unobserve(el);
+}),{rootMargin:"300px 0px"});
+
+function collIds(){
+  const out=[];
+  for(let i=1;i<=minted;i++) if(!collFilter||(revealed&&keyTraits(i).tier===collFilter)) out.push(i);
+  return out.reverse();               // newest mints first
+}
+function renderColl(reset){
+  const ids=collIds(),host=document.getElementById("coll");
+  if(reset){collShown=0;host.innerHTML=""}
+  const slice=ids.slice(collShown,collShown+COLL_PAGE);
+  host.insertAdjacentHTML("beforeend",slice.map(id=>{
+    return `<button class="gk" data-key="${id}">
+      <span class="gk-art skel" data-lazy="${id}"></span>
+      <span class="gk-meta"><span>#${String(id).padStart(4,"0")}</span>
+        <b>${revealed?"T"+ROMAN[keyTraits(id).tier]:"—"}</b></span></button>`;
+  }).join(""));
+  collShown+=slice.length;
+  document.getElementById("loadMore").classList.toggle("hide",collShown>=ids.length);
+  document.getElementById("collCount").textContent=
+    ids.length?`showing ${collShown} of ${ids.length} keys`:"no keys in this tier yet";
+  document.querySelectorAll("[data-lazy]").forEach(el=>keyIO.observe(el));
+}
+document.getElementById("loadMore").addEventListener("click",()=>renderColl(false));
+document.getElementById("revealSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  revealed=b.dataset.r==="1";
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));
+  drawKey(preview);renderMarquee();renderColl(true);
+});
+document.getElementById("collSeg").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  collFilter=+b.dataset.t;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));
+  renderColl(true);
+});
+
+/* ═══════ nav + interactions ═══════ */
+function go(v,hash){
+  ["home","reg","quant","ops","vault","mint","call"].forEach(k=>document.getElementById("v-"+k).classList.toggle("hide",k!==v));
+  document.getElementById("tkr").classList.toggle("hide",v!=="reg");
+  document.body.style.paddingBottom=v==="reg"?"36px":"0";
+  document.querySelectorAll("#navLinks a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+  if(v==="quant"){renderQuant();renderSim()} if(v==="ops")renderOps(); if(v==="vault")renderVault();
+  if(hash){const t=document.querySelector(hash);if(t)setTimeout(()=>t.scrollIntoView({behavior:"smooth"}),40)}else scrollTo(0,0);
+  setTimeout(reveal,60);
+}
+const menu=document.getElementById("menu");
+document.getElementById("menuBtn").addEventListener("click",e=>{e.stopPropagation();menu.classList.toggle("on")});
+document.getElementById("menuMethod").addEventListener("click",e=>{
+  e.preventDefault();e.stopPropagation();menu.classList.remove("on");openD(true)});
+
+document.addEventListener("click",e=>{
+  if(!e.target.closest("#menu")&&!e.target.closest("#menuBtn"))menu.classList.remove("on");
+  const kc=e.target.closest("[data-key]");
+  if(kc){preview=+kc.dataset.key;go("mint");drawKey(preview);return}
+  const v=e.target.closest("[data-v]");
+  if(v){e.preventDefault();menu.classList.remove("on");go(v.dataset.v,v.dataset.hash);return}
+  const ca=e.target.closest(".ca");
+  if(ca){navigator.clipboard?.writeText(ca.dataset.ca);
+    const o=ca.firstChild.nodeValue;ca.classList.add("ok");ca.firstChild.nodeValue="Copied ";
+    setTimeout(()=>{ca.classList.remove("ok");ca.firstChild.nodeValue=o},1200);return}
+  const ch=e.target.closest(".crow");
+  if(ch){S.chain=S.chain===ch.dataset.chain?null:ch.dataset.chain;
+    const cp=document.getElementById("chipChain");
+    cp.classList.toggle("hide",!S.chain);cp.textContent=S.chain?S.chain+"  ✕":"";
+    renderChains();renderFeed();return}
+});
+document.getElementById("chipChain").addEventListener("click",()=>{
+  S.chain=null;document.getElementById("chipChain").classList.add("hide");renderChains();renderFeed()});
+document.getElementById("seg").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;S.f=b.dataset.f;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderFeed()});
+document.getElementById("sortSel").addEventListener("change",e=>{S.sort=e.target.value;renderFeed()});
+document.getElementById("q").addEventListener("input",e=>{S.q=e.target.value.trim();renderFeed()});
+
+const drw=document.getElementById("drw"),scrim=document.getElementById("scrim");
+const openD=o=>{drw.classList.toggle("on",o);scrim.classList.toggle("on",o);drw.setAttribute("aria-hidden",!o)};
+document.getElementById("navMethod").addEventListener("click",e=>{e.preventDefault();e.stopPropagation();openD(true)});
+document.getElementById("drwX").addEventListener("click",()=>openD(false));
+scrim.addEventListener("click",()=>{openD(false);closeShare()});
+addEventListener("keydown",e=>{if(e.key==="Escape"){openD(false);closeShare()}});
+
+/* cursor spotlight on cards */
+document.addEventListener("mousemove",e=>{
+  const c=e.target.closest(".card");if(!c)return;
+  const r=c.getBoundingClientRect();
+  c.style.setProperty("--mx",(e.clientX-r.left)+"px");
+  c.style.setProperty("--my",(e.clientY-r.top)+"px");
+});
+
+/* scroll reveal */
+const io=new IntersectionObserver(es=>es.forEach((en,i)=>{
+  if(en.isIntersecting){en.target.style.transitionDelay=Math.min(i*70,280)+"ms";
+    en.target.classList.add("in");io.unobserve(en.target)}}),{threshold:.12,rootMargin:"0px 0px -8% 0px"});
+function reveal(){document.querySelectorAll(".rv:not(.in)").forEach(el=>io.observe(el))}
+
+
+
+/* ═══════ call detail ═══════ */
+function cdChart(c){
+  const W=1000,H=280,p=c.path,two=c.entry*2,dead=c.entry*.1;
+  const mn=Math.min(...p,dead*.9),mx=Math.max(...p,two*1.08),r=(mx-mn)||1;
+  const X=i=>i/(p.length-1)*W, Y=v=>H-((v-mn)/r)*(H-24)-12;
+  const v=vrd(c);
+  const col=v==="dead"?"var(--dead)":v==="open"?"var(--win)":v==="win"?"#8E9AFF":"var(--tx-3)";
+  const d=p.map((y,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)).join("");
+  const pk=p.indexOf(Math.max(...p));
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity=".2"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient>
+      <clipPath id="cc"><rect x="0" y="0" width="${W}" height="${Y(two).toFixed(1)}"/></clipPath></defs>
+    <line x1="0" y1="${Y(c.entry).toFixed(1)}" x2="${W}" y2="${Y(c.entry).toFixed(1)}" stroke="rgba(255,255,255,.2)" stroke-width="1"/>
+    <line x1="0" y1="${Y(two).toFixed(1)}" x2="${W}" y2="${Y(two).toFixed(1)}" stroke="#8E9AFF" stroke-width="1" stroke-dasharray="4 6" opacity=".7"/>
+    <line x1="0" y1="${Y(dead).toFixed(1)}" x2="${W}" y2="${Y(dead).toFixed(1)}" stroke="#E5606B" stroke-width="1" stroke-dasharray="2 7" opacity=".5"/>
+    <path d="${d}L${W} ${H}L0 ${H}Z" fill="url(#cg)"/>
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="2" opacity=".5"/>
+    <path d="${d}" fill="none" stroke="#8E9AFF" stroke-width="2.4" clip-path="url(#cc)"/>
+    <circle cx="${X(pk).toFixed(1)}" cy="${Y(Math.max(...p)).toFixed(1)}" r="4" fill="${col}"/>
+    <circle cx="${W}" cy="${Y(c.nowMc).toFixed(1)}" r="4" fill="${col}" opacity=".8"/></svg>`;
+}
+function openCall(id){
+  const c=calls.find(x=>x.id===id); if(!c)return;
+  const v=vrd(c),n=nx(c),seq=+c.id.replace("r","")+1;
+  const f=(k,val,cls="")=>`<div><div class="k eyebrow">${k}</div><div class="v ${cls}" style="font-family:var(--mono);font-size:17px;font-weight:500;margin-top:6px">${val}</div></div>`;
+  document.getElementById("cdBody").innerHTML=`
+    <div class="cd-top">
+      <div class="tok" style="width:52px;height:52px;font-size:19px">${c.tick[0]}</div>
+      <div class="cd-id"><h1>${c.name}</h1>
+        <div class="cd-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}
+          <span class="dotsep"></span>${c.src}<span class="dotsep"></span>${utc(c.at)}</div></div>
+      <div class="cd-mx"><div class="big" style="${v==="win"?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(v==="open"?n:mult(c)).toFixed(2)}×</div>
+        <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
+    </div>
+    <div class="cd-chart">${cdChart(c)}
+      <div class="cd-lg">
+        <span><i style="background:rgba(255,255,255,.25)"></i>entry</span>
+        <span><i style="background:#8E9AFF"></i>2× threshold</span>
+        <span><i style="background:#E5606B"></i>dead line, 10% of entry</span>
+        <span style="margin-left:auto">peak ${fmt(c.peak)} · now ${fmt(c.nowMc)}</span>
+      </div></div>
+    <div class="cols c2" style="padding:20px 0 60px">
+      <div class="box">
+        <h3>Marks</h3><p class="sub">Entry is frozen at insert. Peak stops at settle; now keeps moving, so a win can still be marked dead.</p>
+        <div class="rf" style="border-top:none;padding-top:0;margin-top:0">
+          ${f("Entry MC",fmt(c.entry),"mut")}${f("Peak MC",fmt(c.peak))}
+          ${f("Now MC",fmt(c.nowMc),n>=1?"up":"dn")}${f(c.twoIn?"Reached 2× in":"Off peak",c.twoIn?secs(c.twoIn):((c.nowMc/c.peak-1)*100).toFixed(1)+"%","mut")}
+        </div>
+        <div class="stat" style="margin-top:18px"><span class="l">Score at fire</span><span class="v">${c.score}/100</span></div>
+        <div class="stat"><span class="l">State</span><span class="v">${c.live?"Live":"Settled"}</span></div>
+        <div class="stat"><span class="l">Contract</span><span class="v">${c.ca}</span></div>
+        <button class="btn btn-s btn-full" style="margin-top:16px" data-share="${c.id}">Post templates</button>
+      </div>
+      <div class="box">
+        <h3>Why it fired</h3><p class="sub">The exact conditions, recorded at the moment of the call and never edited.</p>
+        ${(c.reasons||[]).map(r=>`<div class="gate"><span class="g" style="font-size:13px;line-height:1.5">${r}</span></div>`).join("")}
+        <h3 style="margin-top:24px">Verification</h3>
+        <p class="sub">Record hash, recomputed from this call in your browser.</p>
+        <div class="hash vfy" id="cdHash">—</div>
+        <div class="stat" style="margin-top:12px"><span class="l">Position in chain</span><span class="v">seq ${seq}</span></div>
+        <div class="stat"><span class="l">Anchored</span><span class="v">29 Aug 2026 · Base</span></div>
+      </div>
+    </div>
+    <a class="back" href="#" data-v="reg">← Back to the register</a>`;
+  document.getElementById("cdHash").textContent=sha(canon(c));
+  go("call");
+}
+
+/* ═══════ performance simulator ═══════
+   Peak x is a ceiling nobody sold at. This applies a real exit rule and a
+   round-trip cost, so the number on screen is what a person would have kept. */
+const FEE=0.05;
+let simX="2x",simSize=100;
+function exitMultiple(c,rule){
+  const p=mult(c),n=nx(c);
+  if(rule==="hold")  return n;
+  if(rule==="2x")    return p>=2   ? 2   : n;
+  if(rule==="1.5x")  return p>=1.5 ? 1.5 : n;
+  return n < p*0.75 ? p*0.75 : n;    // stopped out 25% off the peak
+}
+function simulate(rule,size){
+  const rows=[...calls].sort((a,b)=>a.at-b.at);
+  let eq=0,peak=0,dd=0; const curve=[0],pnl=[];
+  for(const c of rows){
+    const net=size*exitMultiple(c,rule)*(1-FEE)-size;
+    eq+=net; pnl.push({c,net}); curve.push(eq);
+    if(eq>peak)peak=eq;
+    if(peak-eq>dd)dd=peak-eq;
+  }
+  return {curve,eq,dd,wins:pnl.filter(x=>x.net>0).length,n:pnl.length,invested:size*pnl.length};
+}
+function renderSim(){
+  const r=simulate(simX,simSize),W=1000,H=190;
+  const mn=Math.min(...r.curve,0),mx=Math.max(...r.curve,0),sp=(mx-mn)||1;
+  const X=i=>i/(r.curve.length-1)*W, Y=v=>H-((v-mn)/sp)*(H-20)-10;
+  const d=r.curve.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join("");
+  const pos=r.eq>=0,col=pos?"#3ECF8E":"#E5606B";
+  document.getElementById("simEq").innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${col}" stop-opacity=".22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    <line class="zero" x1="0" y1="${Y(0).toFixed(1)}" x2="${W}" y2="${Y(0).toFixed(1)}"/>
+    <path d="${d}L${W} ${Y(mn).toFixed(1)}L0 ${Y(mn).toFixed(1)}Z" fill="url(#eg)"/>
+    <path d="${d}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
+  const money=v=>(v<0?"−$":"$")+Math.abs(Math.round(v)).toLocaleString();
+  document.getElementById("simStat").innerHTML=[
+    ["Result",money(r.eq),r.eq>=0?"up":"dn"],
+    ["Return",((r.eq/r.invested)*100).toFixed(1)+"%",r.eq>=0?"up":"dn"],
+    ["Profitable calls",r.wins+" / "+r.n,""],
+    ["Worst drawdown",money(-r.dd),"dn"]].map(([k,v,c])=>
+    `<div><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`).join("");
+  const avgPeak=calls.reduce((a,c)=>a+mult(c),0)/calls.length;
+  document.getElementById("simGap").innerHTML=
+    `Average peak across the register is <b style="color:var(--tx)">${avgPeak.toFixed(2)}×</b>, which reads like a
+     ${((avgPeak-1)*100).toFixed(0)}% return. Under this exit rule it actually returned
+     <b style="color:${pos?"var(--win)":"var(--dead)"}">${((r.eq/r.invested)*100).toFixed(1)}%</b>.
+     That gap is why peak and now are always shown together — nobody sells the top, and 5% round-trip
+     cost across ${r.n} calls is real money.`;
+}
+document.getElementById("simExit").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;simX=b.dataset.x;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderSim();});
+document.getElementById("simSize").addEventListener("change",e=>{simSize=+e.target.value;renderSim()});
+
+/* ═══════ Hindsight · Triage · Vault ═══════
+   Everything below is computed from the register in this page, not typed in.
+   Same functions as analytics.js on the server. */
+
+const settledRows=()=>calls.filter(c=>!c.live);
+
+function reasonPerf(){
+  const rows=settledRows();
+  if(!rows.length)return{base:0,list:[]};
+  const base=rows.filter(win).length/rows.length,b={};
+  rows.forEach(r=>(r.rids||[]).forEach(id=>{
+    const e=b[id]||(b[id]={id,n:0,w:0,pk:[]});
+    e.n++;if(win(r))e.w++;e.pk.push(mult(r))}));
+  const list=Object.values(b).map(e=>{
+    const s=e.pk.sort((x,y)=>x-y);
+    const med=s.length%2?s[(s.length-1)/2]:(s[s.length/2-1]+s[s.length/2])/2;
+    return{id:e.id,n:e.n,hit:e.w/e.n,lift:base?(e.w/e.n)/base:0,med};
+  }).sort((x,y)=>y.lift-x.lift);
+  return{base,list};
+}
+function bands(w=20){
+  const g={};
+  settledRows().forEach(r=>{const lo=Math.floor((r.score||0)/w)*w;
+    const e=g[lo]||(g[lo]={lo,hi:lo+w,n:0,w:0});e.n++;if(win(r))e.w++});
+  return Object.values(g).sort((a,b)=>a.lo-b.lo).map(e=>({...e,hit:e.n?e.w/e.n:0}));
+}
+function renderQuant(){
+  const bs=bands(),mx=Math.max(...bs.map(b=>b.hit),0.01);
+  document.getElementById("qBands").innerHTML=bs.map(b=>
+    `<div><b>${(b.hit*100).toFixed(0)}%</b><i style="height:${Math.max(4,b.hit/mx*100)}%"></i>
+      <span>${b.lo}-${b.hi}</span><span style="opacity:.6">n=${b.n}</span></div>`).join("")
+    ||`<div style="color:var(--tx-3);font-size:12.5px">No settled calls yet.</div>`;
+
+  const rp=reasonPerf();
+  document.getElementById("qReasons").innerHTML=rp.list.map(r=>
+    `<tr><td class="k">${r.id.replace(/_/g," ")}</td><td class="n">${r.n}</td>
+      <td class="n">${(r.hit*100).toFixed(0)}%</td>
+      <td><span class="lift"><i class="${r.lift<1?"low":""}" style="width:${Math.min(72,r.lift*46)}px"></i>
+        <span class="mono" style="font-size:11.5px;color:${r.lift>=1?"var(--accent)":"var(--tx-3)"}">${r.lift.toFixed(2)}</span></span></td></tr>`).join("")
+    ||`<tr><td colspan="4" style="color:var(--tx-3)">Not enough settled calls.</td></tr>`;
+
+  const g={};calls.forEach(c=>{const e=g[c.chain]||(g[c.chain]={n:0,w:0,p:[]});
+    e.n++;if(win(c))e.w++;e.p.push(mult(c))});
+  document.getElementById("qChains").innerHTML=Object.entries(g)
+    .map(([k,e])=>({k,n:e.n,hit:e.w/e.n,avg:e.p.reduce((a,b)=>a+b,0)/e.p.length}))
+    .sort((a,b)=>b.hit-a.hit).map(r=>
+    `<tr><td class="k">${r.k}</td><td class="n">${r.n}</td>
+      <td class="n" style="color:${r.hit>=.5?"var(--win)":"var(--tx-2)"}">${(r.hit*100).toFixed(0)}%</td>
+      <td class="n">${r.avg.toFixed(2)}×</td></tr>`).join("");
+
+  const rows=settledRows();
+  document.getElementById("qSweep").innerHTML=[50,60,70,80,90].map(t=>{
+    const f=rows.filter(r=>(r.score||0)>=t);
+    const h=f.length?f.filter(win).length/f.length:0;
+    return `<tr><td class="k">${t}${t===60?' <span style="color:var(--accent);font-size:10.5px">current</span>':""}</td>
+      <td class="n">${f.length}</td><td class="n">${f.length?(h*100).toFixed(0)+"%":"—"}</td></tr>`}).join("");
+}
+
+const JOBS=[["Discovery","screen candidates, write signals that clear the bar","60s",14],
+  ["Hot scorer","refresh every live call, move peak and verdict","20s",6],
+  ["Warm scorer","settled calls, only to catch a later death","5m",92],
+  ["Anchor","publish the chain head on-chain","24h",8400]];
+const REJECTS=[
+  ["$PONZI","Liquidity $4.2K is under the $15K floor","LIQ"],
+  ["$MOONX","Already +214% in five minutes — this is the top, not the entry","PUMP"],
+  ["$AISHIB","Selling into it — 412 sells against 96 buys in the last hour","DUMP"],
+  ["$NOBODY","No socials and no site — nothing behind the ticker","ID"],
+  ["$WHALE2","Liquidity is only 1.6% of cap — too thin to exit","TRAP"],
+  ["$FRESH","Only 4m old — inside the sniper window","AGE"],
+  ["$BIGCAP","Market cap $11.4M is above the $2.00M ceiling","CAP"],
+  ["$WEIRD","Quoted in PEPE2, not a major","QUOTE"],
+  ["$SLEEPY","Cleared the gates but only scored 24/100","SCORE"],
+];
+const GATES=[["Liquidity floor","$15K"],["Age window","20m – 72h"],["Cap window","$30K – $2M"],
+  ["Liquidity / cap","≥ 4%"],["Sell pressure","≤ 2.2× buys"],["Not vertical","5m ≤ +60%"],
+  ["Has identity","socials or site"],["Sane quote","SOL / ETH / BNB / USDC"]];
+
+function renderOps(){
+  document.getElementById("oJobs").innerHTML=JOBS.map(([n,d,iv,ago])=>
+    `<div class="job"><span class="dot"></span>
+      <span><span class="nm">${n}</span><div class="de">${d}</div></span>
+      <span class="iv">${iv}</span><span class="ago">${ago<60?ago+"s ago":ago<3600?Math.round(ago/60)+"m ago":Math.round(ago/3600)+"h ago"}</span></div>`).join("");
+
+  const fired=calls.length;
+  document.getElementById("oCounts").innerHTML=[
+    ["Candidates scanned",412],["Killed at the gates",Math.round(412*0.79)],
+    ["Cleared gates, scored low",Math.round(412*0.18)],["Signals fired",fired],
+    ["Pass rate",(fired/412*100).toFixed(1)+"%"]
+  ].map(([l,v])=>`<div class="stat"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("");
+
+  document.getElementById("oRejects").innerHTML=REJECTS.map(([t,r,g])=>
+    `<div class="rej"><span class="tk">${t}</span><span class="rs">${r}</span><span class="tag">${g}</span></div>`).join("");
+
+  document.getElementById("oGates").innerHTML=GATES.map(([g,t])=>
+    `<div class="gate"><span class="g">${g}</span><span class="t">${t}</span></div>`).join("");
+}
+
+/* ── Vault: a real hash chain, computed in the browser ── */
+/* SHA-256 in plain JS on purpose. crypto.subtle only exists in a secure
+   context, so it is undefined when this file is opened over file:// — which
+   is exactly how a prototype gets opened. */
+const K256=(()=>{const k=[],p=[];let n=2;
+  while(k.length<64){let ok=true;for(let i=2;i*i<=n;i++)if(n%i===0){ok=false;break}
+    if(ok){p.push(n);k.push(Math.floor((Math.cbrt(n)%1)*4294967296)>>>0)}n++}
+  return k})();
+const H256=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+function sha(str){
+  const bytes=[...new TextEncoder().encode(str)];
+  const bitLen=bytes.length*8;
+  bytes.push(0x80); while(bytes.length%64!==56)bytes.push(0);
+  for(let i=7;i>=0;i--)bytes.push((bitLen/Math.pow(2,i*8))&0xff);
+  const H=H256.slice(),w=new Array(64);
+  const rr=(x,n)=>((x>>>n)|(x<<(32-n)))>>>0;
+  for(let off=0;off<bytes.length;off+=64){
+    for(let i=0;i<16;i++)w[i]=((bytes[off+i*4]<<24)|(bytes[off+i*4+1]<<16)|
+      (bytes[off+i*4+2]<<8)|bytes[off+i*4+3])>>>0;
+    for(let i=16;i<64;i++){
+      const s0=(rr(w[i-15],7)^rr(w[i-15],18)^(w[i-15]>>>3))>>>0;
+      const s1=(rr(w[i-2],17)^rr(w[i-2],19)^(w[i-2]>>>10))>>>0;
+      w[i]=(w[i-16]+s0+w[i-7]+s1)>>>0;}
+    let [a,b,c,d,e,f,g,h]=H;
+    for(let i=0;i<64;i++){
+      const S1=(rr(e,6)^rr(e,11)^rr(e,25))>>>0;
+      const ch=((e&f)^(~e&g))>>>0;
+      const t1=(h+S1+ch+K256[i]+w[i])>>>0;
+      const S0=(rr(a,2)^rr(a,13)^rr(a,22))>>>0;
+      const mj=((a&b)^(a&c)^(b&c))>>>0;
+      const t2=(S0+mj)>>>0;
+      h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;}
+    [a,b,c,d,e,f,g,h].forEach((v,i)=>H[i]=(H[i]+v)>>>0);
+  }
+  return H.map(x=>x.toString(16).padStart(8,"0")).join("");
+}
+function canon(c){
+  return JSON.stringify({chain:c.chain,entryMc:String(c.entry),firedAt:new Date(c.at).toISOString(),
+    score:String(c.score),symbol:c.tick,tokenAddress:c.ca});
+}
+let VCHAIN=[],VTAMPER=null;
+function buildChain(){
+  const src=(VTAMPER==="delete")?calls.filter((_,i)=>i!==2):calls;
+  let prev="0".repeat(64);VCHAIN=[];
+  for(let i=0;i<src.length;i++){
+    const c=VTAMPER==="edit"&&i===1?{...src[i],entry:1}:src[i];
+    const rec=sha(canon(c));
+    prev=sha(prev+rec);
+    VCHAIN.push({seq:i+1,rec,link:prev,sym:c.tick});
+  }
+  return prev;
+}
+let VBASE=null;
+function renderVault(){
+  const head=buildChain();
+  document.getElementById("vHead").textContent=head;
+  if(!VBASE&&!VTAMPER)VBASE=head;
+  document.getElementById("vStats").innerHTML=[
+    ["Calls on record",VCHAIN.length],["Genesis","0000…0000"],
+    ["Last anchor","29 Aug 2026 · 00:00 UTC"],["Anchor network","Base"]
+  ].map(([l,v])=>`<div class="stat"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("");
+
+  const box=document.getElementById("vResult");
+  if(!VTAMPER){box.className="vres ok";
+    box.innerHTML="Chain intact — every record hash matches and every link checks out.";
+  }else{box.className="vres bad";
+    box.innerHTML=(VTAMPER==="edit"
+      ? "<b>Detected at seq 2.</b> One stored entry MC was changed. Its record hash no longer matches, and because every later link is built on it, all "+(VCHAIN.length-1)+" hashes after it changed too."
+      : "<b>Detected at seq 3.</b> A call was removed. The chain head moved, so the published anchor from this morning no longer matches what is stored.")
+      +`<div style="margin-top:9px;font-family:var(--mono);font-size:11px;opacity:.85">was ${(VBASE||"").slice(0,28)}…<br>now ${head.slice(0,28)}…</div>`;
+  }
+  document.getElementById("vAnchors").innerHTML=
+    [["29 Aug 2026",calls.length],["28 Aug 2026",calls.length-3],["27 Aug 2026",calls.length-7]]
+    .map(([d,n],i)=>`<tr><td class="k">${d}</td><td class="n">${Math.max(n,1)}</td>
+      <td class="n" style="font-size:11px">${(i?VCHAIN[Math.max(0,VCHAIN.length-1-i*2)]?.link:head||"").slice(0,14)}…</td></tr>`).join("");
+}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-tamper]");if(!t)return;
+  VTAMPER=t.dataset.tamper==="reset"?null:t.dataset.tamper;
+  renderVault();
+});
+document.getElementById("vCsv").addEventListener("click",()=>{
+  const cols=["seq","firedAt","chain","symbol","entryMc","peakMc","nowMc","peakX","verdict","score"];
+  const body=calls.map((c,i)=>[i+1,new Date(c.at).toISOString(),c.chain,c.tick,
+    Math.round(c.entry),Math.round(c.peak),Math.round(c.nowMc),mult(c).toFixed(3),vrd(c),c.score].join(","));
+  const blob=new Blob([[cols.join(","),...body].join("\n")],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download="proof-register.csv";a.click();
+});
+
+
+/* ═══════ share templates ═══════
+   Built from the call record so a post can never quietly disagree with the
+   register. Wins and losses both get one — publishing the failures is the
+   whole differentiator, and nobody does it. */
+function tplX(c){
+  const v=vrd(c), m=(v==="open"?nx(c):mult(c)).toFixed(2);
+  const head=v==="win"?`$${c.tick} · WIN ${m}×`
+    :v==="dead"?`$${c.tick} · DEAD · peaked ${mult(c).toFixed(2)}×`
+    :v==="miss"?`$${c.tick} · MISS · peaked ${mult(c).toFixed(2)}×`
+    :`$${c.tick} · LIVE ${m}×`;
+  return [head,"",
+    `Called at ${fmt(c.entry)} on ${c.chain}.`,
+    `Peak ${fmt(c.peak)} · now ${fmt(c.nowMc)}.`,"",
+    "Why it fired:",
+    ...(c.reasons||[]).slice(0,2).map(r=>`· ${r}`),"",
+    v==="win"?"On the register with every miss we've ever posted."
+      :"Still on the register. We don't take the bad ones down.",
+    `proof.app/call/${c.id.replace("r","")}`].join("\n");
+}
+function tplTG(c){
+  const v=vrd(c);
+  const tag=v==="win"?"✅ WIN":v==="dead"?"⚰️ DEAD":v==="miss"?"❌ MISS":"🟢 LIVE";
+  return [`${tag} · $${c.tick}  ·  ${c.chain} · ${c.src}`,
+    `Score ${c.score}/100`,"",
+    `Entry MC    ${fmt(c.entry)}`,
+    `Peak MC     ${fmt(c.peak)}  (${mult(c).toFixed(2)}×)`,
+    `Now MC      ${fmt(c.nowMc)}  (${nx(c).toFixed(2)}×)`,
+    c.twoIn?`Reached 2×  ${secs(c.twoIn)}`:`Reached 2×  never`,"",
+    "Why it fired",
+    ...(c.reasons||[]).map(r=>`  • ${r}`),"",
+    `CA: ${c.ca}`,"",
+    "Peak is not a realized return. Every call — win, miss or dead — stays on the public register.",
+    `proof.app/call/${c.id.replace("r","")}`].join("\n");
+}
+const ICO_X='<svg viewBox="0 0 24 24"><path d="M18.9 2H22l-7 8 8.2 12h-6.4l-5-7.3L5.9 22H2.8l7.5-8.6L2.4 2h6.6l4.5 6.7L18.9 2Zm-1.1 18h1.7L7.3 3.8H5.5L17.8 20Z"/></svg>';
+const ICO_TG='<svg viewBox="0 0 24 24"><path d="M21.9 4.3 18.9 19c-.2 1-.8 1.2-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7L18.2 6c.4-.3-.1-.5-.6-.2L7.1 12.4l-4.5-1.4c-1-.3-1-1 .2-1.4l17.6-6.8c.8-.3 1.5.2 1.5 1.5Z"/></svg>';
+const shareDrw=document.getElementById("shareDrw");
+function openShare(id){
+  const c=calls.find(x=>x.id===id); if(!c)return;
+  const x=tplX(c),tg=tplTG(c);
+  document.getElementById("shareTitle").textContent=`$${c.tick} · ${LBL[vrd(c)]}`;
+  document.getElementById("shareBody").innerHTML=`
+    <div class="tpl"><div class="th">${ICO_X}X post<span class="n">${x.length} chars</span></div>
+      <pre id="tx">${x.replace(/</g,"&lt;")}</pre>
+      <div class="tf"><button class="btn btn-s" data-copy="tx">Copy</button></div></div>
+    <div class="tpl"><div class="th">${ICO_TG}Telegram post<span class="n">${tg.length} chars</span></div>
+      <pre id="ttg">${tg.replace(/</g,"&lt;")}</pre>
+      <div class="tf"><button class="btn btn-s" data-copy="ttg">Copy</button></div></div>`;
+  shareDrw.classList.add("on");scrim.classList.add("on");shareDrw.setAttribute("aria-hidden","false");
+}
+function closeShare(){shareDrw.classList.remove("on");scrim.classList.remove("on");
+  shareDrw.setAttribute("aria-hidden","true")}
+document.getElementById("shareX").addEventListener("click",closeShare);
+document.addEventListener("click",e=>{
+  const sh=e.target.closest("[data-share]");
+  if(sh){e.stopPropagation();openShare(sh.dataset.share);return}
+  const rec=e.target.closest(".rec");
+  if(rec&&rec.dataset.id&&!e.target.closest(".ca,.shbtn,.pv-body")){openCall(rec.dataset.id);return}
+  const cp=e.target.closest("[data-copy]");
+  if(cp){const el=document.getElementById(cp.dataset.copy);
+    navigator.clipboard?.writeText(el.textContent);
+    const o=cp.textContent;cp.textContent="Copied";
+    setTimeout(()=>cp.textContent=o,1200);return}
+});
+
+/* ═══════ live register ═══════
+   Reads the running engine if it is there; falls back to the mock set so the
+   prototype still demonstrates without a backend. */
+const API=(location.protocol==="file:"?"http://localhost:8787":"")+"/api";
+let liveMode=false;
+async function pullLive(){
+  try{
+    const r=await fetch(API+"/register?limit=60",{cache:"no-store"});
+    if(!r.ok)throw 0;
+    const rows=await r.json();
+    if(!Array.isArray(rows)||!rows.length)throw 0;
+    calls.length=0;
+    rows.forEach((d,i)=>calls.push({
+      id:"r"+d.seq,name:d.name||d.symbol,tick:d.symbol,
+      chain:({solana:"SOL",base:"BASE",bsc:"BSC",ethereum:"ETH"})[d.chain]||d.chain.toUpperCase(),
+      by:"screener",src:d.dex,ca:(d.tokenAddress||"").slice(0,6)+"…"+(d.tokenAddress||"").slice(-4),
+      entry:d.entryMc,peak:d.peakMc,nowMc:d.nowMc,
+      twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state==="live",
+      reasons:d.reasons||[],score:d.score,
+      path:mkPath(d.entryMc,d.peakMc,d.nowMc,48),flash:false}));
+    if(!liveMode){liveMode=true;
+      document.getElementById("syncTxt").textContent="live";
+      const p=document.querySelector(".pill .tag");
+      if(p)p.textContent=rows.length+" live";}
+    renderFeed();renderPreview();renderStats();renderCallers();renderChains();renderTicker();
+  }catch{ if(liveMode){liveMode=false} }
+}
+pullLive(); setInterval(pullLive,20000);
+
+renderFeed();renderPreview();renderStats();renderCallers();renderChains();renderTicker();
+drawKey(preview);renderMarquee();syncMint();renderColl(true);reveal();

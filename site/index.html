@@ -1,77 +1,492 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nekara — Nothing is ever removed</title>
-<meta name="description" content="A public register of automated trading signals. Failed calls are never removed.">
-<meta property="og:title" content="Nekara"><meta property="og:url" content="https://nekara.xyz">
-<meta property="og:description" content="A public register of automated trading signals. Failed calls are never removed.">
-<meta name="theme-color" content="#060A11"><meta property="og:type" content="website">
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proof — Signals with their reasons attached</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@200;300;400&family=IBM+Plex+Sans:wght@400&family=IBM+Plex+Mono&display=swap">
-<style>
-:root{--n:#060A11;--p:#0A1220;--l:#18233A;--b:#6C9BE0;--w:#EDF2FB;--m:#68799A}
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--n);color:var(--w);font:16.5px/1.7 "IBM Plex Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-.c{max-width:800px;margin:0 auto;padding:0 26px}
-h1{font:200 clamp(36px,8vw,64px)/1 Spectral,Georgia,serif;text-transform:uppercase;letter-spacing:.5em;text-indent:.5em}
-h2{font:300 26px/1.3 Spectral,Georgia,serif;margin-bottom:12px}
-h3{font:400 18px/1.4 Spectral,Georgia,serif;margin-bottom:5px}
-p{margin-bottom:15px;max-width:62ch}
-.k{font:400 10.5px/1 "IBM Plex Mono",monospace;letter-spacing:.3em;text-transform:uppercase;color:var(--m);margin-bottom:14px}
-.q{color:var(--m);font-size:15px}
-header{position:relative;min-height:86vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;text-align:center;padding:100px 26px;overflow:hidden}
-.gl{position:absolute;inset:0;background:radial-gradient(600px 540px at 50% 40%,#16305E 0%,rgba(22,48,94,.24) 44%,transparent 74%)}
-.ha{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);border-radius:50%;border:1px solid rgba(108,155,224,.09);width:min(620px,86vw);height:min(620px,86vw)}
-.hb{width:min(410px,58vw);height:min(410px,58vw);border-color:rgba(108,155,224,.13)}
-header>*:not(.gl):not(.ha){position:relative}
-.mk{width:min(126px,26vw)}.mk svg{display:block;width:100%}
-.rl{width:170px;height:1px;background:linear-gradient(90deg,transparent,rgba(108,155,224,.8),transparent)}
-.tg{font:400 12px/1 "IBM Plex Mono",monospace;letter-spacing:.4em;text-transform:uppercase;color:var(--m)}
-section{padding:70px 0;border-top:1px solid var(--l)}
-.gr{display:grid;gap:1px;background:var(--l);border:1px solid var(--l);border-radius:3px;overflow:hidden}
-.gr div{background:var(--p);padding:22px 24px}
-.gr p{margin:0;font-size:14.5px;color:var(--m)}
-.st{background:var(--p);border:1px solid var(--l);border-radius:3px;padding:24px 26px}
-.st ul{list-style:none;margin-top:14px;display:grid;gap:10px}
-.st li{padding-left:24px;position:relative;color:var(--m);font-size:14.5px}
-.st li:before{content:"";position:absolute;left:0;top:.6em;width:9px;height:9px;border:1px solid rgba(108,155,224,.5);border-radius:50%}
-footer{padding:46px 0 70px;border-top:1px solid var(--l);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-.fm{width:28px;opacity:.7}.fm svg{display:block;width:100%}
-.lg{font:400 11px/1 "IBM Plex Mono",monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--m)}
-.bs{position:absolute;left:0;right:0;bottom:0;height:10px;color:var(--b);opacity:.14}
-.gn{position:fixed;inset:0;opacity:.045;mix-blend-mode:overlay;pointer-events:none;z-index:2}
-@media(prefers-reduced-motion:no-preference){header>*:not(.gl):not(.ha):not(.bs){animation:r .95s cubic-bezier(.2,.7,.3,1) both}
-h1{animation-delay:.09s}.rl{animation-delay:.16s}.tg{animation-delay:.23s}
-@keyframes r{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}}
-</style></head><body>
-<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="g" x1="0" y1="0" x2=".85" y2="1">
-<stop offset="0" stop-color="#A6C6F5"/><stop offset=".45" stop-color="#6C9BE0"/><stop offset="1" stop-color="#3D6AB4"/></linearGradient>
-<pattern id="tk" width="50" height="10" patternUnits="userSpaceOnUse" fill="#6C9BE0"><rect width=".9" height="10"/><rect x="10" y="3.5" width=".9" height="6"/><rect x="20" y="3.5" width=".9" height="6"/><rect x="30" y="3.5" width=".9" height="6"/><rect x="40" y="3.5" width=".9" height="6"/></pattern>
-<filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter>
-</defs></svg>
-<header><div class="gl"></div><div class="ha"></div><div class="ha hb"></div>
-<div class="mk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="url(#g)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#g)"/><circle cx="60" cy="60" r="10" fill="url(#g)"/></svg></div><h1>Nekara</h1><div class="rl"></div><p class="tg">Nothing is ever removed</p>
-<svg class="bs" viewBox="0 0 1500 10" preserveAspectRatio="none"><rect width="1500" height="10" fill="url(#tk)"/></svg></header>
-<main class="c">
-<section><p class="k">What this is</p><h2>A public register of automated trading signals</h2>
-<p>A screener reads liquidity, buy pressure and volume acceleration across Solana, Base, BNB and Ethereum. Every signal it fires is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
-<p>The tracking is commodity. Anyone can build a screener. What is hard is publishing the calls that went to zero and leaving them there.</p></section>
-<section><p class="k">The rules</p><h2>Four commitments, enforced in code</h2><div class="gr">
-<div><h3>Nothing is removed</h3><p>Rows can be inserted, never changed or deleted. The database itself refuses. Corrections are new rows.</p></div>
-<div><h3>Misses stay in the denominator</h3><p>Hit rate is wins over every call in the window. No code path drops a call from a statistic.</p></div>
-<div><h3>Market cap is computed, not quoted</h3><p>Price and supply are frozen separately at entry. No provider cap field decides a verdict.</p></div>
-<div><h3>The chain is published</h3><p>Every record is hashed into a chain and the head is anchored on-chain. Anyone can recompute the register from the public CSV and check it.</p></div>
-</div></section>
-<section><p class="k">Status</p><h2>Not live yet</h2>
-<p>The engine, the contracts and the verifier exist and are tested. The register is not open, because a register with nothing in it proves nothing.</p>
-<div class="st"><p class="q" style="margin:0">Before the first call is published:</p><ul>
-<li>The screener runs against live market data, not fixtures</li>
-<li>The anchor contract is deployed and the chain head is posted on-chain</li>
-<li>The verifier is run by someone who is not us, against a CSV they downloaded</li></ul></div>
-<p class="q" style="margin-top:20px">Until the third is true, this site will say the register is unverifiable, because it would be.</p></section>
-<section><p class="k">Risk</p><h2>Read this part</h2>
-<p class="q">Nothing here is investment advice. Low-capitalisation tokens can and frequently do go to zero. Peak multiples shown on the register are the highest value observed, not a realised return. Past results do not predict future ones.</p></section>
-</main>
-<footer class="c"><div class="fm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="url(#g)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#g)"/><circle cx="60" cy="60" r="10" fill="url(#g)"/></svg></div><p class="lg">Nekara · nekara.xyz</p></footer>
-<svg class="gn"><rect width="100%" height="100%" filter="url(#n)"/></svg>
-</body></html>
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+
+<nav class="nav"><div class="wrap-w nav-in">
+  <div class="logo" data-v="home">
+    <svg viewBox="0 0 24 24" fill="none">
+      <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient></defs>
+      <rect x="1.2" y="1.2" width="21.6" height="21.6" rx="6.6" stroke="url(#lg)" stroke-width="1.5"/>
+      <path d="M6.6 14.4L10 10.6l3 3.2 4.4-5.6" stroke="url(#lg)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg><span>Proof</span>
+  </div>
+  <div class="nav-links" id="navLinks">
+    <a href="#" data-v="home" class="on">Home</a>
+    <a href="#" data-v="reg">Register</a>
+    <a href="#" data-v="quant">Hindsight</a>
+    <a href="#" data-v="ops">Triage</a>
+    <a href="#" data-v="vault">Custody</a>
+    <a href="#" data-v="mint">Keys</a>
+    <a href="#" id="navMethod">Method</a>
+  </div>
+  <div class="soc hide-sm">
+    <a href="#" aria-label="X"><svg viewBox="0 0 24 24"><path d="M18.9 2H22l-7 8 8.2 12h-6.4l-5-7.3L5.9 22H2.8l7.5-8.6L2.4 2h6.6l4.5 6.7L18.9 2Zm-1.1 18h1.7L7.3 3.8H5.5L17.8 20Z"/></svg></a>
+    <a href="#" aria-label="Telegram"><svg viewBox="0 0 24 24"><path d="M21.9 4.3 18.9 19c-.2 1-.8 1.2-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7L18.2 6c.4-.3-.1-.5-.6-.2L7.1 12.4l-4.5-1.4c-1-.3-1-1 .2-1.4l17.6-6.8c.8-.3 1.5.2 1.5 1.5Z"/></svg></a>
+  </div>
+  <div class="nav-r">
+    <div class="cabar hide-sm">
+      <span class="tk">$PROOF</span><span class="sep"></span>
+      <span class="lbl">CA</span>
+      <span class="val soon"><i></i>Coming soon</span>
+    </div>
+    <span class="pulse hide-sm"></span>
+    <span class="mono hide-sm" style="font-size:11px;color:var(--tx-3)" id="syncTxt">synced 0s</span>
+    <button class="btn btn-s hide-sm">Connect</button>
+    <button class="btn btn-p" data-v="mint">Keys a key</button>
+    <button class="menubtn" id="menuBtn" aria-label="Open menu">☰</button>
+  </div>
+</div></nav>
+<div class="menu" id="menu">
+  <a href="#" data-v="home">Home</a>
+  <a href="#" data-v="reg">Register</a>
+  <a href="#" data-v="quant">Hindsight</a>
+  <a href="#" data-v="ops">Triage</a>
+  <a href="#" data-v="vault">Custody</a>
+  <a href="#" data-v="mint">Keys</a>
+  <a href="#" id="menuMethod">Method</a>
+</div>
+
+<!-- ═══════ HOME ═══════ -->
+<div id="v-home">
+  <section class="hero">
+    <div class="dots"></div>
+    <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+    <div class="wrap hero-in">
+      <div class="hero-txt">
+        <div class="pill"><span class="pulse"></span> Tracking live across 4 chains <span class="tag" id="pillCount">—</span></div>
+        <h1>Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
+        <p class="hero-sub">An automated screener reads liquidity, buy pressure and volume acceleration across four chains. Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead — so you can judge the reasoning, not just the result.</p>
+        <div class="hero-cta">
+          <button class="btn btn-p btn-lg" data-v="reg">Open the register</button>
+          <button class="btn btn-s btn-lg" data-v="mint">Claim a key</button>
+        </div>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="preview">
+        <div class="pv-bar"><span class="pv-dot"></span><span class="pv-dot"></span><span class="pv-dot"></span><span class="pv-title">proof.app/register</span></div>
+        <div class="pv-body" id="pvBody"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="keys" style="padding-top:0">
+    <div class="wrap">
+      <div class="sec-head mid rv">
+        <div class="eyebrow">Proof Keys · Season 1</div>
+        <h2>666 keys. Each one drawn<br>from its own number.</h2>
+        <p>Every key is a guilloché engraving generated from its token number — the same line geometry used on banknotes and share certificates. No two are alike, and none of them is a JPEG sitting on someone's server.</p>
+      </div>
+    </div>
+    <div class="marq"><div class="marq-row" id="marq1"></div></div>
+    <div class="marq"><div class="marq-row rev" id="marq2"></div></div>
+    <div class="wrap">
+      <div class="keystats rv">
+        <div class="ks"><div class="v" id="ksMinted">412</div><div class="k">Minted</div></div>
+        <div class="ks"><div class="v">666</div><div class="k">Season 1 supply</div></div>
+        <div class="ks"><div class="v">0.08<span style="font-size:.55em;color:var(--tx-3)"> ETH</span></div><div class="k">Phase 2 price</div></div>
+        <div class="ks"><div class="v">66</div><div class="k">Tier III keys</div></div>
+      </div>
+      <div style="text-align:center" class="rv">
+        <button class="btn btn-p btn-lg" data-v="mint">Keys a key</button>
+        <p style="font-size:12.5px;color:var(--tx-3);margin-top:16px">Tier decides how many seconds early each call reaches you · 10s / 5s / instant</p>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="sec" style="padding-top:0"><div class="wrap">
+    <div class="sec-head mid rv">
+      <div class="eyebrow">Inside</div>
+      <h2>Three desks behind the register.</h2>
+      <p>The signals are the surface. What makes them worth anything is being able to check the reasoning, see what was turned down, and prove nothing was quietly edited afterwards.</p>
+    </div>
+    <div class="feat">
+      <button class="fcard rv" data-v="quant">
+        <div class="peek">
+          <div class="pk"><b>60-80</b><i style="width:34px"></i>25%</div>
+          <div class="pk"><b>80-100</b><i style="width:96px"></i>100%</div>
+          <div class="pk" style="margin-top:4px;color:var(--tx-3)">hit rate by score band</div>
+        </div>
+        <div class="body">
+          <h3>Hindsight</h3>
+          <p>Which conditions actually produced winners. Every signal stores the rules that fired it, so the filter gets retuned on evidence instead of feel.</p>
+          <div class="go">Open Hindsight →</div>
+        </div>
+      </button>
+      <button class="fcard rv" data-v="ops">
+        <div class="peek">
+          <div class="pk"><b>$MOONX</b> already +214% on 5m</div>
+          <div class="pk"><b>$AISHIB</b> 412 sells vs 96 buys</div>
+          <div class="pk"><b>$WHALE2</b> liquidity 1.6% of cap</div>
+          <div class="pk" style="margin-top:4px;color:var(--tx-3)">turned down in the last hour</div>
+        </div>
+        <div class="body">
+          <h3>Triage</h3>
+          <p>What the screener refused to call, and why. Anyone can publish their wins — the rejections are the only way to see whether a filter is actually strict.</p>
+          <div class="go">Open Triage →</div>
+        </div>
+      </button>
+      <button class="fcard rv" data-v="vault">
+        <div class="peek">
+          <div class="pk" style="word-break:break-all;line-height:1.6;display:block">a3f9c2e1d4b8…7e05<br><span style="opacity:.5">chain head, recomputed live</span></div>
+          <div class="pk" style="margin-top:6px"><i class="bad" style="width:52px"></i>tamper detected at seq 2</div>
+        </div>
+        <div class="body">
+          <h3>Custody</h3>
+          <p>Every call hashed at insert and chained to the one before it. Try to edit or delete one in the browser and watch the chain break.</p>
+          <div class="go">Open Custody →</div>
+        </div>
+      </button>
+    </div>
+  </div></section>
+
+  <div class="strip"><div class="wrap">
+    <p>Calls tracked on</p>
+    <div class="strip-row">
+      <div><i style="background:#9945FF"></i>Solana</div><div><i style="background:#2E6BFF"></i>Base</div>
+      <div><i style="background:#F0B90B"></i>BNB Chain</div><div><i style="background:#8A93B2"></i>Ethereum</div>
+    </div>
+  </div></div>
+
+  <section class="sec"><div class="wrap">
+    <div class="sec-head mid rv"><div class="eyebrow">The method</div>
+      <h2>Three measurements. No exceptions.</h2>
+      <p>The same formula runs on every call — the ones that worked and the ones that didn't. That's what makes the hit rate mean anything.</p></div>
+    <div class="cards">
+      <div class="card rv"><div class="ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#9AA6FF" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="10" r="7.2"/><path d="M10 6v4.3l2.8 1.7"/></svg></div>
+        <h3>Eight hard vetoes first</h3><p>Liquidity floor, age window, cap ceiling, liquidity-to-cap ratio, sell pressure, no vertical entries, real socials, sane quote token. Any single failure kills the signal regardless of how good the rest looks.</p></div>
+      <div class="card rv"><div class="ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#9AA6FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 13.5l4-5 3.4 3 3-4.6 4.6 4.4"/><path d="M2.5 17h15"/></svg></div>
+        <h3>Peak sits next to now</h3><p>Peak alone is how track records get faked — nobody actually sold there. The current multiple is always shown beside it, so the drawdown is visible.</p></div>
+      <div class="card rv"><div class="ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#9AA6FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5h12v11H4z"/><path d="M7 9h6M7 12h4"/></svg></div>
+        <h3>The reasoning is published</h3><p>Every signal carries the conditions that fired it, scored out of 100. Over time that lets anyone check which reasons actually produce winners — and lets the filter be tuned on evidence instead of feel.</p></div>
+    </div>
+  </div></section>
+
+  <section class="sec" style="padding-top:0"><div class="wrap">
+    <div class="metrics rv">
+      <div class="met"><div class="v" id="mCalls">—</div><div class="k">Calls on record</div></div>
+      <div class="met"><div class="v" id="mHit">—<span>%</span></div><div class="k">Hit rate ≥2×</div></div>
+      <div class="met"><div class="v" id="mMed">—<span>×</span></div><div class="k">Median peak</div></div>
+      <div class="met"><div class="v" id="mBest">—<span>×</span></div><div class="k">Best peak</div></div>
+    </div>
+  </div></section>
+
+  <section class="sec" style="padding-top:0"><div class="wrap">
+    <div class="ctaband rv"><div class="glow"></div>
+      <h2>Check the record before you trust anyone.</h2>
+      <p>Including us. Every call we've ever fired is sitting there, wins and failures in the same list.</p>
+      <button class="btn btn-p btn-lg" data-v="reg">Open the register</button>
+    </div>
+  </div></section>
+
+  <div class="wrap"><footer>
+    <span>© 2026 Proof · Prototype</span>
+    <span class="soc" style="gap:2px">
+      <a href="#" aria-label="X"><svg viewBox="0 0 24 24"><path d="M18.9 2H22l-7 8 8.2 12h-6.4l-5-7.3L5.9 22H2.8l7.5-8.6L2.4 2h6.6l4.5 6.7L18.9 2Zm-1.1 18h1.7L7.3 3.8H5.5L17.8 20Z"/></svg></a>
+      <a href="#" aria-label="Telegram"><svg viewBox="0 0 24 24"><path d="M21.9 4.3 18.9 19c-.2 1-.8 1.2-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7L18.2 6c.4-.3-.1-.5-.6-.2L7.1 12.4l-4.5-1.4c-1-.3-1-1 .2-1.4l17.6-6.8c.8-.3 1.5.2 1.5 1.5Z"/></svg></a>
+    </span>
+    <span>$PROOF CA · coming soon</span>
+    <span>Peak is not a realized return · Not financial advice</span>
+  </footer></div>
+</div>
+
+<!-- ═══════ REGISTER ═══════ -->
+<div id="v-reg" class="hide"><div class="wrap-w">
+  <div class="reg-head">
+    <div><h1>Register</h1><p>Every call in the order it was fired. Wins, misses, and the ones that died.</p></div>
+    <div class="reg-figs">
+      <div class="rg"><div class="v" id="rCalls">—</div><div class="k">Calls 7D</div></div>
+      <div class="rg"><div class="v" id="rHit">—<span>%</span></div><div class="k">Hit ≥2×</div></div>
+      <div class="rg"><div class="v" id="rMed">—<span>×</span></div><div class="k">Median peak</div></div>
+      <div class="rg"><div class="v" id="rBest">—<span>×</span></div><div class="k">Best peak</div></div>
+    </div>
+  </div>
+  <div class="rail">
+    <div class="seg" id="seg"><button data-f="all" class="on">All</button><button data-f="live">Live</button><button data-f="win">Wins</button><button data-f="dead">Dead</button></div>
+    <select class="sel" id="sortSel"><option value="recent">Newest first</option><option value="peak">Highest peak</option><option value="now">Highest now</option></select>
+    <button class="chip hide" id="chipChain"></button>
+    <span class="cnt" id="cnt"></span>
+  </div>
+  <div class="reg-grid">
+    <main class="feed" id="feed"></main>
+    <aside class="side">
+      <div class="srch"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#585E68" stroke-width="1.6"><circle cx="7" cy="7" r="4.8"/><path d="M10.8 10.8L14 14"/></svg>
+        <input id="q" placeholder="Search name, ticker, contract" aria-label="Search"></div>
+      <div class="pnl"><h4>Caller index <span>30d</span></h4><div id="callers"></div></div>
+      <div class="pnl"><h4>By chain <span>7d</span></h4><div id="chains"></div></div>
+    </aside>
+  </div>
+</div></div>
+
+<!-- ═══════ CALL DETAIL ═══════ -->
+<div id="v-call" class="hide"><div class="wrap"><div id="cdBody"></div></div></div>
+
+<!-- ═══════ QUANT DESK ═══════ -->
+<div id="v-quant" class="hide"><div class="wrap-w">
+  <div class="pghead">
+    <h1>Hindsight</h1>
+    <p>Which conditions actually produce winners. Every signal stores the rules that fired it, so once calls settle the filter can be retuned on evidence instead of feel. Misses stay in every denominator on this page.</p>
+  </div>
+  <div class="cols c2">
+    <div class="box" style="grid-column:1/-1">
+      <h3>Hit rate by score band</h3>
+      <p class="sub">If the score means anything, this should climb left to right. Where it stops climbing is where the firing threshold belongs.</p>
+      <div class="bars" id="qBands"></div>
+    </div>
+    <div class="box" style="grid-column:1/-1">
+      <h3>What you would actually have made</h3>
+      <p class="sub">Peak × is a ceiling nobody sold at. This applies a real exit rule to every call in the register, takes 5% round-trip cost off each one, and plots the running result. Losses included, obviously.</p>
+      <div class="sim-ctl">
+        <div class="seg" id="simExit">
+          <button data-x="2x" class="on">Sell at 2×</button>
+          <button data-x="trail">Trail peak −25%</button>
+          <button data-x="hold">Hold to settle</button>
+          <button data-x="1.5x">Sell at 1.5×</button>
+        </div>
+        <select class="sel" id="simSize">
+          <option value="100">$100 per call</option>
+          <option value="250">$250 per call</option>
+          <option value="500">$500 per call</option>
+        </select>
+      </div>
+      <div class="eq" id="simEq"></div>
+      <div class="simstat" id="simStat"></div>
+      <div class="gap" id="simGap"></div>
+    </div>
+    <div class="box">
+      <h3>Reason performance</h3>
+      <p class="sub">Lift of 1.00 means the reason tells you nothing beyond the base rate. Below 1.00 means calls carrying it do worse than average.</p>
+      <table class="tbl"><thead><tr><th>Reason</th><th style="text-align:right">n</th><th style="text-align:right">Hit</th><th>Lift</th></tr></thead>
+      <tbody id="qReasons"></tbody></table>
+      <p class="sub" style="margin:14px 0 0">A reason that appears on nearly every call cannot discriminate — to measure it, the screener has to sometimes fire without it.</p>
+    </div>
+    <div class="box">
+      <h3>By chain</h3>
+      <p class="sub">Where the filter is working and where it is not.</p>
+      <table class="tbl"><thead><tr><th>Chain</th><th style="text-align:right">Calls</th><th style="text-align:right">Hit</th><th style="text-align:right">Avg peak</th></tr></thead>
+      <tbody id="qChains"></tbody></table>
+      <h3 style="margin-top:22px">Threshold sweep</h3>
+      <p class="sub">More signals is not better if they are worse.</p>
+      <table class="tbl"><thead><tr><th>Threshold</th><th style="text-align:right">Fires</th><th style="text-align:right">Hit</th></tr></thead>
+      <tbody id="qSweep"></tbody></table>
+    </div>
+  </div>
+</div></div>
+
+<!-- ═══════ OPS ROOM ═══════ -->
+<div id="v-ops" class="hide"><div class="wrap-w">
+  <div class="pghead">
+    <h1>Triage</h1>
+    <p>What the screener is doing right now, and what it decided not to call. The rejections matter more than the signals — they are the only way to see whether the filter is actually strict.</p>
+  </div>
+  <div class="cols c2">
+    <div class="box">
+      <h3>Pipeline</h3>
+      <p class="sub">Four schedules, one process, no manual step.</p>
+      <div id="oJobs"></div>
+    </div>
+    <div class="box">
+      <h3>Last 24 hours</h3>
+      <p class="sub">Most candidates should die at the gates. That is the design.</p>
+      <div id="oCounts"></div>
+    </div>
+    <div class="box">
+      <h3>Rejected candidates</h3>
+      <p class="sub">Published on purpose. Anyone claiming a hit rate should also show what they passed on.</p>
+      <div id="oRejects"></div>
+    </div>
+    <div class="box">
+      <h3>Active gates</h3>
+      <p class="sub">Hard vetoes. Any single failure kills a signal no matter how good the rest looks.</p>
+      <div id="oGates"></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ═══════ VAULT ═══════ -->
+<div id="v-vault" class="hide"><div class="wrap-w">
+  <div class="pghead">
+    <h1>Custody</h1>
+    <p>The permanent record. Every call is hashed at insert and chained onto the one before it, so removing or editing any past call breaks every hash after it. The head is published daily.</p>
+  </div>
+  <div class="cols c2">
+    <div class="box" style="grid-column:1/-1">
+      <h3>Chain head</h3>
+      <p class="sub">Recomputed from the full register in your browser, right now.</p>
+      <div class="hash" id="vHead">—</div>
+      <div id="vStats" style="margin-top:16px"></div>
+    </div>
+    <div class="box">
+      <h3>Try to break it</h3>
+      <p class="sub">The claim is only worth something if you can test it. Edit a stored entry or remove a call, and see what the chain says.</p>
+      <div class="tamper">
+        <button class="btn btn-s" data-tamper="edit">Edit an entry MC</button>
+        <button class="btn btn-s" data-tamper="delete">Delete a call</button>
+        <button class="btn btn-s" data-tamper="reset">Restore</button>
+      </div>
+      <div class="vres ok" id="vResult">Chain intact — every record hash matches and every link checks out.</div>
+    </div>
+    <div class="box">
+      <h3>Anchors</h3>
+      <p class="sub">The head, published on-chain once a day. Costs cents; makes the record checkable by anyone.</p>
+      <table class="tbl"><thead><tr><th>Date</th><th style="text-align:right">Calls</th><th>Head</th></tr></thead>
+      <tbody id="vAnchors"></tbody></table>
+      <button class="btn btn-s btn-full" style="margin-top:16px" id="vCsv">Download full register as CSV</button>
+    </div>
+  </div>
+</div></div>
+
+<!-- ═══════ MINT ═══════ -->
+<div id="v-mint" class="hide"><div class="wrap">
+  <div class="mint-head">
+    <div class="pill"><span class="pulse"></span> Phase 2 open <span class="tag">222 keys</span></div>
+    <h1 style="font-size:clamp(34px,5.2vw,58px);letter-spacing:-.04em;margin-bottom:18px">Proof Keys</h1>
+    <p class="hero-sub">666 keys. Every one is drawn from its own token number — a guilloché engraving, the same line geometry used on banknotes and share certificates. No two are alike, and none of them is a JPEG on a server.</p>
+  </div>
+
+  <div class="mint-grid">
+    <div>
+      <div class="keystage">
+        <svg class="art" id="keyArt" viewBox="0 0 600 600" aria-label="Generated key artwork"></svg>
+        <span class="lbl" id="keyLbl">#0000</span>
+        <span class="tierbadge" id="keyTier">Tier —</span>
+      </div>
+      <div class="keytools">
+        <button class="btn btn-s" id="reroll">Preview another</button>
+        <span class="note">Drawn live in your browser · nothing pre-rendered</span>
+      </div>
+      <div class="traits" id="traits"></div>
+    </div>
+
+    <div class="abord mintpanel"><div class="inner">
+      <div class="top"><div class="phase">Phase 2 · Public</div><span class="live">OPEN</span></div>
+      <div class="prow" style="border-top:none"><span class="k">Price per key</span><span class="v big">0.08 <small style="font-size:13px;color:var(--tx-3)">ETH</small></span></div>
+      <div class="prow"><span class="k">Quantity</span>
+        <span class="qty"><button id="qMinus">−</button><span id="qVal">1</span><button id="qPlus">+</button></span></div>
+      <div class="prow"><span class="k">Total</span><span class="v" id="total">0.08 ETH</span></div>
+      <div class="prow"><span class="k">Max per wallet</span><span class="v">5</span></div>
+      <button class="btn btn-p btn-lg btn-full" style="margin-top:18px" id="mintBtn">Claim key</button>
+      <div class="supply">
+        <div class="supmeta"><span id="supTxt">412 / 666 minted</span><span id="supPct">62%</span></div>
+        <div class="supbar"><i id="supBar" style="width:62%"></i></div>
+      </div>
+      <p class="mintnote">Tier is assigned on reveal, once, from a single seed for the whole season. Every mint rolls the same odds — the last key can still pull Tier III.</p>
+      <div class="revealbar">
+        <span>Preview state</span>
+        <div class="seg" id="revealSeg" style="margin-left:auto">
+          <button data-r="0">Before reveal</button><button data-r="1" class="on">After reveal</button>
+        </div>
+      </div>
+      <p class="risk">Keys grant access to a signal feed. They are not an investment, carry no
+      revenue share, and past hit rate does not predict future calls. Anything you pay is at risk
+      of total loss. Check what applies where you live before buying.</p>
+    </div></div>
+  </div>
+
+  <section class="sec" id="collection" style="padding:88px 0 0">
+    <div class="collhead rv">
+      <div>
+        <div class="eyebrow">Collection</div>
+        <h2 style="font-size:clamp(26px,3.6vw,38px)">Minted so far</h2>
+      </div>
+      <div class="seg" id="collSeg">
+        <button data-t="0" class="on">All</button>
+        <button data-t="1">Tier I</button>
+        <button data-t="2">Tier II</button>
+        <button data-t="3">Tier III</button>
+      </div>
+    </div>
+    <div class="coll" id="coll"></div>
+    <div style="text-align:center;margin-top:28px">
+      <button class="btn btn-s" id="loadMore">Load more keys</button>
+      <p class="mono" id="collCount" style="font-size:11.5px;color:var(--tx-3);margin-top:14px"></p>
+    </div>
+  </section>
+
+  <section class="sec" style="padding:88px 0 0">
+    <div class="sec-head mid rv"><div class="eyebrow">Tiers</div>
+      <h2>What you're actually buying is time.</h2>
+      <p>Every holder gets the same calls. The only thing tier changes is how many seconds early it lands — which, in this market, is the whole game.</p></div>
+    <div class="odds">
+      <div class="odd rv"><div class="t"><b>Tier I</b><i>60.1% odds</i></div>
+        <div class="lat">10<small>s delay</small></div>
+        <p class="d">Full register access and the live feed, ten seconds behind the desk.</p>
+        <div class="bar"><i style="width:60%"></i></div><div class="sup"><span>400 keys</span><span>common</span></div></div>
+      <div class="odd rv"><div class="t"><b>Tier II</b><i>30.0% odds</i></div>
+        <div class="lat">5<small>s delay</small></div>
+        <p class="d">Everything in Tier I at half the latency, plus push alerts on every new call.</p>
+        <div class="bar"><i style="width:30%"></i></div><div class="sup"><span>200 keys</span><span>uncommon</span></div></div>
+      <div class="odd t3 rv"><div class="t"><b>Tier III</b><i>9.9% odds</i></div>
+        <div class="lat">0<small>s · instant</small></div>
+        <p class="d">The call reaches you the moment it's written to the register. No delay at all.</p>
+        <div class="bar"><i style="width:10%"></i></div><div class="sup"><span>66 keys</span><span>rare</span></div></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-head rv"><div class="eyebrow">The key</div><h2>What it unlocks</h2></div>
+    <div class="perks">
+      <div class="perk rv"><span class="n">01</span><div><h3>The feed, early</h3><p>New calls arrive at your tier's latency instead of waiting for the public register to settle.</p></div></div>
+      <div class="perk rv"><span class="n">02</span><div><h3>Proof of entry</h3><p>The transaction hash behind every call, so you can verify the desk took its own position.</p></div></div>
+      <div class="perk rv"><span class="n">03</span><div><h3>Caller alerts</h3><p>Follow individual callers in the index and get notified only when the ones you trust fire.</p></div></div>
+      <div class="perk rv"><span class="n">04</span><div><h3>Full history export</h3><p>Download the entire register as CSV and run your own numbers against ours.</p></div></div>
+    </div>
+  </section>
+
+  <section class="sec" style="padding-top:0">
+    <div class="sec-head rv"><div class="eyebrow">Schedule</div><h2>Mint phases</h2></div>
+    <div class="phases rv">
+      <div class="ph"><span>Phase</span><span>Supply</span><span>Price</span><span style="justify-self:end">Status</span></div>
+      <div class="ph"><span>Phase 1 · Allowlist</span><span class="mn">111</span><span class="mn">0.06 ETH</span><span class="st done">Closed</span></div>
+      <div class="ph"><span>Phase 2 · Public</span><span class="mn">222</span><span class="mn">0.08 ETH</span><span class="st now">Open</span></div>
+      <div class="ph"><span>Phase 3 · Final</span><span class="mn">333</span><span class="mn">0.08 ETH</span><span class="st next">Soon</span></div>
+      <div class="ph"><span>Season 2 · Reserved</span><span class="mn">445</span><span class="mn">—</span><span class="st done">Held back</span></div>
+    </div>
+  </section>
+
+  <footer><span>© 2026 Proof · Prototype</span><span>Artwork generated on-device from token number · Not financial advice</span></footer>
+</div></div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drw" id="drw" aria-hidden="true">
+  <button class="x" id="drwX" aria-label="Close">✕</button>
+  <div class="eyebrow">Method</div><h2>How a call is measured</h2>
+  <p class="lede">One formula, applied the same way to every call. Nothing is removed after the fact.</p>
+  <dl>
+    <div class="def"><dt>Entry</dt><dd>Market cap at the exact second the call fires. Recorded once, never revised.</dd></div>
+    <div class="def"><dt>Peak ×</dt><dd>Highest market cap since entry, divided by entry. A ceiling, not a result — nobody sold there.</dd></div>
+    <div class="def"><dt>Now ×</dt><dd>Current market cap divided by entry, always shown beside peak so the drawdown is visible.</dd></div>
+    <div class="def"><dt>Win</dt><dd>Peak × reached 2.00 or higher. Marked at that moment and it stays marked.</dd></div>
+    <div class="def"><dt>Miss</dt><dd>Settled below 2.00. Counted in every rate on the page.</dd></div>
+    <div class="def"><dt>Dead</dt><dd>Market cap fell under 10% of entry. A win can go dead later — both marks stay.</dd></div>
+    <div class="def"><dt>Hit rate</dt><dd>Wins over all calls in the window. Misses and dead calls stay in the denominator.</dd></div>
+    <div class="def"><dt>Median peak</dt><dd>The middle peak ×, not the average — one moonshot can't carry the number.</dd></div>
+    <div class="def"><dt>Live / Settled</dt><dd>Live for 24 hours from the call, then settled. Settled figures stop moving.</dd></div>
+    <div class="def"><dt>Time to 2×</dt><dd>Only recorded for calls watched live. Never back-filled from historical candles.</dd></div>
+  </dl>
+  <p class="small">Peak is not a realized return.<br>All times UTC.<br>Nothing here is financial advice.</p>
+</aside>
+
+<aside class="drw" id="shareDrw" aria-hidden="true">
+  <button class="x" id="shareX" aria-label="Close">✕</button>
+  <div class="eyebrow">Share</div>
+  <h2 id="shareTitle">Post templates</h2>
+  <p class="lede">Generated from the call itself, so the numbers cannot drift from the register. Losses get a template too — that is the point.</p>
+  <div id="shareBody"></div>
+  <p class="small">Card image at <span class="mono">/og/call/&lt;seq&gt;.svg</span> · convert to PNG with resvg for platforms that need a raster.</p>
+</aside>
+
+<div class="tkr hide" id="tkr"><div class="tkr-in" id="tkrIn"></div></div>
+<script src="/assets/app.js"></script>
+</body>
+</html>
