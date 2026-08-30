@@ -63,7 +63,7 @@ const post=(eyebrow,head,sub,right)=>page(1600,900,`
 
 /* 1 — X header. Left 380px stays clear for the avatar; the register card
       leans in from the right so the profile shows the product, not a texture. */
-fs.writeFileSync('brand/banners/b1-x-header.html', page(1500,500,`
+fs.writeFileSync('brand/banners/x-header.html', page(1500,500,`
 <img class="ui" src="${SHOT('c-win.png')}" style="position:absolute;left:948px;top:50%;
   transform:translateY(-50%);width:660px;
   -webkit-mask-image:linear-gradient(100deg,transparent,#000 30%,#000 82%,transparent);
@@ -160,4 +160,18 @@ fs.writeFileSync('brand/banners/p5-scan.html', page(1080,1080,`
   <div class="rule" style="width:280px;margin:auto 0 22px"></div>
   <div class="eyebrow">Four schedules · one process · no manual step</div>
 </div>`));
-console.log('9 banner html ditulis');
+/* ── X profile ─────────────────────────────────────────────────────────── */
+
+/* the avatar renders inside a circle, so nothing may live in the corners and
+   the mark needs enough air that the crop never touches it. it also has to
+   survive 48px in a timeline, which is what sets the mark's weight here. */
+fs.writeFileSync('brand/banners/x-avatar.html', `${BASE}<style>body{width:1000px;height:1000px}</style>
+<div style="position:absolute;inset:0;background:radial-gradient(660px 560px at 50% -4%,rgba(110,123,255,.22),transparent 66%)"></div>
+<div class="dots" style="opacity:.55;-webkit-mask-image:radial-gradient(circle at 50% 30%,#000,transparent 70%);mask-image:radial-gradient(circle at 50% 30%,#000,transparent 70%)"></div>
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center">
+  <div style="width:660px;filter:drop-shadow(0 24px 60px rgba(0,0,0,.9))">${MARK}</div>
+</div>
+<div style="position:absolute;inset:0;background:radial-gradient(115% 100% at 50% 40%,transparent 46%,rgba(0,0,0,.6))"></div>
+<div class="grain"></div>`);
+
+console.log('9 banner + 1 avatar ditulis');

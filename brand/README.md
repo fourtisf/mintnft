@@ -9,8 +9,6 @@
 | `references.html` | Six directions drawn and judged at real sizes, four rejected with the reason. |
 | `dir-*.svg` | Those six directions, plus the three tally refinements. Exploration, not final assets. |
 | `dirs.js`, `tally.js`, `buildref.js` | Generate the exploration marks and the reference sheet. |
-| `nekara-banner-x.png` | X header, 1500x500 at 2x, English copy. Left 370px kept clear for the profile picture. |
-| `nekara-avatar-x.png` | X profile picture, 400x400 at 2x. X crops it to a circle. |
 | `nekara-mark-blue.svg` | Byte-identical to `nekara-mark.svg` — the mark takes `currentColor`, so blue is the host's choice, not a second file. |
 | `art.js`, `buildx.js`, `xassets.html` | Build the social artwork and its preview page. |
 
@@ -54,7 +52,8 @@ point `CHROME` at one if it is not at the default path.
 
 | File | Size | Where it goes |
 |---|---|---|
-| `b1-x-header.png` | 1500×500 | X profile header (left 380px kept clear for the avatar) |
+| `x-header.png` | 1500×500 | X profile header (left 400px kept clear for the avatar) |
+| `x-avatar.png` | 1000×1000 | X profile picture. X crops it to a circle, so the mark sits at 66% with nothing in the corners. |
 | `b2-intro.png` | 1600×900 | the introduction post, and OG image |
 | `b3-method.png` | 1600×900 | the register: a win and a dead call side by side |
 | `b4-square.png` | 1080×1080 | Telegram and Instagram |
