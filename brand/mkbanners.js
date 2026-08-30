@@ -126,23 +126,23 @@ fs.writeFileSync('brand/banners/b4-square.html', page(1080,1080,`
    only has to land the name and say it is not open yet, so the mark carries it
    and the "coming soon" marker is the site's own nav chip rather than a badge
    invented for a banner. */
-const intro=(w,h,markPx,wordPx,headPx,chipPx)=>page(w,h,`
+const intro=(w,h,markPx,wordPx,headPx)=>`${BASE}<style>body{width:${w}px;height:${h}px}</style>
+<div style="position:absolute;inset:0;background:url('${SHOT('pv-reg.png')}') center 58%/${h>1000?"175%":"138%"} auto no-repeat"></div>
+<div style="position:absolute;inset:0;background:radial-gradient(94% 88% at 50% 50%,rgba(8,9,11,.955) 22%,rgba(8,9,11,.90) 58%,rgba(8,9,11,.74))"></div>
+<div class="aur" style="opacity:.55"></div>
 <div style="position:absolute;inset:0;padding:${h>1000?84:72}px 74px ${h>1000?66:58}px;
-  display:flex;flex-direction:column;align-items:center;text-align:center">
-  <img src="${SHOT('n-cabar.png')}" style="width:${chipPx}px;display:block">
-  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
-    <div style="width:${markPx}px">${MARK}</div>
-    <div style="font-family:var(--display);font-weight:600;letter-spacing:-.03em;
-      font-size:${wordPx}px;margin-top:26px">Nekara</div>
-    <div class="rule" style="width:220px;margin:${h>1000?42:36}px 0"></div>
-    <h1 style="font-size:${headPx}px;line-height:1.1">A public register of<br><span class="grad-tx">automated trading signals.</span></h1>
-    <p style="font-size:${h>1000?20:19}px;line-height:1.64;color:var(--tx-2);max-width:${h>1000?860:830}px;margin-top:28px">Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead — so you can judge the reasoning, not just the result.</p>
-  </div>
-  <div class="eyebrow">Solana · Base · BNB · Ethereum</div>
-</div>`);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+  <div style="width:${markPx}px;filter:drop-shadow(0 18px 46px rgba(0,0,0,.85))">${MARK}</div>
+  <div style="font-family:var(--display);font-weight:600;letter-spacing:-.03em;
+    font-size:${wordPx}px;margin-top:26px">Nekara</div>
+  <div class="rule" style="width:220px;margin:${h>1000?42:36}px 0"></div>
+  <h1 style="font-size:${headPx}px;line-height:1.1">A public register of<br><span class="grad-tx">automated trading signals.</span></h1>
+  <p style="font-size:${h>1000?20:19}px;line-height:1.64;color:var(--tx-2);max-width:${h>1000?860:830}px;margin-top:28px">Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead — so you can judge the reasoning, not just the result.</p>
+</div>
+<div class="grain"></div>`;
 
-fs.writeFileSync('brand/banners/p0-intro.html', intro(1600,900,116,66,44,300));
-fs.writeFileSync('brand/banners/p0-intro-square.html', intro(1080,1080,124,72,45,320));
+fs.writeFileSync('brand/banners/p0-intro.html', intro(1600,900,116,66,44));
+fs.writeFileSync('brand/banners/p0-intro-square.html', intro(1080,1080,124,72,45));
 
 /* ── posts ─────────────────────────────────────────────────────────────── */
 

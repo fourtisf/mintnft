@@ -58,8 +58,8 @@ point `CHROME` at one if it is not at the default path.
 | `b3-method.png` | 1600×900 | the register: a win and a dead call side by side |
 | `b4-square.png` | 1080×1080 | Telegram and Instagram |
 
-The opening post. No product shot — it only has to land the name and say the
-contract is not out yet, and it borrows the site's own nav chip to say it.
+The opening post. The register runs behind it, scrimmed back far enough that
+only the mark and the name carry — no chip, no ticker, no chain list.
 
 | File | Size | Where it goes |
 |---|---|---|
