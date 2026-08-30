@@ -76,10 +76,28 @@ function sparkPath(row) {
   return "M" + pts.join("L");
 }
 
-export function toCsv(rows) {
-  const cols = ["seq", "firedAt", "chain", "symbol", "tokenAddress", "entryMc",
-                "peakMc", "nowMc", "peakX", "nowX", "verdict", "isDead",
-                "secondsTo2x", "score", "recordHash"];
-  const esc2 = v => v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
-  return [cols.join(","), ...rows.map(r => cols.map(c => esc2(r[c])).join(","))].join("\n");
+/**
+ * The public export. Carries every field that goes into record_hash, so a
+ * reader can recompute the whole chain themselves rather than take our word
+ * that the hash in the last column belongs to the row in front of it.
+ *
+ * reasonIds is pipe-joined and sourceRef distinguishes empty from absent,
+ * because both have to survive the round trip for the recomputation to agree.
+ */
+export const CSV_COLUMNS = [
+  "seq", "hashVersion", "callerId", "chain", "tokenAddress", "pairAddress", "symbol",
+  "firedAt", "entryPriceUsd", "entrySupply", "entryMc", "entrySupplySource",
+  "liquidityUsd", "score", "reasonIds", "sourceKind", "sourceRef",
+  "peakMc", "nowMc", "peakX", "nowX", "verdict", "isDead", "secondsTo2x",
+  "recordHash", "chainHash",
+];
+
+export function toCsv(rows, cols = CSV_COLUMNS) {
+  const cell = (r, c) => {
+    const v = c === "reasonIds" ? (r.reasonIds ?? []).join("|")
+            : c === "sourceRef" ? (r.sourceRef == null ? "\\N" : r.sourceRef)
+            : r[c];
+    return v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  };
+  return [cols.join(","), ...rows.map(r => cols.map(c => cell(r, c)).join(","))].join("\n");
 }

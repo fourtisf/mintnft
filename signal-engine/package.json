@@ -1,1 +1,9 @@
-{"type":"module"}
+{
+  "name": "proof-signal-engine",
+  "private": true,
+  "type": "module",
+  "description": "Screener, scorer, integrity chain and gated API for the Proof register.",
+  "dependencies": {
+    "ethereumjs-util": "^7.1.5"
+  }
+}

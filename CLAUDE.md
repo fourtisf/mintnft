@@ -37,7 +37,14 @@ becomes the thing it was built to replace.
 
 ## Stack
 
-Node 20 + TypeScript, Fastify, Postgres 15, Redis, BullMQ, Next.js 14, viem.
+**Intended:** Node 20 + TypeScript, Fastify, Postgres 15, Redis, BullMQ,
+Next.js 14, viem.
+
+**Actually built today:** plain ES modules on Node 20, `node:http`, one JSON
+file. The engine's only runtime dependency is `ethereumjs-util`, for signature
+recovery and nothing else. None of Fastify, Postgres, Redis or BullMQ is in
+here yet — read the table below as the status, not this paragraph as one.
+
 Contracts: Solidity 0.8.24, **`viaIR: true` is required** (stack depth), OZ 5.x.
 Deploy on a small VPS; Postgres and Redis in Docker.
 
@@ -45,22 +52,31 @@ Deploy on a small VPS; Postgres and Redis in Docker.
 
 | Path | State |
 |---|---|
-| `signal-engine/` | Working JS. Screener, scorer, integrity chain, API, analytics, notifier. Tested against fixtures and a simulated market. **Never run against live data.** |
-| `contracts/` | Compile clean. 666/666 trait parity with the prototype, 1.61M gas worst case. |
-| `schema.sql` | Postgres DDL, runs as-is. Structurally verified. |
-| `prototype/proof.html` | Design reference. Single file, mock data, seven pages. |
+| `signal-engine/` | Working JS. Screener, scorer, integrity chain, Merkle anchoring, SIWE auth, server-side tier gating, websocket feed, API, analytics, notifier. Fixture- and simulation-tested. **Never run against live data.** |
+| `signal-engine/verify.js` | Standalone verifier. Recomputes the chain from the public CSV and diffs it against the on-chain anchor. Takes no engine internals on trust. |
+| `contracts/` | Compile clean. 666/666 trait parity, 1.61M gas worst case. `ProofAnchor` proved against a real EVM. |
+| `schema.sql` | Postgres DDL, runs as-is. Structurally verified. **The engine does not use it yet** — storage is still `FileStore`. |
+| `prototype/proof.html` | Design reference. Single file, mock data, seven pages. No Next.js port exists yet. |
 
 ## How to verify your work
 
 ```bash
 cd signal-engine
-node test.js         # rules against fixtures
-node simulate.js     # full pipeline + integrity tamper test
-node backtest.js     # threshold sweep and reason attribution
+node test.js               # rules against fixtures
+node simulate.js           # full pipeline + integrity tamper test
+node backtest.js           # threshold sweep and reason attribution
+node test-gating.js        # Tier I cannot get a call inside 10s, by any route
+node test-gating.js --nogate   # the same test failing, so you know it tests something
 
 cd ..
+node compile.js      # contracts build, all under 24KB
 node parity.js       # contracts vs prototype, must print 666 / 666
+node test-anchor.js  # anchor + Merkle proof on a real EVM, and the CSV path
+node test-tier.js    # the tier read reaches the real ProofKeys function
 ```
+
+`test-gating.js --nogate` is expected to report failures — that is the point of
+it. Everything else must come out clean.
 
 If `parity.js` prints anything other than 666/666, stop and fix it before
 continuing. Everything else is recoverable; that one is not.
@@ -81,19 +97,43 @@ continuing. Everything else is recoverable; that one is not.
 
 1. **The engine has never seen real market data.** Everything is fixture-tested.
    This is the first thing to fix and it unblocks every other judgement.
-2. **Discovery is weak.** `/token-profiles` only surfaces tokens whose team
+
+2. **Anchoring works but is not wired to a chain.** The Merkle root, the
+   contract, the proof endpoint and the standalone verifier all exist and are
+   proved against a real EVM by `test-anchor.js`. What is missing is a
+   publisher: `start({ publishAnchorTx })` takes one, and until it is passed,
+   `/api/verify` reports the register as unanchored. Do not soften that
+   wording — an unanchored chain is one we could rewrite, and saying otherwise
+   is the exact claim this project exists to disprove.
+
+3. **`entrySupply` is derived, not read from the chain.** Dexscreener publishes
+   no supply, so it is backed out of the cap and price it does publish, and the
+   route is recorded in `entrySupplySource`. Market cap is at least ours and
+   reproducible now, but the supply behind it still originates with a provider.
+   An on-chain `totalSupply` read upgrades this without changing any stored
+   record's meaning.
+
+4. **Discovery is weak.** `/token-profiles` only surfaces tokens whose team
    filled in a profile; the best signals come from pools too fresh to have one.
    `sources.js` has Helius and EVM factory sources ready — they need keys.
-3. **Peak is observed, not candle-derived.** Dexscreener publishes no OHLCV, so
+
+5. **Peak is observed, not candle-derived.** Dexscreener publishes no OHLCV, so
    peak is the highest value the poller actually saw. Recorded honestly as
    `peakSource:"observed"`. GeckoTerminal has free candles and would upgrade
    this to a peak anyone can recompute.
-4. **Score weights are reasoned, not measured.** Do not tune them on a handful
+
+6. **Score weights are reasoned, not measured.** Do not tune them on a handful
    of calls. Read `/api/analytics/bands` after ~100 settled calls.
-5. **Tier latency is an unresolved product problem.** Several hundred holders
+
+7. **Tier latency is an unresolved product problem.** Several hundred holders
    acting on a $25K token move it themselves, and Tier III entering 10s before
    Tier I means Tier I buys Tier III's exit. Flag it; do not design around it
-   silently.
+   silently. The gating is now enforced, which makes the problem measurable
+   rather than solved: the register will show whether Tier I's fills are worse.
+
+8. **Postgres and the Next.js port are not started.** `schema.sql` is verified
+   but unused; storage is a JSON file behind the `Store` interface, which is
+   what makes swapping it a contained job. The prototype has not been ported.
 
 ## Things that are decided, do not relitigate
 

@@ -15,6 +15,8 @@
  * actually correlate with a win.
  */
 
+import { HASH_VERSION } from "./integrity.js";
+
 export const CONFIG = {
   minLiquidityUsd: 15_000,
   minAgeMinutes: 20,          // the first minutes belong to snipers
@@ -33,9 +35,53 @@ const pct = n => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
 const usd = n => n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M`
               : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n)}`;
 
+/* ───────────────────── market cap, computed not trusted ─────────────────────
+
+   Never store a provider's marketCap field. Providers disagree on what it
+   means and change the definition without notice, which makes every verdict
+   built on it unreproducible.
+
+   Dexscreener publishes no supply, so supply is derived once from the figures
+   it does publish and then frozen on the call. Every later observation is
+   price x that frozen supply, so peakX is a pure price ratio and a provider
+   redefining its cap mid-flight cannot move a verdict that is already on the
+   register.
+
+   marketCap is preferred over fdv because the gates below were tuned against
+   circulating cap; switching the basis would silently retune every threshold.
+   Whichever is used is recorded in entrySupplySource, so a reader can see
+   exactly how the denominator was arrived at. Wire a real totalSupply source
+   and this derivation goes away without the stored records changing meaning.
+*/
+
+export function deriveSupply(pair) {
+  const price = Number(pair.priceUsd ?? 0);
+  if (!(price > 0) || !Number.isFinite(price)) return null;
+  for (const [field, source] of [["marketCap", "dexscreener:marketCap/priceUsd"],
+                                 ["fdv", "dexscreener:fdv/priceUsd"]]) {
+    const cap = Number(pair[field] ?? 0);
+    if (cap > 0 && Number.isFinite(cap)) {
+      const supply = Math.round(cap / price);
+      if (supply > 0 && Number.isFinite(supply)) return { price, supply, source };
+    }
+  }
+  return null;
+}
+
+/** Market cap for screening, on the same basis the call will be frozen at. */
+export function marketCapOf(pair) {
+  const d = deriveSupply(pair);
+  return d ? d.price * d.supply : 0;
+}
+
 /* ─────────────────────────── gates ─────────────────────────── */
 
 export const GATES = [
+  {
+    id: "priceable",
+    check: p => deriveSupply(p) !== null,
+    fail: () => "No usable price or supply — market cap cannot be computed, so entry is unmeasurable",
+  },
   {
     id: "liquidity_floor",
     check: (p, c) => (p.liquidity?.usd ?? 0) >= c.minLiquidityUsd,
@@ -57,11 +103,11 @@ export const GATES = [
   {
     id: "cap_window",
     check: (p, c) => {
-      const mc = p.marketCap ?? p.fdv ?? 0;
+      const mc = marketCapOf(p);
       return mc >= c.minMarketCap && mc <= c.maxMarketCap;
     },
     fail: (p, c) => {
-      const mc = p.marketCap ?? p.fdv ?? 0;
+      const mc = marketCapOf(p);
       return mc < c.minMarketCap
         ? `Market cap ${usd(mc)} is below ${usd(c.minMarketCap)}`
         : `Market cap ${usd(mc)} is above the ${usd(c.maxMarketCap)} ceiling`;
@@ -70,11 +116,11 @@ export const GATES = [
   {
     id: "liquidity_ratio",
     check: (p, c) => {
-      const mc = p.marketCap ?? p.fdv ?? 0;
+      const mc = marketCapOf(p);
       return mc > 0 && (p.liquidity?.usd ?? 0) / mc >= c.minLiqToMcRatio;
     },
     fail: (p, c) => {
-      const mc = p.marketCap ?? p.fdv ?? 1;
+      const mc = marketCapOf(p) || 1;
       return `Liquidity is only ${(((p.liquidity?.usd ?? 0) / mc) * 100).toFixed(1)}% of cap — too thin to exit`;
     },
   },
@@ -221,9 +267,19 @@ export function evaluate(pair, cfg = CONFIG, seen = new Map()) {
   return { fire: score >= cfg.scoreToFire, score, reasons, vetoes: [], key };
 }
 
-/** What actually gets written to the register. */
-export function toSignal(pair, ev) {
+/**
+ * What actually gets written to the register.
+ *
+ * callerId is explicit rather than implied. The register is multi-caller from
+ * day one — the house desk is just caller 1 — and a call with no author on it
+ * is a call that can be reattributed later.
+ */
+export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sourceRef = null } = {}) {
+  const d = deriveSupply(pair);
+  if (!d) throw new Error("toSignal called on a pair with no usable price or supply");
   return {
+    hashVersion: HASH_VERSION,
+    callerId,
     chain: pair.chainId,
     tokenAddress: pair.baseToken.address,
     pairAddress: pair.pairAddress,
@@ -232,11 +288,15 @@ export function toSignal(pair, ev) {
     imageUrl: pair.info?.imageUrl ?? null,
     dex: pair.dexId,
     firedAt: new Date().toISOString(),
-    entryPriceUsd: Number(pair.priceUsd ?? 0),
-    entryMc: pair.marketCap ?? pair.fdv ?? 0,
+    entryPriceUsd: d.price,
+    entrySupply: d.supply,
+    entryMc: d.price * d.supply,
+    entrySupplySource: d.source,
     liquidityUsd: pair.liquidity?.usd ?? 0,
     score: ev.score,
     reasons: ev.reasons.map(r => r.why),
     reasonIds: ev.reasons.map(r => r.id),
+    sourceKind,
+    sourceRef,
   };
 }

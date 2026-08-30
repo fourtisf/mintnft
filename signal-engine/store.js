@@ -7,7 +7,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { recordHash, linkHash, GENESIS, verifyChain } from "./integrity.js";
+import { recordHash, linkHash, GENESIS, verifyChain, HASH_VERSION } from "./integrity.js";
 
 export class FileStore {
   constructor(path = "./data/register.json") {
@@ -23,7 +23,14 @@ export class FileStore {
 
   /** Insert is the only write path for calls. It also extends the hash chain. */
   insertCall(signal) {
-    const call = { ...signal, seq: ++this.db.seq, sourceKind: signal.sourceKind ?? "screener" };
+    const call = {
+      ...signal,
+      seq: ++this.db.seq,
+      hashVersion: signal.hashVersion ?? HASH_VERSION,
+      callerId: signal.callerId ?? 1,
+      sourceKind: signal.sourceKind ?? "screener",
+      sourceRef: signal.sourceRef ?? null,
+    };
     call.recordHash = recordHash(call);
     call.chainHash = linkHash(this.db.head, call.recordHash);
     this.db.head = call.chainHash;
@@ -48,7 +55,13 @@ export class FileStore {
   register()  { return this.db.calls.map(c => ({ ...c, ...this.db.marks[c.seq] })); }
   head()      { return this.db.head; }
   verify()    { return verifyChain(this.db.calls); }
+  anchors()   { return this.db.anchors; }
   addAnchor(a){ this.db.anchors.push(a); this.#flush(); }
+  /** Latest anchor that already covers this call, if one has been published. */
+  anchorFor(seq) {
+    return this.db.anchors.filter(a => a.seqTo >= seq && a.txHash)
+      .sort((x, y) => x.seqTo - y.seqTo)[0] ?? null;
+  }
   hasToken(chain, addr, withinMs) {
     const cut = Date.now() - withinMs;
     return this.db.calls.some(c =>

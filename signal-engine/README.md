@@ -7,10 +7,38 @@ reasoning attached, ready to be written to the `calls` table in `schema.sql`.
 
 ```bash
 node --version          # 20+
+npm i                   # ethereumjs-util, for SIWE signature recovery
 node test.js            # rules against fixtures, no network needed
+node test-gating.js     # tier gating, no network needed
 node run.js --once      # one live pass
 node run.js --watch     # every 60s
 ```
+
+## What is in here
+
+| File | What it does |
+|---|---|
+| `rules.js` | Gates and score. Market cap is computed from a frozen supply, never taken from a provider's field |
+| `scorer.js` | Observations to verdicts. Misses never leave a denominator |
+| `integrity.js` | Canonical form and the hash chain. `callerId` and `entrySupply` are inside the hash |
+| `merkle.js` | sha256 tree over record hashes, sorted pairs, verifiable by `ProofAnchor` |
+| `anchor.js` | Builds and publishes an anchor; produces a proof for one call |
+| `verify.js` | Standalone. Recomputes the register from the public CSV and diffs it against the chain |
+| `gating.js` | Which tier may see which call, and when |
+| `auth.js` | SIWE, sessions, and reading a tier off `ProofKeys` |
+| `ws.js` | Four feed rooms, one timer each |
+| `api.js` | Read API. Every route that can return a call is gated |
+
+## Anchoring
+
+The hash chain proves the register agrees with itself. That is not the claim.
+Anyone who can write the register can recompute the chain and agree with
+themselves — what they cannot do is change a value already published on-chain.
+
+`start()` takes a `publishAnchorTx` callback; pass one that sends the
+transaction and returns its hash. Until it is passed, `/api/verify` reports the
+register as unanchored, and the site must repeat that rather than round it up
+to "verifiable". Proved end to end against a real EVM in `../test-anchor.js`.
 
 **This sandbox cannot reach api.dexscreener.com** (`x-deny-reason: host_not_allowed`),
 so the rules are verified against fixtures shaped from the official OpenAPI

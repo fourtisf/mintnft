@@ -13,19 +13,34 @@ import { Engine } from "./engine.js";
 import { FileStore } from "./store.js";
 import { applyObservation } from "./scorer.js";
 import { serve } from "./api.js";
+import { attachFeed } from "./ws.js";
+import { publishAnchor } from "./anchor.js";
+import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
 import { Telegram, formatSignal, formatOutcome } from "./notify.js";
 
 const HOT = 20_000, WARM = 300_000, DISCOVER = 60_000, ANCHOR = 86_400_000;
 
 export function start({ store = new FileStore(), api = new Dexscreener(), port = 8787,
                         log = console.log,
+                        callerId = Number(process.env.CALLER_ID ?? 1),
+                        secret = process.env.SESSION_SECRET,
+                        domain = process.env.AUTH_DOMAIN ?? "localhost",
+                        // No key contract configured means nobody is above public.
+                        tierSource = process.env.KEYS_CONTRACT && process.env.BASE_RPC
+                          ? new ChainTierSource({ rpcUrl: process.env.BASE_RPC,
+                                                  contract: process.env.KEYS_CONTRACT, log })
+                          : new StaticTierSource(),
+                        // Anchoring is off until a publisher is wired. It is never faked.
+                        publishAnchorTx = null,
                         telegram = new Telegram({ token: process.env.TG_TOKEN,
                                                   chatId: process.env.TG_CHAT, log }) } = {}) {
   const engine = new Engine({
     client: api,
+    callerId,
     onSignal(sig) {
       if (store.hasToken(sig.chain, sig.tokenAddress, 24 * 3600e3)) return;
       const call = store.insertCall(sig);
+      feed.publish(call);
       log(`[FIRED] #${call.seq} $${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
       telegram.send(formatSignal(sig, call.seq));
     },
@@ -45,11 +60,15 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
       for (const c of list) {
         const p = best[c.tokenAddress];
         if (!p) continue;
-        const mc = p.marketCap ?? p.fdv;
-        if (!mc) continue;
+        // Same supply the call was frozen at, so peakX is a pure price ratio and
+        // a provider redefining its cap cannot move a verdict already published.
+        const price = Number(p.priceUsd ?? 0);
+        if (!(price > 0) || !(c.entrySupply > 0)) continue;
+        const mc = price * c.entrySupply;
         const before = store.mark(c.seq);
         const after = applyObservation(c, before, mc);
         store.setMark(c.seq, after);
+        feed.publishMark(c, after);
         if (before.verdict !== "win" && after.verdict === "win")
           log(`[WIN] #${c.seq} $${c.symbol} hit ${after.peakX.toFixed(2)}x in ${after.secondsTo2x}s`);
         if (!before.isDead && after.isDead)
@@ -69,14 +88,21 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
     setInterval(() => {
       const v = store.verify();
       if (!v.ok) return log("INTEGRITY BROKEN", v);
-      store.addAnchor({ head: v.head, count: v.count, at: new Date().toISOString(), txHash: null });
-      log(`[ANCHOR] ${v.count} calls, head ${v.head.slice(0, 16)}… — publish this on-chain`);
+      publishAnchor(store, publishAnchorTx ?? (() => null), log)
+        .catch(e => log("anchor failed", String(e)));
     }, ANCHOR),
   ];
 
-  const server = serve(store, port);
+  const server = serve(store, { port, secret, domain, tierSource, log });
+  const feed = attachFeed(server, {
+    log,
+    // The tier comes from the signed session and nothing else the client sends.
+    resolveTier: (req, url) => readSession(url.searchParams.get("token"), server.secret)?.tier ?? 0,
+  });
+
   log(`register api on :${port}  ·  discovery ${DISCOVER/1000}s  hot ${HOT/1000}s  warm ${WARM/1000}s`);
-  return { stop() { timers.forEach(clearInterval); server.close(); }, store, engine };
+  if (!publishAnchorTx) log("anchoring is not wired — /api/verify will report the register as unanchored");
+  return { stop() { timers.forEach(clearInterval); feed.close(); server.close(); }, store, engine, feed, server };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) start();

@@ -16,10 +16,12 @@ import { evaluate, toSignal, CONFIG } from "./rules.js";
 import { ProfileSource } from "./sources.js";
 
 export class Engine {
-  constructor({ client, cfg = CONFIG, onSignal, onReject, source, log = console.log } = {}) {
+  constructor({ client, cfg = CONFIG, onSignal, onReject, source, callerId = 1,
+                sourceKind = "screener", log = console.log } = {}) {
     this.api = client ?? new Dexscreener({ log });
     this.source = source ?? new ProfileSource(this.api);
     this.cfg = cfg;
+    this.attribution = { callerId, sourceKind };
     this.onSignal = onSignal ?? (s => log("SIGNAL", s));
     this.onReject = onReject ?? (() => {});
     this.seen = new Map();
@@ -38,7 +40,7 @@ export class Engine {
       if (!ev.fire) { this.stats.scoredLow++; this.onReject(pair, ev); continue; }
       this.seen.set(ev.key, Date.now());
       this.stats.fired++;
-      this.onSignal(toSignal(pair, ev));
+      this.onSignal(toSignal(pair, ev, this.attribution));
     }
     return this.stats;
   }

@@ -15,8 +15,14 @@ sudo useradd -r -s /usr/sbin/nologin proof
 sudo mkdir -p /opt/proof /var/log/proof
 sudo chown -R proof:proof /opt/proof /var/log/proof
 # copy signal-engine/ to /opt/proof/signal-engine
+cd /opt/proof/signal-engine
+npm i --omit=dev          # ethereumjs-util, for SIWE signature recovery
 cp .env.example .env      # fill it in
 ```
+
+Fill in `SESSION_SECRET` before anything is exposed. Left blank the engine
+generates a random one per restart, which logs a warning and drops every
+session on deploy — safe, but it means nobody stays signed in.
 
 ## 2. Check the API is reachable before anything else
 
@@ -29,9 +35,10 @@ Anything other than JSON and nothing downstream will work.
 ## 3. Dry run
 
 ```bash
-node test.js        # rules against fixtures
-node simulate.js    # full pipeline, simulated market, integrity check
-node run.js --once  # ONE live pass — read every line of this output
+node test.js         # rules against fixtures
+node simulate.js     # full pipeline, simulated market, integrity check
+node test-gating.js  # Tier I cannot get a call inside its ten seconds
+node run.js --once   # ONE live pass — read every line of this output
 ```
 
 On that first live pass, **read the rejections, not the signals.** If almost
@@ -76,6 +83,13 @@ has to sometimes fire without it.
 - [ ] Parity re-run after any art change. The site and the contract diverge the
       moment either one moves
 - [ ] Site copy states tier **odds**, not fixed counts
+- [ ] `ProofAnchor` deployed and `publishAnchorTx` wired into `start()`. Until
+      this is done `/api/verify` reports the register as unanchored, and the
+      site must not claim the record is independently verifiable — because it
+      is not. Anchoring costs about 91K gas per post, a few cents on Base
+- [ ] `verify.js` run by someone who is not us, against a CSV they downloaded
+      and an RPC they chose. That is the whole claim, tested the only way that
+      counts
 - [ ] Legal review. Not optional, and not something an engineer signs off
 
 ## 7. What is still weak

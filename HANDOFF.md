@@ -4,6 +4,14 @@
 **From:** ALFA
 **Status:** prototype approved, backend not started
 
+> **Later note.** This document is the original handoff and its reasoning still
+> stands, but it is no longer an accurate status report. Since it was written,
+> §5's anchor contract, Merkle proofs and standalone verifier have been built
+> and proved against a real EVM, and §6's tier gating is enforced server-side
+> with a test that fails when the gating is removed. Postgres (§2), the price
+> sources of §3 and the frontend work in §9 have not been started. `CLAUDE.md`
+> carries the current status; read this for the why, not the what.
+
 ---
 
 ## 0. What this is
