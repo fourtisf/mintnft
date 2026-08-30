@@ -4,7 +4,7 @@
 :root{--bg:#08090B;--surface:#101216;--surface-2:#14171C;--border:rgba(255,255,255,.07);
 --border-hi:rgba(255,255,255,.13);--tx:#F3F4F6;--tx-2:#8C929C;--tx-3:#585E68;
 --blue:#5B7CFA;--violet:#9B6DFF;--accent:#6E7BFF;--grad:linear-gradient(120deg,#5B7CFA,#9B6DFF);
---win:#3ECF8E;--r:11px;--display:"Inter Tight",system-ui,sans-serif;--ui:"Inter",system-ui,sans-serif;
+--win:#3ECF8E;--dead:#E5606B;--r:11px;--display:"Inter Tight",system-ui,sans-serif;--ui:"Inter",system-ui,sans-serif;
 --mono:"JetBrains Mono",ui-monospace,monospace}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--tx);font-family:var(--ui);overflow:hidden;position:relative}
@@ -26,18 +26,19 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
  font-size:14px;color:var(--tx-2)}
 .pill i{width:7px;height:7px;border-radius:50%;background:var(--win);display:block}
 .mono{font-family:var(--mono);color:var(--tx-3)}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
- box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 18px 50px -22px rgba(0,0,0,.9)}
 .url{font-family:var(--mono);font-size:15px;color:var(--tx-3);letter-spacing:.02em}
-.shot{position:absolute;inset:0;background:url('file:///home/user/mintnft/brand/shots/grid.png') center/cover no-repeat}
-.scrim{position:absolute;inset:0}
+
+/* a real screenshot of the site, framed the way the site frames its own surfaces */
+.ui{display:block;border:1px solid var(--border-hi);border-radius:var(--r);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 40px 90px -30px rgba(0,0,0,.95),0 0 0 1px rgba(0,0,0,.4)}
+.fade{position:absolute;left:0;right:0;pointer-events:none}
 </style><style>body{width:1080px;height:1080px}</style>
-<div class="shot" style="opacity:.85;background-size:150% auto;background-position:center 62%"></div>
-<div class="scrim" style="background:radial-gradient(110% 90% at 50% 46%,rgba(8,9,11,.70) 26%,rgba(8,9,11,.93) 72%)"></div>
-<div class="aur"></div><div class="dots" style="opacity:.5"></div>
-<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 92px;gap:38px">
-  <div style="width:112px"><svg viewBox="0 0 120 120" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient></defs><circle cx="60" cy="60" r="51" stroke="url(#lg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#lg)"/><circle cx="60" cy="60" r="10" fill="url(#lg)"/></svg></div>
-  <h1 style="font-size:60px;line-height:1.14">Signals with their<br>reasons attached.<br><span class="grad-tx">Including the ones<br>that failed.</span></h1>
-  <div class="pill"><i></i>Failed calls are never removed</div>
-  <div class="url" style="margin-top:10px">nekara.xyz</div>
+<div class="aur"></div><div class="dots"></div>
+<div style="position:absolute;inset:0;padding:76px 64px;display:flex;flex-direction:column;
+  align-items:center;text-align:center">
+  <div class="wm"><svg viewBox="0 0 120 120" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient></defs><circle cx="60" cy="60" r="51" stroke="url(#lg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#lg)"/><circle cx="60" cy="60" r="10" fill="url(#lg)"/></svg><span>Nekara</span></div>
+  <h1 style="font-size:54px;line-height:1.13;margin-top:40px">Every call in the order<br>it was fired.<br><span class="grad-tx">Wins, misses, and<br>the ones that died.</span></h1>
+  <img class="ui" src="file:///home/user/mintnft/brand/shots/c-dead.png" style="width:100%;margin-top:52px">
+  <div class="pill" style="margin-top:44px"><i></i>Failed calls are never removed</div>
+  <div class="url" style="margin-top:auto">nekara.xyz</div>
 </div><div class="grain"></div>

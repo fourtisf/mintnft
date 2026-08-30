@@ -36,3 +36,25 @@ exist to stop the flat-digital look, and neither belongs in the SVG.
 
 Palette: charcoal `#12100D` · stone `#E9E6E0` · bronze `#8C6234`
 (`#C08F52` on dark) · patina `#4E6B61`, used sparingly.
+
+## Banners
+
+The four launch banners are laid out over screenshots of the site, not over a
+stand-in for it. `mkshots.js` opens `site/` from a `file://` URL so `app.js`
+takes its DEMO branch — the production register is empty, and a banner of an
+empty register shows nothing — then crops the pieces the layouts need. Rebuild
+the whole set after any change to the site's design:
+
+    node brand/mkshots.js     # source imagery, from site/
+    node brand/mkbanners.js   # layouts -> banners/*.html
+    node brand/render.js      # -> banners/*.png at 2x
+
+or `brand/mkbanners.sh` for all three. Needs `playwright` and a chromium;
+point `CHROME` at one if it is not at the default path.
+
+| File | Size | Where it goes |
+|---|---|---|
+| `b1-x-header.png` | 1500×500 | X profile header (left 380px kept clear for the avatar) |
+| `b2-intro.png` | 1600×900 | the introduction post, and OG image |
+| `b3-method.png` | 1600×900 | the register: a win and a dead call side by side |
+| `b4-square.png` | 1080×1080 | Telegram and Instagram |
