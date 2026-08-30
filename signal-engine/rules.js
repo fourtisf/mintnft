@@ -17,17 +17,46 @@
 
 import { HASH_VERSION } from "./integrity.js";
 
+/**
+ * Env overrides. .env.example has documented SCORE_TO_FIRE and friends since
+ * the beginning and nothing read them, so setting one changed nothing — the
+ * worst kind of knob. An empty variable falls back rather than reading as 0.
+ */
+const num = (name, dflt) => {
+  const raw = process.env[name];
+  if (raw == null || String(raw).trim() === "") return dflt;
+  const v = Number(raw);
+  return Number.isFinite(v) ? v : dflt;
+};
+
 export const CONFIG = {
-  minLiquidityUsd: 15_000,
+  minLiquidityUsd: num("MIN_LIQUIDITY_USD", 15_000),
   minAgeMinutes: 20,          // the first minutes belong to snipers
   maxAgeHours: 72,
   minMarketCap: 30_000,
-  maxMarketCap: 2_000_000,    // above this our own group can't move it, and won't
+  maxMarketCap: num("MAX_MARKET_CAP", 2_000_000), // above this our own group can't move it
   minLiqToMcRatio: 0.04,      // thin liquidity against a big cap is an exit trap
   maxSellPressure: 2.2,       // h1 sells vs buys
   maxRecentPumpPct: 60,       // never buy something already vertical on 5m
-  scoreToFire: 60,
+  // 76 of a 134 maximum. The flow rules below added 28 points of headroom, and
+  // leaving the threshold at its old 60 would have quietly dropped the bar from
+  // 57% of maximum to 45% — a looser filter dressed up as a stricter one.
+  scoreToFire: num("SCORE_TO_FIRE", 76),
   cooldownHours: 24,          // one signal per token per day
+
+  // ── flow shape ────────────────────────────────────────────────────────
+  // Dexscreener publishes no wallet addresses, so none of this is smart-money
+  // tracking. It is the closest thing the data supports: how big the average
+  // clip is, and whether the bid is building or fading. Reasoned, not measured
+  // — same caveat as every weight below. analytics.js is what settles them.
+  minAvgTradeUsd: num("MIN_AVG_TRADE_USD", 50), // under this the flow is dust
+  minTradesToJudgeSize: 20,   // do not call a quiet token dusty on 4 trades
+  washMinTrades: 400,         // manufactured volume: heavy activity ...
+  washMinTurnover: 1.5,       //   ... turning over more than the pool holds ...
+  washMaxPricePct: 3,         //   ... and the price does not move
+  maxBidFadePct: 18,          // m5 buy share this far under h1 = the bid is leaving
+  sizeFloorUsd: num("SIZE_FLOOR_USD", 250), // a $250 average clip on a sub-$2M cap is size
+  minSustainedBuyShare: 0.55, // buying that holds across h1 and h6
   quoteWhitelist: ["SOL", "WETH", "ETH", "WBNB", "BNB", "USDC", "USDT"],
 };
 
@@ -72,6 +101,32 @@ export function deriveSupply(pair) {
 export function marketCapOf(pair) {
   const d = deriveSupply(pair);
   return d ? d.price * d.supply : 0;
+}
+
+/* ───────────────────── flow shape ─────────────────────
+
+   There is no such thing as smart-money filtering on this data. Dexscreener
+   returns aggregates — counts, volume, price change — and not one wallet
+   address, so who is buying is simply not in the response.
+
+   What is in the response is the size of the average clip. A token doing
+   $40,000 across 400 trades is being traded by something quite different from
+   one doing $40,000 across 25, and that difference is the honest proxy for
+   whether real size is involved. It was going unused entirely.
+*/
+
+export function flow(pair, window = "h1") {
+  const t = pair.txns?.[window];
+  const vol = Number(pair.volume?.[window] ?? 0);
+  if (!t) return null;
+  const buys = Number(t.buys ?? 0), sells = Number(t.sells ?? 0);
+  const trades = buys + sells;
+  if (!trades) return null;
+  return {
+    trades, buys, sells, volume: vol,
+    avgTradeUsd: vol / trades,
+    buyShare: buys / trades,
+  };
 }
 
 /* ─────────────────────────── gates ─────────────────────────── */
@@ -150,6 +205,50 @@ export const GATES = [
     id: "sane_quote",
     check: (p, c) => c.quoteWhitelist.includes((p.quoteToken?.symbol ?? "").toUpperCase()),
     fail: p => `Quoted in ${p.quoteToken?.symbol ?? "an unknown token"}, not a major`,
+  },
+  {
+    id: "dust_flow",
+    check: (p, c) => {
+      const f = flow(p, "h1");
+      if (!f || f.trades < c.minTradesToJudgeSize) return true;   // too few to judge
+      return f.avgTradeUsd >= c.minAvgTradeUsd;
+    },
+    fail: (p, c) => {
+      const f = flow(p, "h1");
+      return `Average trade is $${(f?.avgTradeUsd ?? 0).toFixed(0)} across ${f?.trades ?? 0} trades — dust, not money`;
+    },
+  },
+  {
+    // Not a size test — dust_flow already covers small clips. This is the other
+    // shape: real volume, plenty of it, and a price that refuses to move. Money
+    // going in and straight back out is the fingerprint of volume bought to
+    // look like interest.
+    id: "wash_pattern",
+    check: (p, c) => {
+      const f = flow(p, "h1");
+      const liq = p.liquidity?.usd ?? 0;
+      if (!f || liq <= 0) return true;
+      const flat = Math.abs(p.priceChange?.h1 ?? 0) < c.washMaxPricePct;
+      const turnover = f.volume / liq;
+      return !(f.trades >= c.washMinTrades && turnover >= c.washMinTurnover && flat);
+    },
+    fail: p => {
+      const f = flow(p, "h1");
+      const turnover = f.volume / (p.liquidity?.usd ?? 1);
+      return `${f.trades} trades turned over ${turnover.toFixed(1)}× the pool and the price barely moved — manufactured volume`;
+    },
+  },
+  {
+    id: "fading_bid",
+    check: (p, c) => {
+      const m5 = flow(p, "m5"), h1 = flow(p, "h1");
+      if (!m5 || !h1 || m5.trades < 8) return true;
+      return m5.buyShare >= h1.buyShare - c.maxBidFadePct / 100;
+    },
+    fail: p => {
+      const m5 = flow(p, "m5"), h1 = flow(p, "h1");
+      return `Bid is fading — ${(m5.buyShare * 100).toFixed(0)}% buys on 5m against ${(h1.buyShare * 100).toFixed(0)}% on the hour`;
+    },
   },
 ];
 
@@ -234,6 +333,29 @@ export const SIGNALS = [
       const b = p.boosts?.active ?? 0;
       if (!b) return null;
       return { pts: Math.min(6, b), why: `${b} active boosts — someone is paying for eyes on it` };
+    },
+  },
+  {
+    id: "size_conviction",
+    max: 16,
+    run: (p, c) => {
+      const f = flow(p, "m5") ?? flow(p, "h1");
+      if (!f || f.trades < 6 || f.avgTradeUsd < c.sizeFloorUsd) return null;
+      const pts = Math.min(16, Math.round(Math.log2(f.avgTradeUsd / c.sizeFloorUsd) * 9));
+      if (pts <= 0) return null;
+      return { pts, why: `Average buy is $${f.avgTradeUsd.toFixed(0)} — size, not retail dust` };
+    },
+  },
+  {
+    id: "sustained_accumulation",
+    max: 12,
+    run: (p, c) => {
+      const h1 = flow(p, "h1"), h6 = flow(p, "h6");
+      if (!h1 || !h6) return null;
+      if (h1.buyShare < c.minSustainedBuyShare || h6.buyShare < c.minSustainedBuyShare) return null;
+      const pts = Math.min(12, Math.round((Math.min(h1.buyShare, h6.buyShare) - c.minSustainedBuyShare) * 90));
+      if (pts <= 0) return null;
+      return { pts, why: `Buying has held for hours — ${(h6.buyShare * 100).toFixed(0)}% buys across 6h` };
     },
   },
 ];

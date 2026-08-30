@@ -71,9 +71,27 @@ Same reason GMGN is not used here: no documented public API. What circulates
 are endpoints reverse-engineered from the site, which can change without notice
 and carry terms-of-service risk. Not a foundation to build a product on.
 
+## There is no smart-money filter here, and there cannot be
+
+Dexscreener returns aggregates — trade counts, volume, price change, liquidity
+— and **not one wallet address**. Who is buying is simply not in the response,
+so wallet PnL, insider clusters and holder concentration are all out of reach
+from this provider at any amount of effort. Anything claiming otherwise on this
+data is guessing.
+
+What the data does support is the size of the average clip. A token doing
+$40,000 across 400 trades is being traded by something quite different from one
+doing $40,000 across 25, and that is the honest proxy for whether real money is
+involved. `flow()` computes it per window; `dust_flow`, `wash_pattern` and
+`size_conviction` read it.
+
+For actual smart money, the data has to come from somewhere else: Helius or a
+Solana RPC for wallet-level fills, Birdeye for holder movement, a labelled
+dataset for wallet reputation. `sources.js` is where that would attach.
+
 ## The rules
 
-Eight hard vetoes, then a weighted score out of 100 that must clear 60.
+Twelve hard vetoes, then a weighted score out of 134 that must clear 76.
 
 Gates exist to avoid losses, not to find winners. Any single failure kills the
 signal no matter how good the rest looks:
@@ -86,6 +104,9 @@ signal no matter how good the rest looks:
 | liquidity / cap | ≥ 4% | thin liquidity on a big cap is an exit trap |
 | sell pressure | sells ≤ 2.2× buys (1h) | don't catch a distribution |
 | not vertical | 5m ≤ +60% | never buy something already parabolic |
+| dust flow | avg trade ≥ $50 (1h) | hundreds of $15 trades is bots, not demand |
+| wash pattern | not 400+ trades turning over 1.5× the pool on a flat price | volume bought to look like interest |
+| fading bid | 5m buy share ≥ 1h buy share − 18pp | the bid is leaving while we look |
 | has identity | socials or site | filters pure bot spam |
 | sane quote | SOL/ETH/BNB/USDC/USDT | odd quote pairs are usually traps |
 

@@ -123,7 +123,15 @@ continuing. Everything else is recoverable; that one is not.
    this to a peak anyone can recompute.
 
 6. **Score weights are reasoned, not measured.** Do not tune them on a handful
-   of calls. Read `/api/analytics/bands` after ~100 settled calls.
+   of calls. Read `/api/analytics/bands` after ~100 settled calls. This now
+   includes the flow rules (`dust_flow`, `wash_pattern`, `fading_bid`,
+   `size_conviction`, `sustained_accumulation`) and their thresholds — they are
+   reasoned guesses like everything else, and inherit the same caveat.
+
+   There is no smart-money filtering and there cannot be on this provider:
+   Dexscreener returns no wallet addresses at all. Average clip size is the
+   closest proxy the data supports. Do not let site copy describe it as
+   anything more than that.
 
 7. **Tier latency is an unresolved product problem.** Several hundred holders
    acting on a $25K token move it themselves, and Tier III entering 10s before
