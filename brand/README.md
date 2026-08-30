@@ -58,3 +58,14 @@ point `CHROME` at one if it is not at the default path.
 | `b2-intro.png` | 1600×900 | the introduction post, and OG image |
 | `b3-method.png` | 1600×900 | the register: a win and a dead call side by side |
 | `b4-square.png` | 1080×1080 | Telegram and Instagram |
+
+Posts. Each one is a claim on the left and the piece of the site that backs it
+on the right; the copy comes from the page the panel was cropped from.
+
+| File | Size | Claim | Panel |
+|---|---|---|---|
+| `p1-triage.png` | 1600×900 | rejections are published with the gate that killed them | Rejected candidates |
+| `p2-custody.png` | 1600×900 | removing a call breaks every hash after it | Chain head, and the tamper check failing |
+| `p3-hindsight.png` | 1600×900 | peak × is a ceiling nobody sold at | What you would actually have made |
+| `p4-gates.png` | 1600×900 | eight vetoes run before anything is scored | Active gates |
+| `p5-scan.png` | 1080×1080 | what the screener passed on | Last 24 hours |

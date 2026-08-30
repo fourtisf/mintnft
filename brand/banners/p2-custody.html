@@ -1,0 +1,50 @@
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#08090B;--surface:#101216;--surface-2:#14171C;--border:rgba(255,255,255,.07);
+--border-hi:rgba(255,255,255,.13);--tx:#F3F4F6;--tx-2:#8C929C;--tx-3:#585E68;
+--blue:#5B7CFA;--violet:#9B6DFF;--accent:#6E7BFF;--grad:linear-gradient(120deg,#5B7CFA,#9B6DFF);
+--win:#3ECF8E;--dead:#E5606B;--r:11px;--display:"Inter Tight",system-ui,sans-serif;--ui:"Inter",system-ui,sans-serif;
+--mono:"JetBrains Mono",ui-monospace,monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font-family:var(--ui);overflow:hidden;position:relative}
+.dots{position:absolute;inset:0;pointer-events:none;
+ background-image:radial-gradient(circle,rgba(255,255,255,.075) 1px,transparent 1px);background-size:34px 34px;
+ -webkit-mask-image:radial-gradient(ellipse 62% 52% at 50% 6%,#000,transparent 72%);
+ mask-image:radial-gradient(ellipse 62% 52% at 50% 6%,#000,transparent 72%)}
+.aur{position:absolute;inset:0;pointer-events:none;
+ background:radial-gradient(760px 460px at 50% -6%,rgba(110,123,255,.20),transparent 68%)}
+.grain{position:absolute;inset:0;z-index:9;pointer-events:none;opacity:.019;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-height:1.03}
+.grad-tx{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.wm{display:flex;align-items:center;gap:14px}
+.wm svg{width:44px;height:44px}
+.wm span{font-family:var(--display);font-weight:600;letter-spacing:-.02em;font-size:34px}
+.mono{font-family:var(--mono);color:var(--tx-3)}
+.eyebrow{font-family:var(--mono);font-size:12.5px;font-weight:500;color:#6E747E;
+ letter-spacing:.26em;text-transform:uppercase}
+.rule{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent)}
+.rule-l{height:1px;background:linear-gradient(90deg,rgba(255,255,255,.13),transparent)}
+
+/* a real screenshot of the site. elevation is shadow, never coloured glow */
+.ui{display:block;border:1px solid var(--border-hi);border-radius:var(--r);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.055),
+   0 2px 6px rgba(0,0,0,.55), 0 18px 40px -12px rgba(0,0,0,.8),
+   0 70px 130px -40px rgba(0,0,0,1)}
+.fade{position:absolute;left:0;right:0;pointer-events:none}
+.vig{position:absolute;inset:0;pointer-events:none;
+ background:radial-gradient(125% 105% at 50% 38%,transparent 42%,rgba(0,0,0,.55))}
+</style><style>body{width:1600px;height:900px}</style>
+<div class="aur"></div><div class="dots"></div>
+<div style="position:absolute;inset:0;padding:70px 74px;display:flex;gap:44px;align-items:center">
+  <div style="width:600px;flex-shrink:0;display:flex;flex-direction:column">
+    <div class="eyebrow">Custody</div>
+    <div class="rule-l" style="width:170px;margin:20px 0 26px"></div>
+    <h2 style="font-size:46px;line-height:1.09">Remove one call,<br><span class="grad-tx">and every hash<br>after it breaks.</span></h2>
+    <p style="font-size:18px;line-height:1.64;color:var(--tx-2);margin-top:24px">The head is recomputed from the full register in your browser, and published on-chain once a day. That makes the record checkable by anyone, not only by us.</p>
+    <div class="wm" style="margin-top:46px"><svg viewBox="0 0 120 120" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient></defs><circle cx="60" cy="60" r="51" stroke="url(#lg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#lg)"/><circle cx="60" cy="60" r="10" fill="url(#lg)"/></svg><span>Nekara</span></div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;gap:24px;min-width:0"><img class="ui" src="file:///home/user/mintnft/brand/shots/v-head.png" style="width:100%">
+   <img class="ui" src="file:///home/user/mintnft/brand/shots/v-broken.png" style="width:100%"></div>
+</div><div class="vig"></div><div class="grain"></div>

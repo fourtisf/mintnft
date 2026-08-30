@@ -46,6 +46,21 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 const page=(w,h,inner)=>`${BASE}<style>body{width:${w}px;height:${h}px}</style>
 <div class="aur"></div><div class="dots"></div>${inner}<div class="vig"></div><div class="grain"></div>`;
 
+
+/* every post below is the same frame: a claim on the left, and the piece of the
+   site that backs it on the right. copy is lifted from the page it came from. */
+const post=(eyebrow,head,sub,right)=>page(1600,900,`
+<div style="position:absolute;inset:0;padding:70px 74px;display:flex;gap:44px;align-items:center">
+  <div style="width:600px;flex-shrink:0;display:flex;flex-direction:column">
+    <div class="eyebrow">${eyebrow}</div>
+    <div class="rule-l" style="width:170px;margin:20px 0 26px"></div>
+    <h2 style="font-size:46px;line-height:1.09">${head}</h2>
+    <p style="font-size:18px;line-height:1.64;color:var(--tx-2);margin-top:24px">${sub}</p>
+    <div class="wm" style="margin-top:46px">${MARK}<span>Nekara</span></div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;gap:24px;min-width:0">${right}</div>
+</div>`);
+
 /* 1 — X header. Left 380px stays clear for the avatar; the register card
       leans in from the right so the profile shows the product, not a texture. */
 fs.writeFileSync('brand/banners/b1-x-header.html', page(1500,500,`
@@ -105,4 +120,44 @@ fs.writeFileSync('brand/banners/b4-square.html', page(1080,1080,`
   <div class="rule" style="width:280px;margin:auto 0 22px"></div>
   <div class="eyebrow">Failed calls are never removed</div>
 </div>`));
-console.log('4 banner html ditulis');
+/* ── posts ─────────────────────────────────────────────────────────────── */
+
+/* p1 — the rejections. the only way to show a filter is actually strict. */
+fs.writeFileSync('brand/banners/p1-triage.html', post(
+  'Triage',
+  'Every rejection<br>is published,<br><span class="grad-tx">with the gate<br>that killed it.</span>',
+  'The rejections matter more than the signals — they are the only way to see whether the filter is actually strict.',
+  `<img class="ui" src="${SHOT('t-rejects.png')}" style="width:100%">`));
+
+/* p2 — the record cannot be quietly edited, and you can check that yourself */
+fs.writeFileSync('brand/banners/p2-custody.html', post(
+  'Custody',
+  'Remove one call,<br><span class="grad-tx">and every hash<br>after it breaks.</span>',
+  'The head is recomputed from the full register in your browser, and published on-chain once a day. That makes the record checkable by anyone, not only by us.',
+  `<img class="ui" src="${SHOT('v-head.png')}" style="width:100%">
+   <img class="ui" src="${SHOT('v-broken.png')}" style="width:100%">`));
+
+/* p3 — peak is a number nobody actually sold at */
+fs.writeFileSync('brand/banners/p3-hindsight.html', post(
+  'Hindsight',
+  'Peak × is a ceiling<br><span class="grad-tx">nobody sold at.</span>',
+  'So the register applies a real exit rule to every call in it, takes 5% round-trip cost off each one, and plots the running result. Losses included, obviously.',
+  `<img class="ui" src="${SHOT('h-sim.png')}" style="width:100%">`));
+
+/* p4 — the vetoes run before anything is scored */
+fs.writeFileSync('brand/banners/p4-gates.html', post(
+  'The filter',
+  'Eight hard vetoes,<br><span class="grad-tx">before anything<br>is scored.</span>',
+  'Liquidity, age, cap, depth, sell pressure, entry angle, identity, quote. Every threshold is published, so the filter can be argued with.',
+  `<img class="ui" src="${SHOT('t-gates.png')}" style="width:100%">`));
+
+fs.writeFileSync('brand/banners/p5-scan.html', page(1080,1080,`
+<div style="position:absolute;inset:0;padding:76px 64px 66px;display:flex;flex-direction:column;
+  align-items:center;text-align:center">
+  <div class="wm">${MARK}<span>Nekara</span></div>
+  <h1 style="font-size:50px;line-height:1.13;margin-top:44px">What the screener is doing,<br><span class="grad-tx">and what it passed on.</span></h1>
+  <img class="ui" src="${SHOT('t-counts.png')}" style="width:100%;margin-top:56px">
+  <div class="rule" style="width:280px;margin:auto 0 22px"></div>
+  <div class="eyebrow">Four schedules · one process · no manual step</div>
+</div>`));
+console.log('9 banner html ditulis');

@@ -26,10 +26,13 @@ const stage=()=>{
   if(!await p.evaluate(()=>document.fonts.check('600 40px "Inter Tight"')))
     throw new Error('Inter Tight tidak termuat — banner akan salah tipografinya');
 
-  const settle=()=>p.evaluate(()=>document.querySelectorAll(".rec,.box").forEach(e=>{
-    e.style.animation="none";e.style.opacity=1;e.style.transform="none"}));
-  const shot=async(sel,name)=>{
-    const e=await p.$(sel);
+  const settle=()=>p.evaluate(()=>{
+    document.querySelectorAll(".cols").forEach(c=>c.style.alignItems="start");
+    document.querySelectorAll(".rec,.box").forEach(e=>{
+      e.style.animation="none";e.style.opacity=1;e.style.transform="none"});
+  });
+  const shot=async(sel,name,i=0)=>{
+    const e=(await p.$(sel))[i];
     await e.scrollIntoViewIfNeeded();await p.waitForTimeout(250);
     await e.screenshot({path:path.join(OUT,name)});console.log(name);
   };
@@ -38,6 +41,19 @@ const stage=()=>{
   await shot('#v-reg .rec','c-win.png');
   await p.click('#seg button[data-f="dead"]');await p.waitForTimeout(1200);await settle();
   await shot('#v-reg .rec','c-dead.png');
+
+  await p.evaluate(()=>go("ops"));await p.waitForTimeout(1500);await settle();
+  await shot('#v-ops .box','t-counts.png',1);
+  await shot('#v-ops .box','t-rejects.png',2);
+  await shot('#v-ops .box','t-gates.png',3);
+
+  await p.evaluate(()=>go("vault"));await p.waitForTimeout(1500);await settle();
+  await shot('#v-vault .box','v-head.png');
+  await p.click('[data-tamper="delete"]');await p.waitForTimeout(900);await settle();
+  await shot('#v-vault .box','v-broken.png',1);
+
+  await p.evaluate(()=>go("quant"));await p.waitForTimeout(1700);await settle();
+  await shot('#v-quant .box','h-sim.png',1);
 
   // the full page sits behind a headline in the intro banner, so 2x is enough
   const full=await b.newPage({viewport:{width:1440,height:920},deviceScaleFactor:2});
