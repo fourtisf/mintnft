@@ -9,7 +9,7 @@
 | `references.html` | Six directions drawn and judged at real sizes, four rejected with the reason. |
 | `dir-*.svg` | Those six directions, plus the three tally refinements. Exploration, not final assets. |
 | `dirs.js`, `tally.js`, `buildref.js` | Generate the exploration marks and the reference sheet. |
-| `nekara-banner-x.png` | X header, 1500x500 delivered at 2x. Left 370px kept clear for the profile picture. |
+| `nekara-banner-x.png` | X header, 1500x500 at 2x, English copy. Left 370px kept clear for the profile picture. |
 | `nekara-avatar-x.png` | X profile picture, 400x400 at 2x. X crops it to a circle. |
 | `nekara-mark-blue.svg` | Byte-identical to `nekara-mark.svg` — the mark takes `currentColor`, so blue is the host's choice, not a second file. |
 | `art.js`, `buildx.js`, `xassets.html` | Build the social artwork and its preview page. |
@@ -28,8 +28,11 @@ read as Audi, and will draw them again.
 Two palettes, one mark. Bronze for print and the NFT cards; blue for social.
 The mark serves both because it is one colour and carries no letters.
 
-Social blue: navy `#070B13` · glow `#17305C` · mark `#6C9BE0`
-(`#2C4E86` on light) · pale `#E6EDF9`.
+Social blue: navy `#060A11` · glow `#16305E` · pale `#EDF2FB`. The mark is flat
+`#6C9BE0` wherever it is the mark, and a `#A6C6F5 → #3D6AB4` gradient only in
+the raster artwork — polished metal is a treatment, not part of the identity.
+A grain overlay at 5% and an engraved hairline plate edge do the rest; both
+exist to stop the flat-digital look, and neither belongs in the SVG.
 
 Palette: charcoal `#12100D` · stone `#E9E6E0` · bronze `#8C6234`
 (`#C08F52` on dark) · patina `#4E6B61`, used sparingly.
