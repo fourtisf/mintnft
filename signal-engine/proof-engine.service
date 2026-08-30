@@ -1,0 +1,25 @@
+[Unit]
+Description=Proof signal engine
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proof
+WorkingDirectory=/opt/proof/signal-engine
+EnvironmentFile=/opt/proof/signal-engine/.env
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/proof/engine.log
+StandardError=append:/var/log/proof/engine.log
+
+# The register is the product. Nothing else on the box should be writable.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/proof/signal-engine/data /var/log/proof
+
+[Install]
+WantedBy=multi-user.target
