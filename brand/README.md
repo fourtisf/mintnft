@@ -9,6 +9,10 @@
 | `references.html` | Six directions drawn and judged at real sizes, four rejected with the reason. |
 | `dir-*.svg` | Those six directions, plus the three tally refinements. Exploration, not final assets. |
 | `dirs.js`, `tally.js`, `buildref.js` | Generate the exploration marks and the reference sheet. |
+| `nekara-banner-x.png` | X header, 1500x500 delivered at 2x. Left 370px kept clear for the profile picture. |
+| `nekara-avatar-x.png` | X profile picture, 400x400 at 2x. X crops it to a circle. |
+| `nekara-mark-blue.svg` | Byte-identical to `nekara-mark.svg` — the mark takes `currentColor`, so blue is the host's choice, not a second file. |
+| `art.js`, `buildx.js`, `xassets.html` | Build the social artwork and its preview page. |
 
 Both marks are pure geometry with no text, and inherit `currentColor`, so a
 colour change is a CSS change and a name change touches neither.
@@ -20,6 +24,12 @@ with it.
 Rejected directions are kept on purpose. Without them the next person has no
 way to know that stacked bars read as a toolbar icon and three linked rings
 read as Audi, and will draw them again.
+
+Two palettes, one mark. Bronze for print and the NFT cards; blue for social.
+The mark serves both because it is one colour and carries no letters.
+
+Social blue: navy `#070B13` · glow `#17305C` · mark `#6C9BE0`
+(`#2C4E86` on light) · pale `#E6EDF9`.
 
 Palette: charcoal `#12100D` · stone `#E9E6E0` · bronze `#8C6234`
 (`#C08F52` on dark) · patina `#4E6B61`, used sparingly.

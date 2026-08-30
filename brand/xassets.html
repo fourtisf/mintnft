@@ -1,0 +1,140 @@
+<title>Nekara on X</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@200;300;400&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--navy:#070B13;--panel:#0C1424;--line:#1B2740;--blue:#6C9BE0;--deepblue:#2C4E86;
+  --pale:#E6EDF9;--mute:#7385A0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--navy);color:var(--pale);font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1000px;margin:0 auto;padding:0 28px}
+header{padding:72px 0 10px}
+section{padding:50px 0;border-top:1px solid var(--line)}
+h1{font-family:Spectral,Georgia,serif;font-weight:300;font-size:38px;letter-spacing:-.015em;margin-bottom:14px}
+h3{font-family:Spectral,Georgia,serif;font-weight:400;font-size:22px;margin-bottom:10px}
+p{max-width:62ch;margin-bottom:12px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--mute);margin-bottom:10px}
+.note{color:var(--mute);font-size:14.5px}
+.word{font-family:Spectral,Georgia,serif;font-weight:300;text-transform:uppercase;
+  letter-spacing:.42em;color:var(--pale);line-height:1;text-indent:.42em}
+.tag{font-family:"IBM Plex Mono",monospace;letter-spacing:.24em;text-transform:uppercase;color:var(--mute)}
+
+/* banner, drawn at 3:1 and scaled by container width */
+.banner{position:relative;width:100%;aspect-ratio:3/1;overflow:hidden;background:var(--navy);
+  border-radius:3px;container-type:inline-size}
+.banner .glow{position:absolute;inset:0;
+  background:radial-gradient(45% 92% at 78% 48%, #17305C 0%, rgba(23,48,92,.34) 42%, transparent 72%)}
+.banner .vign{position:absolute;inset:0;background:linear-gradient(90deg,#070B13 6%,rgba(7,11,19,0) 46%)}
+.bmark{position:absolute;right:6.9%;top:50%;transform:translateY(-50%);width:25.1%;color:var(--blue)}
+.bmark svg{display:block;width:100%}
+.bcopy{position:absolute;left:24.8%;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:1.73cqw;align-items:flex-start}
+.bcopy .word{font-size:4.13cqw}
+.bcopy .rule{width:10cqw;height:1px;background:linear-gradient(90deg,var(--blue),rgba(108,155,224,0))}
+.bcopy .tag{font-size:.94cqw}
+.base{position:absolute;left:0;right:0;bottom:5.2%;height:2.4%;color:var(--blue);opacity:.2}
+
+/* profile mock */
+.mock{background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.mock .id{padding:0 22px 22px;position:relative}
+.pfp{width:118px;height:118px;border-radius:50%;overflow:hidden;border:4px solid var(--panel);
+  margin-top:-60px;position:relative;background:radial-gradient(70% 70% at 50% 42%,#142544 0%,#070B13 74%);
+  display:flex;align-items:center;justify-content:center}
+.pfp .m{width:68%;color:var(--blue)}.pfp svg{display:block;width:100%}
+.name{font-family:Spectral,Georgia,serif;font-size:23px;font-weight:400;margin-top:12px}
+.handle{color:var(--mute);font-size:14.5px}
+.bio{margin-top:10px;font-size:15px;max-width:52ch}
+.meta{margin-top:10px;color:var(--mute);font-size:13.5px;font-family:"IBM Plex Mono",monospace;letter-spacing:.04em}
+
+/* avatar sizes */
+.sizes{display:flex;align-items:flex-end;gap:34px;flex-wrap:wrap}
+.sizes figure{display:flex;flex-direction:column;align-items:center;gap:12px}
+.av{border-radius:50%;overflow:hidden;background:radial-gradient(70% 70% at 50% 42%,#142544 0%,#070B13 74%);
+  display:flex;align-items:center;justify-content:center}
+.av .m{width:68%;color:var(--blue)}.av svg{display:block;width:100%}
+figcaption{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;color:var(--mute)}
+
+.pal{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.chip{border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.chip .fill{height:70px}
+.chip .meta2{padding:11px 13px;font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.7}
+.chip b{display:block;font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-size:10px}
+.chip span{color:var(--mute)}
+dl{display:grid;grid-template-columns:auto 1fr;gap:9px 18px;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+dt{color:var(--blue);white-space:nowrap}dd{color:var(--mute)}
+</style>
+<div class="wrap">
+<header>
+  <p class="eyebrow">Aset X</p>
+  <h1>Banner dan foto profil</h1>
+  <p class="note">Emblem yang sama, biru. Geometri marka tidak berubah sedikit pun — hanya warnanya, karena marka mewarisi <code>currentColor</code>.</p>
+</header>
+
+<section>
+  <p class="eyebrow">Di tempatnya</p>
+  <h3>Bagaimana X menumpuknya</h3>
+  <p class="note" style="margin-bottom:22px">Foto profil menimpa kiri bawah banner. Karena itu sepertiga kiri banner sengaja dikosongkan — wordmark baru mulai setelah zona aman.</p>
+  <div class="mock">
+    <div class="banner">
+  <div class="glow"></div><div class="vign"></div>
+  <div class="bmark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div>
+  <div class="bcopy"><h2 class="word">Nekara</h2><div class="rule"></div>
+    <p class="tag">Catatan yang tidak bisa dihapus</p></div>
+  <svg class="base" viewBox="0 0 1500 12" fill="currentColor" preserveAspectRatio="none"><rect x="0" y="0" width="1" height="12"/><rect x="12.5" y="4" width="1" height="8"/><rect x="25" y="4" width="1" height="8"/><rect x="37.5" y="4" width="1" height="8"/><rect x="50" y="4" width="1" height="8"/><rect x="62.5" y="0" width="1" height="12"/><rect x="75" y="4" width="1" height="8"/><rect x="87.5" y="4" width="1" height="8"/><rect x="100" y="4" width="1" height="8"/><rect x="112.5" y="4" width="1" height="8"/><rect x="125" y="0" width="1" height="12"/><rect x="137.5" y="4" width="1" height="8"/><rect x="150" y="4" width="1" height="8"/><rect x="162.5" y="4" width="1" height="8"/><rect x="175" y="4" width="1" height="8"/><rect x="187.5" y="0" width="1" height="12"/><rect x="200" y="4" width="1" height="8"/><rect x="212.5" y="4" width="1" height="8"/><rect x="225" y="4" width="1" height="8"/><rect x="237.5" y="4" width="1" height="8"/><rect x="250" y="0" width="1" height="12"/><rect x="262.5" y="4" width="1" height="8"/><rect x="275" y="4" width="1" height="8"/><rect x="287.5" y="4" width="1" height="8"/><rect x="300" y="4" width="1" height="8"/><rect x="312.5" y="0" width="1" height="12"/><rect x="325" y="4" width="1" height="8"/><rect x="337.5" y="4" width="1" height="8"/><rect x="350" y="4" width="1" height="8"/><rect x="362.5" y="4" width="1" height="8"/><rect x="375" y="0" width="1" height="12"/><rect x="387.5" y="4" width="1" height="8"/><rect x="400" y="4" width="1" height="8"/><rect x="412.5" y="4" width="1" height="8"/><rect x="425" y="4" width="1" height="8"/><rect x="437.5" y="0" width="1" height="12"/><rect x="450" y="4" width="1" height="8"/><rect x="462.5" y="4" width="1" height="8"/><rect x="475" y="4" width="1" height="8"/><rect x="487.5" y="4" width="1" height="8"/><rect x="500" y="0" width="1" height="12"/><rect x="512.5" y="4" width="1" height="8"/><rect x="525" y="4" width="1" height="8"/><rect x="537.5" y="4" width="1" height="8"/><rect x="550" y="4" width="1" height="8"/><rect x="562.5" y="0" width="1" height="12"/><rect x="575" y="4" width="1" height="8"/><rect x="587.5" y="4" width="1" height="8"/><rect x="600" y="4" width="1" height="8"/><rect x="612.5" y="4" width="1" height="8"/><rect x="625" y="0" width="1" height="12"/><rect x="637.5" y="4" width="1" height="8"/><rect x="650" y="4" width="1" height="8"/><rect x="662.5" y="4" width="1" height="8"/><rect x="675" y="4" width="1" height="8"/><rect x="687.5" y="0" width="1" height="12"/><rect x="700" y="4" width="1" height="8"/><rect x="712.5" y="4" width="1" height="8"/><rect x="725" y="4" width="1" height="8"/><rect x="737.5" y="4" width="1" height="8"/><rect x="750" y="0" width="1" height="12"/><rect x="762.5" y="4" width="1" height="8"/><rect x="775" y="4" width="1" height="8"/><rect x="787.5" y="4" width="1" height="8"/><rect x="800" y="4" width="1" height="8"/><rect x="812.5" y="0" width="1" height="12"/><rect x="825" y="4" width="1" height="8"/><rect x="837.5" y="4" width="1" height="8"/><rect x="850" y="4" width="1" height="8"/><rect x="862.5" y="4" width="1" height="8"/><rect x="875" y="0" width="1" height="12"/><rect x="887.5" y="4" width="1" height="8"/><rect x="900" y="4" width="1" height="8"/><rect x="912.5" y="4" width="1" height="8"/><rect x="925" y="4" width="1" height="8"/><rect x="937.5" y="0" width="1" height="12"/><rect x="950" y="4" width="1" height="8"/><rect x="962.5" y="4" width="1" height="8"/><rect x="975" y="4" width="1" height="8"/><rect x="987.5" y="4" width="1" height="8"/><rect x="1000" y="0" width="1" height="12"/><rect x="1012.5" y="4" width="1" height="8"/><rect x="1025" y="4" width="1" height="8"/><rect x="1037.5" y="4" width="1" height="8"/><rect x="1050" y="4" width="1" height="8"/><rect x="1062.5" y="0" width="1" height="12"/><rect x="1075" y="4" width="1" height="8"/><rect x="1087.5" y="4" width="1" height="8"/><rect x="1100" y="4" width="1" height="8"/><rect x="1112.5" y="4" width="1" height="8"/><rect x="1125" y="0" width="1" height="12"/><rect x="1137.5" y="4" width="1" height="8"/><rect x="1150" y="4" width="1" height="8"/><rect x="1162.5" y="4" width="1" height="8"/><rect x="1175" y="4" width="1" height="8"/><rect x="1187.5" y="0" width="1" height="12"/><rect x="1200" y="4" width="1" height="8"/><rect x="1212.5" y="4" width="1" height="8"/><rect x="1225" y="4" width="1" height="8"/><rect x="1237.5" y="4" width="1" height="8"/><rect x="1250" y="0" width="1" height="12"/><rect x="1262.5" y="4" width="1" height="8"/><rect x="1275" y="4" width="1" height="8"/><rect x="1287.5" y="4" width="1" height="8"/><rect x="1300" y="4" width="1" height="8"/><rect x="1312.5" y="0" width="1" height="12"/><rect x="1325" y="4" width="1" height="8"/><rect x="1337.5" y="4" width="1" height="8"/><rect x="1350" y="4" width="1" height="8"/><rect x="1362.5" y="4" width="1" height="8"/><rect x="1375" y="0" width="1" height="12"/><rect x="1387.5" y="4" width="1" height="8"/><rect x="1400" y="4" width="1" height="8"/><rect x="1412.5" y="4" width="1" height="8"/><rect x="1425" y="4" width="1" height="8"/><rect x="1437.5" y="0" width="1" height="12"/><rect x="1450" y="4" width="1" height="8"/><rect x="1462.5" y="4" width="1" height="8"/><rect x="1475" y="4" width="1" height="8"/><rect x="1487.5" y="4" width="1" height="8"/></svg>
+</div>
+    <div class="id">
+      <div class="pfp"><div class="m"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div>
+      <p class="name">Nekara</p>
+      <p class="handle">@nekara</p>
+      <p class="bio">Register publik untuk panggilan trading otomatis. Setiap sinyal terbit dengan syarat yang memicunya. Yang gagal tidak pernah dihapus.</p>
+      <p class="meta">Dijangkar on-chain · CSV publik · Bergabung 2026</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Banner</p>
+  <h3>1500 × 500</h3>
+  <div class="banner">
+  <div class="glow"></div><div class="vign"></div>
+  <div class="bmark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div>
+  <div class="bcopy"><h2 class="word">Nekara</h2><div class="rule"></div>
+    <p class="tag">Catatan yang tidak bisa dihapus</p></div>
+  <svg class="base" viewBox="0 0 1500 12" fill="currentColor" preserveAspectRatio="none"><rect x="0" y="0" width="1" height="12"/><rect x="12.5" y="4" width="1" height="8"/><rect x="25" y="4" width="1" height="8"/><rect x="37.5" y="4" width="1" height="8"/><rect x="50" y="4" width="1" height="8"/><rect x="62.5" y="0" width="1" height="12"/><rect x="75" y="4" width="1" height="8"/><rect x="87.5" y="4" width="1" height="8"/><rect x="100" y="4" width="1" height="8"/><rect x="112.5" y="4" width="1" height="8"/><rect x="125" y="0" width="1" height="12"/><rect x="137.5" y="4" width="1" height="8"/><rect x="150" y="4" width="1" height="8"/><rect x="162.5" y="4" width="1" height="8"/><rect x="175" y="4" width="1" height="8"/><rect x="187.5" y="0" width="1" height="12"/><rect x="200" y="4" width="1" height="8"/><rect x="212.5" y="4" width="1" height="8"/><rect x="225" y="4" width="1" height="8"/><rect x="237.5" y="4" width="1" height="8"/><rect x="250" y="0" width="1" height="12"/><rect x="262.5" y="4" width="1" height="8"/><rect x="275" y="4" width="1" height="8"/><rect x="287.5" y="4" width="1" height="8"/><rect x="300" y="4" width="1" height="8"/><rect x="312.5" y="0" width="1" height="12"/><rect x="325" y="4" width="1" height="8"/><rect x="337.5" y="4" width="1" height="8"/><rect x="350" y="4" width="1" height="8"/><rect x="362.5" y="4" width="1" height="8"/><rect x="375" y="0" width="1" height="12"/><rect x="387.5" y="4" width="1" height="8"/><rect x="400" y="4" width="1" height="8"/><rect x="412.5" y="4" width="1" height="8"/><rect x="425" y="4" width="1" height="8"/><rect x="437.5" y="0" width="1" height="12"/><rect x="450" y="4" width="1" height="8"/><rect x="462.5" y="4" width="1" height="8"/><rect x="475" y="4" width="1" height="8"/><rect x="487.5" y="4" width="1" height="8"/><rect x="500" y="0" width="1" height="12"/><rect x="512.5" y="4" width="1" height="8"/><rect x="525" y="4" width="1" height="8"/><rect x="537.5" y="4" width="1" height="8"/><rect x="550" y="4" width="1" height="8"/><rect x="562.5" y="0" width="1" height="12"/><rect x="575" y="4" width="1" height="8"/><rect x="587.5" y="4" width="1" height="8"/><rect x="600" y="4" width="1" height="8"/><rect x="612.5" y="4" width="1" height="8"/><rect x="625" y="0" width="1" height="12"/><rect x="637.5" y="4" width="1" height="8"/><rect x="650" y="4" width="1" height="8"/><rect x="662.5" y="4" width="1" height="8"/><rect x="675" y="4" width="1" height="8"/><rect x="687.5" y="0" width="1" height="12"/><rect x="700" y="4" width="1" height="8"/><rect x="712.5" y="4" width="1" height="8"/><rect x="725" y="4" width="1" height="8"/><rect x="737.5" y="4" width="1" height="8"/><rect x="750" y="0" width="1" height="12"/><rect x="762.5" y="4" width="1" height="8"/><rect x="775" y="4" width="1" height="8"/><rect x="787.5" y="4" width="1" height="8"/><rect x="800" y="4" width="1" height="8"/><rect x="812.5" y="0" width="1" height="12"/><rect x="825" y="4" width="1" height="8"/><rect x="837.5" y="4" width="1" height="8"/><rect x="850" y="4" width="1" height="8"/><rect x="862.5" y="4" width="1" height="8"/><rect x="875" y="0" width="1" height="12"/><rect x="887.5" y="4" width="1" height="8"/><rect x="900" y="4" width="1" height="8"/><rect x="912.5" y="4" width="1" height="8"/><rect x="925" y="4" width="1" height="8"/><rect x="937.5" y="0" width="1" height="12"/><rect x="950" y="4" width="1" height="8"/><rect x="962.5" y="4" width="1" height="8"/><rect x="975" y="4" width="1" height="8"/><rect x="987.5" y="4" width="1" height="8"/><rect x="1000" y="0" width="1" height="12"/><rect x="1012.5" y="4" width="1" height="8"/><rect x="1025" y="4" width="1" height="8"/><rect x="1037.5" y="4" width="1" height="8"/><rect x="1050" y="4" width="1" height="8"/><rect x="1062.5" y="0" width="1" height="12"/><rect x="1075" y="4" width="1" height="8"/><rect x="1087.5" y="4" width="1" height="8"/><rect x="1100" y="4" width="1" height="8"/><rect x="1112.5" y="4" width="1" height="8"/><rect x="1125" y="0" width="1" height="12"/><rect x="1137.5" y="4" width="1" height="8"/><rect x="1150" y="4" width="1" height="8"/><rect x="1162.5" y="4" width="1" height="8"/><rect x="1175" y="4" width="1" height="8"/><rect x="1187.5" y="0" width="1" height="12"/><rect x="1200" y="4" width="1" height="8"/><rect x="1212.5" y="4" width="1" height="8"/><rect x="1225" y="4" width="1" height="8"/><rect x="1237.5" y="4" width="1" height="8"/><rect x="1250" y="0" width="1" height="12"/><rect x="1262.5" y="4" width="1" height="8"/><rect x="1275" y="4" width="1" height="8"/><rect x="1287.5" y="4" width="1" height="8"/><rect x="1300" y="4" width="1" height="8"/><rect x="1312.5" y="0" width="1" height="12"/><rect x="1325" y="4" width="1" height="8"/><rect x="1337.5" y="4" width="1" height="8"/><rect x="1350" y="4" width="1" height="8"/><rect x="1362.5" y="4" width="1" height="8"/><rect x="1375" y="0" width="1" height="12"/><rect x="1387.5" y="4" width="1" height="8"/><rect x="1400" y="4" width="1" height="8"/><rect x="1412.5" y="4" width="1" height="8"/><rect x="1425" y="4" width="1" height="8"/><rect x="1437.5" y="0" width="1" height="12"/><rect x="1450" y="4" width="1" height="8"/><rect x="1462.5" y="4" width="1" height="8"/><rect x="1475" y="4" width="1" height="8"/><rect x="1487.5" y="4" width="1" height="8"/></svg>
+</div>
+  <div style="margin-top:22px"><dl>
+    <dt>Ukuran</dt><dd>1500 × 500 px, rasio 3:1 — ukuran resmi X</dd>
+    <dt>Zona aman</dt><dd>kiri 370 px dikosongkan untuk foto profil</dd>
+    <dt>Berkas</dt><dd>dikirim sebagai PNG 3000 × 1000 (2×) agar tajam di layar retina</dd>
+    <dt>Garis dasar</dt><dd>bezel marka, digelar mendatar — 120 tik, tiap kelima lebih panjang</dd>
+  </dl></div>
+</section>
+
+<section>
+  <p class="eyebrow">Foto profil</p>
+  <h3>Dipotong bulat oleh X</h3>
+  <p class="note" style="margin-bottom:24px">Marka mengisi 68% lebar bingkai. Lebih kecil dari itu ia mengambang; lebih besar, cincinnya tersentuh tepi potongan.</p>
+  <div class="sizes">
+    <figure><div class="av" style="width:132px;height:132px"><div class="m"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div><figcaption>132 · PROFIL</figcaption></figure>
+    <figure><div class="av" style="width:64px;height:64px"><div class="m"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div><figcaption>64 · TIMELINE</figcaption></figure>
+    <figure><div class="av" style="width:40px;height:40px"><div class="m"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div><figcaption>40 · BALASAN</figcaption></figure>
+    <figure><div class="av" style="width:24px;height:24px"><div class="m"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div><figcaption>24 · NOTIF</figcaption></figure>
+  </div>
+</section>
+
+<section style="padding-bottom:84px">
+  <p class="eyebrow">Warna</p>
+  <h3>Biru, bukan biru SaaS</h3>
+  <p class="note" style="margin-bottom:22px">Birunya diturunkan saturasinya dan dipasang di atas biru-hitam, bukan biru terang di atas putih. Itu bedanya terbaca mahal dan terbaca dasbor.</p>
+  <div class="pal">
+    <div class="chip"><div class="fill" style="background:#070B13"></div><div class="meta2"><b>Navy</b><span>#070B13 · dasar</span></div></div>
+    <div class="chip"><div class="fill" style="background:#17305C"></div><div class="meta2"><b>Kilau</b><span>#17305C · gradien</span></div></div>
+    <div class="chip"><div class="fill" style="background:#6C9BE0"></div><div class="meta2"><b>Biru marka</b><span>#6C9BE0 · di atas gelap</span></div></div>
+    <div class="chip"><div class="fill" style="background:#2C4E86"></div><div class="meta2"><b>Biru dalam</b><span>#2C4E86 · di atas terang</span></div></div>
+    <div class="chip"><div class="fill" style="background:#E6EDF9"></div><div class="meta2"><b>Pucat</b><span>#E6EDF9 · teks</span></div></div>
+  </div>
+  <p class="note" style="margin-top:24px">Palet perunggu di brand sheet sebelumnya tetap berlaku untuk cetak dan kartu NFT. Biru ini untuk kanal sosial. Marka yang sama melayani keduanya karena ia satu warna dan tanpa huruf.</p>
+</section>
+</div>
