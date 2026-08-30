@@ -58,6 +58,14 @@ point `CHROME` at one if it is not at the default path.
 | `b3-method.png` | 1600×900 | the register: a win and a dead call side by side |
 | `b4-square.png` | 1080×1080 | Telegram and Instagram |
 
+The opening post. No product shot — it only has to land the name and say the
+contract is not out yet, and it borrows the site's own nav chip to say it.
+
+| File | Size | Where it goes |
+|---|---|---|
+| `p0-intro.png` | 1600×900 | first post on X |
+| `p0-intro-square.png` | 1080×1080 | the same, for Telegram and Instagram |
+
 Posts. Each one is a claim on the left and the piece of the site that backs it
 on the right; the copy comes from the page the panel was cropped from.
 

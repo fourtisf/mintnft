@@ -120,6 +120,30 @@ fs.writeFileSync('brand/banners/b4-square.html', page(1080,1080,`
   <div class="rule" style="width:280px;margin:auto 0 22px"></div>
   <div class="eyebrow">Failed calls are never removed</div>
 </div>`));
+/* ── the first post ────────────────────────────────────────────────────── */
+
+/* the account's opening post. the rest of the set argues the product; this one
+   only has to land the name and say it is not open yet, so the mark carries it
+   and the "coming soon" marker is the site's own nav chip rather than a badge
+   invented for a banner. */
+const intro=(w,h,markPx,wordPx,headPx,chipPx)=>page(w,h,`
+<div style="position:absolute;inset:0;padding:${h>1000?84:72}px 74px ${h>1000?66:58}px;
+  display:flex;flex-direction:column;align-items:center;text-align:center">
+  <img src="${SHOT('n-cabar.png')}" style="width:${chipPx}px;display:block">
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <div style="width:${markPx}px">${MARK}</div>
+    <div style="font-family:var(--display);font-weight:600;letter-spacing:-.03em;
+      font-size:${wordPx}px;margin-top:26px">Nekara</div>
+    <div class="rule" style="width:220px;margin:${h>1000?42:36}px 0"></div>
+    <h1 style="font-size:${headPx}px;line-height:1.1">A public register of<br><span class="grad-tx">automated trading signals.</span></h1>
+    <p style="font-size:${h>1000?20:19}px;line-height:1.64;color:var(--tx-2);max-width:${h>1000?860:830}px;margin-top:28px">Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead — so you can judge the reasoning, not just the result.</p>
+  </div>
+  <div class="eyebrow">Solana · Base · BNB · Ethereum</div>
+</div>`);
+
+fs.writeFileSync('brand/banners/p0-intro.html', intro(1600,900,116,66,44,300));
+fs.writeFileSync('brand/banners/p0-intro-square.html', intro(1080,1080,124,72,45,320));
+
 /* ── posts ─────────────────────────────────────────────────────────────── */
 
 /* p1 — the rejections. the only way to show a filter is actually strict. */
@@ -174,4 +198,4 @@ fs.writeFileSync('brand/banners/x-avatar.html', `${BASE}<style>body{width:1000px
 <div style="position:absolute;inset:0;background:radial-gradient(115% 100% at 50% 40%,transparent 46%,rgba(0,0,0,.6))"></div>
 <div class="grain"></div>`);
 
-console.log('9 banner + 1 avatar ditulis');
+console.log('11 banner + 1 avatar ditulis');
