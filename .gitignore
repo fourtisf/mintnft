@@ -5,3 +5,11 @@ node_modules/
 data/
 *.log
 out/
+# render scaffolding — screenshots taken to check the work, never deliverables
+brand/node_modules/
+brand/s.js
+brand/shot*.js
+brand/render.js
+brand/c1.png
+brand/v.png
+brand/*-preview.png
