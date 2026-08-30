@@ -27,79 +27,82 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .wm{display:flex;align-items:center;gap:14px}
 .wm svg{width:44px;height:44px}
 .wm span{font-family:var(--display);font-weight:600;letter-spacing:-.02em;font-size:34px}
-.pill{display:inline-flex;align-items:center;gap:9px;height:34px;padding:0 14px;
- border:1px solid var(--border-hi);border-radius:999px;background:rgba(255,255,255,.035);
- font-size:14px;color:var(--tx-2)}
-.pill i{width:7px;height:7px;border-radius:50%;background:var(--win);display:block}
 .mono{font-family:var(--mono);color:var(--tx-3)}
-.url{font-family:var(--mono);font-size:15px;color:var(--tx-3);letter-spacing:.02em}
+.eyebrow{font-family:var(--mono);font-size:12.5px;font-weight:500;color:#6E747E;
+ letter-spacing:.26em;text-transform:uppercase}
+.rule{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent)}
+.rule-l{height:1px;background:linear-gradient(90deg,rgba(255,255,255,.13),transparent)}
 
-/* a real screenshot of the site, framed the way the site frames its own surfaces */
+/* a real screenshot of the site. elevation is shadow, never coloured glow */
 .ui{display:block;border:1px solid var(--border-hi);border-radius:var(--r);
- box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 40px 90px -30px rgba(0,0,0,.95),0 0 0 1px rgba(0,0,0,.4)}
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.055),
+   0 2px 6px rgba(0,0,0,.55), 0 18px 40px -12px rgba(0,0,0,.8),
+   0 70px 130px -40px rgba(0,0,0,1)}
 .fade{position:absolute;left:0;right:0;pointer-events:none}
+.vig{position:absolute;inset:0;pointer-events:none;
+ background:radial-gradient(125% 105% at 50% 38%,transparent 42%,rgba(0,0,0,.55))}
 </style>`;
 
 const page=(w,h,inner)=>`${BASE}<style>body{width:${w}px;height:${h}px}</style>
-<div class="aur"></div><div class="dots"></div>${inner}<div class="grain"></div>`;
+<div class="aur"></div><div class="dots"></div>${inner}<div class="vig"></div><div class="grain"></div>`;
 
 /* 1 — X header. Left 380px stays clear for the avatar; the register card
       leans in from the right so the profile shows the product, not a texture. */
 fs.writeFileSync('brand/banners/b1-x-header.html', page(1500,500,`
-<img class="ui" src="${SHOT('c-win.png')}" style="position:absolute;left:950px;top:50%;
-  transform:translateY(-50%);width:640px;
-  -webkit-mask-image:linear-gradient(100deg,transparent,#000 30%,#000 80%,transparent);
-  mask-image:linear-gradient(100deg,transparent,#000 30%,#000 80%,transparent);border:0;box-shadow:none">
-<div style="position:absolute;inset:0;background:linear-gradient(90deg,#08090B 58%,rgba(8,9,11,.50) 71%,transparent 84%)"></div>
-<div style="position:absolute;left:400px;top:50%;transform:translateY(-50%);width:530px;display:flex;flex-direction:column;gap:22px">
+<img class="ui" src="${SHOT('c-win.png')}" style="position:absolute;left:948px;top:50%;
+  transform:translateY(-50%);width:660px;
+  -webkit-mask-image:linear-gradient(100deg,transparent,#000 30%,#000 82%,transparent);
+  mask-image:linear-gradient(100deg,transparent,#000 30%,#000 82%,transparent);border:0;box-shadow:none">
+<div style="position:absolute;inset:0;background:linear-gradient(90deg,#08090B 57%,rgba(8,9,11,.48) 71%,transparent 85%)"></div>
+<div style="position:absolute;left:400px;top:50%;transform:translateY(-50%);width:520px">
   <div class="wm">${MARK}<span>Nekara</span></div>
-  <h1 style="font-size:38px;line-height:1.14">Signals with their<br>reasons attached.<br><span class="grad-tx">Including the ones<br>that failed.</span></h1>
-  <div class="url">nekara.xyz</div>
+  <div class="rule-l" style="width:190px;margin:30px 0 28px"></div>
+  <h1 style="font-size:37px;line-height:1.16">Signals with their<br>reasons attached.<br><span class="grad-tx">Including the ones<br>that failed.</span></h1>
+  <div class="eyebrow" style="margin-top:30px">Solana · Base · BNB · Ethereum</div>
 </div>`));
 
-/* 2 — the introduction post: headline, then the register itself running below it */
+/* 2 — the introduction post: the claim, then the register making it */
 fs.writeFileSync('brand/banners/b2-intro.html', page(1600,900,`
-<div style="position:absolute;left:0;right:0;top:64px;display:flex;flex-direction:column;
-  align-items:center;text-align:center;gap:24px">
-  <div class="pill"><i></i>A public register of automated trading signals</div>
-  <h1 style="font-size:68px">Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
-  <p style="font-size:20px;line-height:1.6;color:var(--tx-2);max-width:900px">Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
+<div style="position:absolute;left:0;right:0;top:76px;display:flex;flex-direction:column;align-items:center;text-align:center">
+  <div class="eyebrow">A public register of automated trading signals</div>
+  <div class="rule" style="width:200px;margin:22px 0 30px"></div>
+  <h1 style="font-size:66px">Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
+  <p style="font-size:19px;line-height:1.62;color:var(--tx-2);max-width:760px;margin-top:26px">Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
 </div>
-<img class="ui" src="${SHOT('pv-reg.png')}" style="position:absolute;left:50%;top:424px;
-  transform:translateX(-50%);width:1300px">
-<div class="fade" style="bottom:0;height:150px;background:linear-gradient(180deg,transparent,#08090B 58%)"></div>
-<div style="position:absolute;left:0;right:0;bottom:26px;text-align:center" class="url">nekara.xyz</div>`));
+<img class="ui" src="${SHOT('pv-reg.png')}" style="position:absolute;left:50%;top:462px;
+  transform:translateX(-50%);width:1320px">
+<div class="fade" style="bottom:0;height:120px;background:linear-gradient(180deg,transparent,#08090B 82%)"></div>`));
 
 /* 3 — the differentiator, shown rather than claimed: a win and a dead call,
       same page, same rules, both still carrying the reasons that fired them */
 fs.writeFileSync('brand/banners/b3-method.html', page(1600,900,`
-<div style="position:absolute;inset:0;padding:62px 70px 46px;display:flex;flex-direction:column">
+<div style="position:absolute;inset:0;padding:66px 74px 44px;display:flex;flex-direction:column">
   <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:60px">
     <div>
-      <div class="mono" style="font-size:13px;letter-spacing:.22em;text-transform:uppercase;margin-bottom:16px">The register</div>
-      <h2 style="font-size:58px">The win and the one that died.<br><span class="grad-tx">Same page, same rules.</span></h2>
-      <p style="font-size:19px;line-height:1.6;color:var(--tx-2);max-width:820px;margin-top:22px">Both still carry the score that fired them and the exact conditions behind it. Nothing is edited after the fact, and nothing is taken down.</p>
+      <div class="eyebrow">The register</div>
+      <h2 style="font-size:55px;margin-top:20px">The win and the one that died.<br><span class="grad-tx">Same page, same rules.</span></h2>
+      <p style="font-size:18px;line-height:1.62;color:var(--tx-2);max-width:790px;margin-top:22px">Both still carry the score that fired them and the exact conditions behind it. Nothing is edited after the fact, and nothing is taken down.</p>
     </div>
-    <div class="wm" style="flex-shrink:0;margin-top:4px">${MARK}<span>Nekara</span></div>
+    <div class="wm" style="flex-shrink:0;margin-top:2px">${MARK}<span>Nekara</span></div>
   </div>
-  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center">
-    <img class="ui" src="${SHOT('c-win.png')}" style="width:100%">
-    <img class="ui" src="${SHOT('c-dead.png')}" style="width:100%">
+  <div style="flex:1;display:flex;align-items:center">
+    <div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start">
+      <img class="ui" src="${SHOT('c-win.png')}" style="width:100%">
+      <img class="ui" src="${SHOT('c-dead.png')}" style="width:100%">
+    </div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <div class="url">nekara.xyz</div>
-    <div class="mono" style="font-size:13px">SOLANA · BASE · BNB · ETHEREUM</div>
-  </div>
+  <div class="rule-l" style="margin-bottom:22px"></div>
+  <div class="eyebrow">Solana · Base · BNB · Ethereum</div>
 </div>`));
 
 /* 4 — square, for Telegram and IG. One dead call, kept. */
 fs.writeFileSync('brand/banners/b4-square.html', page(1080,1080,`
-<div style="position:absolute;inset:0;padding:76px 64px;display:flex;flex-direction:column;
+<div style="position:absolute;inset:0;padding:78px 64px 68px;display:flex;flex-direction:column;
   align-items:center;text-align:center">
   <div class="wm">${MARK}<span>Nekara</span></div>
-  <h1 style="font-size:54px;line-height:1.13;margin-top:40px">Every call in the order<br>it was fired.<br><span class="grad-tx">Wins, misses, and<br>the ones that died.</span></h1>
-  <img class="ui" src="${SHOT('c-dead.png')}" style="width:100%;margin-top:52px">
-  <div class="pill" style="margin-top:44px"><i></i>Failed calls are never removed</div>
-  <div class="url" style="margin-top:auto">nekara.xyz</div>
+  <h1 style="font-size:53px;line-height:1.13;margin-top:46px">Every call in the order<br>it was fired.<br><span class="grad-tx">Wins, misses, and<br>the ones that died.</span></h1>
+  <img class="ui" src="${SHOT('c-dead.png')}" style="width:100%;margin-top:58px">
+  <div class="rule" style="width:280px;margin:auto 0 22px"></div>
+  <div class="eyebrow">Failed calls are never removed</div>
 </div>`));
 console.log('4 banner html ditulis');

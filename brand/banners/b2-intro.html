@@ -21,26 +21,28 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .wm{display:flex;align-items:center;gap:14px}
 .wm svg{width:44px;height:44px}
 .wm span{font-family:var(--display);font-weight:600;letter-spacing:-.02em;font-size:34px}
-.pill{display:inline-flex;align-items:center;gap:9px;height:34px;padding:0 14px;
- border:1px solid var(--border-hi);border-radius:999px;background:rgba(255,255,255,.035);
- font-size:14px;color:var(--tx-2)}
-.pill i{width:7px;height:7px;border-radius:50%;background:var(--win);display:block}
 .mono{font-family:var(--mono);color:var(--tx-3)}
-.url{font-family:var(--mono);font-size:15px;color:var(--tx-3);letter-spacing:.02em}
+.eyebrow{font-family:var(--mono);font-size:12.5px;font-weight:500;color:#6E747E;
+ letter-spacing:.26em;text-transform:uppercase}
+.rule{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent)}
+.rule-l{height:1px;background:linear-gradient(90deg,rgba(255,255,255,.13),transparent)}
 
-/* a real screenshot of the site, framed the way the site frames its own surfaces */
+/* a real screenshot of the site. elevation is shadow, never coloured glow */
 .ui{display:block;border:1px solid var(--border-hi);border-radius:var(--r);
- box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 40px 90px -30px rgba(0,0,0,.95),0 0 0 1px rgba(0,0,0,.4)}
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.055),
+   0 2px 6px rgba(0,0,0,.55), 0 18px 40px -12px rgba(0,0,0,.8),
+   0 70px 130px -40px rgba(0,0,0,1)}
 .fade{position:absolute;left:0;right:0;pointer-events:none}
+.vig{position:absolute;inset:0;pointer-events:none;
+ background:radial-gradient(125% 105% at 50% 38%,transparent 42%,rgba(0,0,0,.55))}
 </style><style>body{width:1600px;height:900px}</style>
 <div class="aur"></div><div class="dots"></div>
-<div style="position:absolute;left:0;right:0;top:64px;display:flex;flex-direction:column;
-  align-items:center;text-align:center;gap:24px">
-  <div class="pill"><i></i>A public register of automated trading signals</div>
-  <h1 style="font-size:68px">Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
-  <p style="font-size:20px;line-height:1.6;color:var(--tx-2);max-width:900px">Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
+<div style="position:absolute;left:0;right:0;top:76px;display:flex;flex-direction:column;align-items:center;text-align:center">
+  <div class="eyebrow">A public register of automated trading signals</div>
+  <div class="rule" style="width:200px;margin:22px 0 30px"></div>
+  <h1 style="font-size:66px">Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
+  <p style="font-size:19px;line-height:1.62;color:var(--tx-2);max-width:760px;margin-top:26px">Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
 </div>
-<img class="ui" src="file:///home/user/mintnft/brand/shots/pv-reg.png" style="position:absolute;left:50%;top:424px;
-  transform:translateX(-50%);width:1300px">
-<div class="fade" style="bottom:0;height:150px;background:linear-gradient(180deg,transparent,#08090B 58%)"></div>
-<div style="position:absolute;left:0;right:0;bottom:26px;text-align:center" class="url">nekara.xyz</div><div class="grain"></div>
+<img class="ui" src="file:///home/user/mintnft/brand/shots/pv-reg.png" style="position:absolute;left:50%;top:462px;
+  transform:translateX(-50%);width:1320px">
+<div class="fade" style="bottom:0;height:120px;background:linear-gradient(180deg,transparent,#08090B 82%)"></div><div class="vig"></div><div class="grain"></div>
