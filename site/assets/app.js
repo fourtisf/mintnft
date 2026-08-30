@@ -995,7 +995,7 @@ document.getElementById("vCsv").addEventListener("click",()=>{
     Math.round(c.entry),Math.round(c.peak),Math.round(c.nowMc),mult(c).toFixed(3),vrd(c),c.score].join(","));
   const blob=new Blob([[cols.join(","),...body].join("\n")],{type:"text/csv"});
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);a.download="proof-register.csv";a.click();
+  a.href=URL.createObjectURL(blob);a.download="nekara-register.csv";a.click();
 });
 
 
@@ -1016,7 +1016,7 @@ function tplX(c){
     ...(c.reasons||[]).slice(0,2).map(r=>`· ${r}`),"",
     v==="win"?"On the register with every miss we've ever posted."
       :"Still on the register. We don't take the bad ones down.",
-    `proof.app/call/${c.id.replace("r","")}`].join("\n");
+    `nekara.xyz/call/${c.id.replace("r","")}`].join("\n");
 }
 function tplTG(c){
   const v=vrd(c);
@@ -1031,7 +1031,7 @@ function tplTG(c){
     ...(c.reasons||[]).map(r=>`  • ${r}`),"",
     `CA: ${c.ca}`,"",
     "Peak is not a realized return. Every call — win, miss or dead — stays on the public register.",
-    `proof.app/call/${c.id.replace("r","")}`].join("\n");
+    `nekara.xyz/call/${c.id.replace("r","")}`].join("\n");
 }
 const ICO_X='<svg viewBox="0 0 24 24"><path d="M18.9 2H22l-7 8 8.2 12h-6.4l-5-7.3L5.9 22H2.8l7.5-8.6L2.4 2h6.6l4.5 6.7L18.9 2Zm-1.1 18h1.7L7.3 3.8H5.5L17.8 20Z"/></svg>';
 const ICO_TG='<svg viewBox="0 0 24 24"><path d="M21.9 4.3 18.9 19c-.2 1-.8 1.2-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.3-4.7L18.2 6c.4-.3-.1-.5-.6-.2L7.1 12.4l-4.5-1.4c-1-.3-1-1 .2-1.4l17.6-6.8c.8-.3 1.5.2 1.5 1.5Z"/></svg>';
