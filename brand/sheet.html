@@ -1,0 +1,208 @@
+<title>Nekara Identity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@200;300;400&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ink:#12100D; --paper:#E9E6E0; --surface:#FFFFFF; --line:#D2CDC4;
+  --text:#1A1713; --mute:#6E675E; --bronze:#8C6234; --patina:#4E6B61;
+  --ground:var(--paper); --panel:var(--surface); --fg:var(--text);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --ground:#12100D; --panel:#191712; --fg:#E7E2D8; --mute:#948C80; --line:#2C2822;
+  --bronze:#C08F52; --patina:#7A9A8E;
+}}
+:root[data-theme="dark"]{
+  --ground:#12100D; --panel:#191712; --fg:#E7E2D8; --mute:#948C80; --line:#2C2822;
+  --bronze:#C08F52; --patina:#7A9A8E;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--fg);margin:0;
+  font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:16px;line-height:1.65;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:1060px;margin:0 auto;padding:0 32px}
+section{padding:76px 0;border-top:1px solid var(--line)}
+section:first-of-type{border-top:none}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--mute);margin:0 0 10px}
+h2{font-family:Spectral,Georgia,serif;font-weight:300;font-size:30px;letter-spacing:-.01em;
+  margin:0 0 14px;text-wrap:balance}
+p{margin:0 0 16px;max-width:62ch;color:var(--fg)}
+p.note{color:var(--mute);font-size:14.5px}
+.grid{display:grid;gap:24px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:3px;
+  padding:36px;display:flex;flex-direction:column;align-items:center;gap:20px;justify-content:center}
+.cap{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--mute);text-align:center}
+/* hero */
+.hero{padding:96px 0 76px;display:flex;flex-direction:column;align-items:center;gap:34px;text-align:center}
+.hero .mark{width:132px;color:var(--bronze)}
+.wordmark{font-family:Spectral,Georgia,serif;font-weight:300;text-transform:uppercase;
+  letter-spacing:.42em;line-height:1;margin:0}
+.hero .wordmark{font-size:44px;text-indent:.42em}
+.tagline{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--mute);margin:0}
+/* lockups */
+.lock-h{display:flex;align-items:center;gap:20px}
+.lock-h .mark{width:52px;color:var(--bronze);flex:none}
+.lock-h .wordmark{font-size:27px}
+.lock-v{display:flex;flex-direction:column;align-items:center;gap:16px}
+.lock-v .mark{width:62px;color:var(--bronze)}
+.lock-v .wordmark{font-size:19px;text-indent:.42em}
+/* scale */
+.scale{display:flex;align-items:flex-end;gap:40px;flex-wrap:wrap;justify-content:center}
+.scale figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:12px}
+.scale .mark{color:var(--fg)}
+/* colour blocks */
+.sw{border-radius:3px;padding:30px;display:flex;align-items:center;justify-content:center;min-height:150px}
+.sw .mark{width:62px}
+.on-ink{background:#12100D}          .on-ink .mark{color:#C08F52}
+.on-bronze{background:#8C6234}        .on-bronze .mark{color:#F3EDE3}
+.on-paper{background:#E9E6E0}         .on-paper .mark{color:#12100D}
+.on-patina{background:#4E6B61}        .on-patina .mark{color:#F3EDE3}
+/* palette */
+.pal{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.chip{border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.chip .fill{height:76px}
+.chip .meta{padding:12px 14px;font-family:"IBM Plex Mono",monospace;font-size:11px;line-height:1.7}
+.chip .meta b{display:block;font-weight:500;letter-spacing:.1em;text-transform:uppercase;font-size:10px}
+.chip .meta span{color:var(--mute)}
+/* construction */
+.constr{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center}
+.constr .art{position:relative;color:var(--fg)}
+.constr svg{width:100%;display:block}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:10px 20px;
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+dt{color:var(--bronze);white-space:nowrap}
+dd{margin:0;color:var(--mute)}
+.two{grid-template-columns:1fr 1fr}
+.three{grid-template-columns:repeat(3,1fr)}
+@media (max-width:760px){ .two,.three,.constr{grid-template-columns:1fr} .hero .wordmark{font-size:30px} }
+@media (prefers-reduced-motion:no-preference){
+  .hero .mark,.hero .wordmark,.hero .tagline{animation:rise .9s cubic-bezier(.2,.7,.3,1) both}
+  .hero .wordmark{animation-delay:.1s} .hero .tagline{animation-delay:.2s}
+  @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+}
+</style>
+
+<div class="wrap">
+
+<div class="hero">
+  <div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div>
+  <h1 class="wordmark">Nekara</h1>
+  <p class="tagline">Catatan yang tidak bisa dihapus</p>
+</div>
+
+<section>
+  <p class="eyebrow">Marka</p>
+  <h2>Tympanum sebuah nekara, disederhanakan sampai tersisa yang menahan beban</h2>
+  <p>Nekara adalah gendang perunggu Dong Son — dicor dua ribu tahun lalu, permukaannya berisi matahari beraya yang dikelilingi lingkaran sepusat. Bulan Pejeng, yang terbesar di dunia, masih tergantung di tempatnya di Bali. Semua yang membuatnya sudah tiada. Bendanya masih ada.</p>
+  <div class="constr">
+    <div class="panel"><div class="art"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div>
+    <dl>
+      <dt>12 raya</dt><dd>dua belas bulan sebuah register yang tidak pernah disetel ulang</dd>
+      <dt>Cincin tertutup</dt><dd>tanpa celah — tidak ada yang bisa dikeluarkan tanpa cincinnya patah</dd>
+      <dt>Inti pejal</dt><dd>satu titik masuk, satu asal</dd>
+      <dt>Geometri</dt><dd>setiap raya tepat 30°, dihitung bukan digambar</dd>
+      <dt>Bidang</dt><dd>satu warna, tanpa gradien, tanpa bayangan</dd>
+    </dl>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Kunci</p>
+  <h2>Tiga susunan</h2>
+  <div class="grid three">
+    <div class="panel"><div class="lock-h"><div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div><span class="wordmark">Nekara</span></div><p class="cap">Horizontal · header, nav</p></div>
+    <div class="panel"><div class="lock-v"><div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div><span class="wordmark">Nekara</span></div><p class="cap">Bertumpuk · cetak, kartu</p></div>
+    <div class="panel"><div class="mark" style="width:62px;color:var(--bronze)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div><p class="cap">Marka saja · avatar, favicon</p></div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Skala</p>
+  <h2>Dua gambar, satu siluet</h2>
+  <p>Di bawah 24 piksel dua belas raya saling mengisi dan marka jadi bulatan kelabu. Versi ringkas memakai delapan raya dan bezel lebih tebal — siluetnya sama, detailnya yang mengalah.</p>
+  <div class="grid two">
+    <div class="panel">
+      <div class="scale">
+        <figure><div class="mark" style="width:96px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div><figcaption class="cap">96</figcaption></figure>
+        <figure><div class="mark" style="width:48px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div><figcaption class="cap">48</figcaption></figure>
+        <figure><div class="mark" style="width:32px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div><figcaption class="cap">32</figcaption></figure>
+      </div>
+      <p class="cap">Utama · 32 px ke atas</p>
+    </div>
+    <div class="panel">
+      <div class="scale">
+        <figure><div class="mark" style="width:32px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="50" stroke="currentColor" stroke-width="10"/><path d="M55.92 24.23L64.08 24.23L62.26 40.13L57.74 40.13ZM82.41 31.83L88.17 37.59L75.65 47.55L72.45 44.35ZM95.77 55.92L95.77 64.08L79.87 62.26L79.87 57.74ZM88.17 82.41L82.41 88.17L72.45 75.65L75.65 72.45ZM64.08 95.77L55.92 95.77L57.74 79.87L62.26 79.87ZM37.59 88.17L31.83 82.41L44.35 72.45L47.55 75.65ZM24.23 64.08L24.23 55.92L40.13 57.74L40.13 62.26ZM31.83 37.59L37.59 31.83L47.55 44.35L44.35 47.55Z" fill="currentColor"/><circle cx="60" cy="60" r="12" fill="currentColor"/></svg></div><figcaption class="cap">32</figcaption></figure>
+        <figure><div class="mark" style="width:24px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="50" stroke="currentColor" stroke-width="10"/><path d="M55.92 24.23L64.08 24.23L62.26 40.13L57.74 40.13ZM82.41 31.83L88.17 37.59L75.65 47.55L72.45 44.35ZM95.77 55.92L95.77 64.08L79.87 62.26L79.87 57.74ZM88.17 82.41L82.41 88.17L72.45 75.65L75.65 72.45ZM64.08 95.77L55.92 95.77L57.74 79.87L62.26 79.87ZM37.59 88.17L31.83 82.41L44.35 72.45L47.55 75.65ZM24.23 64.08L24.23 55.92L40.13 57.74L40.13 62.26ZM31.83 37.59L37.59 31.83L47.55 44.35L44.35 47.55Z" fill="currentColor"/><circle cx="60" cy="60" r="12" fill="currentColor"/></svg></div><figcaption class="cap">24</figcaption></figure>
+        <figure><div class="mark" style="width:16px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="50" stroke="currentColor" stroke-width="10"/><path d="M55.92 24.23L64.08 24.23L62.26 40.13L57.74 40.13ZM82.41 31.83L88.17 37.59L75.65 47.55L72.45 44.35ZM95.77 55.92L95.77 64.08L79.87 62.26L79.87 57.74ZM88.17 82.41L82.41 88.17L72.45 75.65L75.65 72.45ZM64.08 95.77L55.92 95.77L57.74 79.87L62.26 79.87ZM37.59 88.17L31.83 82.41L44.35 72.45L47.55 75.65ZM24.23 64.08L24.23 55.92L40.13 57.74L40.13 62.26ZM31.83 37.59L37.59 31.83L47.55 44.35L44.35 47.55Z" fill="currentColor"/><circle cx="60" cy="60" r="12" fill="currentColor"/></svg></div><figcaption class="cap">16</figcaption></figure>
+      </div>
+      <p class="cap">Ringkas · 24 px ke bawah</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Warna</p>
+  <h2>Perunggu dan patinanya</h2>
+  <p>Paletnya diambil dari bendanya sendiri: perunggu yang baru dicor, dan hijau patina yang tumbuh setelah dua ribu tahun. Bukan neon crypto, dan justru itu gunanya.</p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:28px">
+    <div class="sw on-ink"><div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div>
+    <div class="sw on-paper"><div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div>
+    <div class="sw on-bronze"><div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div>
+    <div class="sw on-patina"><div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="currentColor" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="currentColor"/><circle cx="60" cy="60" r="10" fill="currentColor"/></svg></div></div>
+  </div>
+  <div class="pal">
+    <div class="chip"><div class="fill" style="background:#12100D"></div><div class="meta"><b>Arang</b><span>#12100D · dasar gelap</span></div></div>
+    <div class="chip"><div class="fill" style="background:#E9E6E0"></div><div class="meta"><b>Batu</b><span>#E9E6E0 · dasar terang</span></div></div>
+    <div class="chip"><div class="fill" style="background:#8C6234"></div><div class="meta"><b>Perunggu</b><span>#8C6234 · aksen</span></div></div>
+    <div class="chip"><div class="fill" style="background:#C08F52"></div><div class="meta"><b>Perunggu terang</b><span>#C08F52 · di atas gelap</span></div></div>
+    <div class="chip"><div class="fill" style="background:#4E6B61"></div><div class="meta"><b>Patina</b><span>#4E6B61 · sekunder, hemat</span></div></div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Huruf</p>
+  <h2>Spectral, dijarangkan</h2>
+  <div class="grid two">
+    <div class="panel" style="align-items:flex-start;text-align:left">
+      <span class="wordmark" style="font-size:30px">Nekara</span>
+      <dl>
+        <dt>Muka</dt><dd>Spectral Light 300</dd>
+        <dt>Jarak</dt><dd>0.42em, kapital</dd>
+        <dt>Optis</dt><dd>indent kiri 0.42em agar terlihat rata</dd>
+      </dl>
+    </div>
+    <div class="panel" style="align-items:flex-start;text-align:left">
+      <p style="margin:0"><strong style="font-weight:500">IBM Plex Sans</strong> — teks berjalan, antarmuka, isi kartu.</p>
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:13.5px">IBM Plex Mono — angka, hash, label. Register ini penuh angka yang harus berbaris.</p>
+      <p class="note" style="margin:0">Serif untuk nama, grotesk untuk kalimat, mono untuk bukti.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Aturan</p>
+  <h2>Yang menjaganya tetap mahal</h2>
+  <div class="grid two">
+    <div><dl>
+      <dt>Ruang bebas</dt><dd>sisakan jarak selebar inti pejal di keempat sisi</dd>
+      <dt>Ukuran minimum</dt><dd>utama 32 px · ringkas 16 px</dd>
+      <dt>Satu warna</dt><dd>marka selalu satu warna penuh</dd>
+    </dl></div>
+    <div><dl>
+      <dt>Jangan</dt><dd>diberi gradien, bayangan, atau garis luar</dd>
+      <dt>Jangan</dt><dd>diputar — dua belas raya harus tegak di atas</dd>
+      <dt>Jangan</dt><dd>ditaruh di atas foto tanpa bidang warna penuh</dd>
+    </dl></div>
+  </div>
+</section>
+
+<section style="padding-bottom:96px">
+  <p class="eyebrow">Catatan</p>
+  <p class="note">Wordmark di halaman ini memakai webfont. Untuk aset produksi, huruf harus dikonversi jadi kurva agar tidak bergantung pada font yang terpasang. Berkas <code style="font-family:'IBM Plex Mono',monospace">nekara-mark.svg</code> dan <code style="font-family:'IBM Plex Mono',monospace">nekara-mark-compact.svg</code> murni geometri dan mewarisi <code style="font-family:'IBM Plex Mono',monospace">currentColor</code>, jadi aman dipakai apa adanya.</p>
+  <p class="note">Nama Nekara belum final dan belum diperiksa merek dagangnya. Marka ini tidak memuat huruf apa pun, jadi kalau namanya berubah, hanya wordmark-nya yang perlu diganti.</p>
+</section>
+
+</div>

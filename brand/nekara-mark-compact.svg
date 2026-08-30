@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara">
+  <circle cx="60" cy="60" r="50" stroke="currentColor" stroke-width="10"/>
+  <path d="M55.92 24.23L64.08 24.23L62.26 40.13L57.74 40.13ZM82.41 31.83L88.17 37.59L75.65 47.55L72.45 44.35ZM95.77 55.92L95.77 64.08L79.87 62.26L79.87 57.74ZM88.17 82.41L82.41 88.17L72.45 75.65L75.65 72.45ZM64.08 95.77L55.92 95.77L57.74 79.87L62.26 79.87ZM37.59 88.17L31.83 82.41L44.35 72.45L47.55 75.65ZM24.23 64.08L24.23 55.92L40.13 57.74L40.13 62.26ZM31.83 37.59L37.59 31.83L47.55 44.35L44.35 47.55Z" fill="currentColor"/>
+  <circle cx="60" cy="60" r="12" fill="currentColor"/>
+</svg>
