@@ -1,143 +1,66 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Nekara — Nothing is ever removed</title>
-<meta name="description" content="A public register of automated trading signals. Every call is published with the exact conditions that fired it. Failed calls are never removed.">
-<meta property="og:title" content="Nekara">
+<meta name="description" content="A public register of automated trading signals. Failed calls are never removed.">
+<meta property="og:title" content="Nekara"><meta property="og:url" content="https://nekara.xyz">
 <meta property="og:description" content="A public register of automated trading signals. Failed calls are never removed.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://nekara.xyz">
 <meta name="theme-color" content="#060A11">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@200;300;400&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@200;300;400&family=IBM+Plex+Sans:wght@400&family=IBM+Plex+Mono&display=swap">
 <style>
-:root{--navy:#060A11;--panel:#0A1220;--line:#18233A;--blue:#6C9BE0;--pale:#EDF2FB;--mute:#68799A}
+:root{--n:#060A11;--p:#0A1220;--l:#18233A;--b:#6C9BE0;--w:#EDF2FB;--m:#68799A}
 *{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{background:var(--navy);color:var(--pale);font-family:"IBM Plex Sans",system-ui,sans-serif;
-  font-size:16.5px;line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
-.wrap{max-width:840px;margin:0 auto;padding:0 28px}
-a{color:var(--blue);text-decoration:none;border-bottom:1px solid rgba(108,155,224,.3)}
-a:hover{border-bottom-color:var(--blue)}
-a:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:2px}
-.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.3em;
-  text-transform:uppercase;color:var(--mute);margin-bottom:16px}
-h2{font-family:Spectral,Georgia,serif;font-weight:300;font-size:27px;margin-bottom:14px;text-wrap:balance}
-p{margin-bottom:16px;max-width:62ch}
-.note{color:var(--mute);font-size:15px}
-
-/* hero */
-.hero{position:relative;min-height:88vh;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;text-align:center;padding:120px 28px 96px;overflow:hidden}
-.hero .glow{position:absolute;inset:0;
-  background:radial-gradient(620px 560px at 50% 38%,#16305E 0%,rgba(22,48,94,.26) 44%,transparent 74%)}
-.halo{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);border-radius:50%;
-  border:1px solid rgba(108,155,224,.08)}
-.h1{width:660px;height:660px}.h2r{width:440px;height:440px;border-color:rgba(108,155,224,.12)}
-.hero .inner{position:relative;display:flex;flex-direction:column;align-items:center;gap:34px}
-.mark{width:132px}.mark svg{display:block;width:100%}
-.word{font-family:Spectral,Georgia,serif;font-weight:200;font-size:clamp(38px,8vw,66px);
-  text-transform:uppercase;letter-spacing:.5em;text-indent:.5em;line-height:1;color:var(--pale)}
-.rule{width:180px;height:1px;background:linear-gradient(90deg,transparent,rgba(108,155,224,.8),transparent)}
-.tag{font-family:"IBM Plex Mono",monospace;font-size:12.5px;letter-spacing:.4em;
-  text-transform:uppercase;color:var(--mute);margin:0}
-.base{position:absolute;left:0;right:0;bottom:0;height:10px;color:var(--blue);opacity:.14}
-.grain{position:fixed;inset:0;opacity:.045;mix-blend-mode:overlay;pointer-events:none;z-index:2}
-
-section{padding:76px 0;border-top:1px solid var(--line)}
-.rules{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden}
-.rule-item{background:var(--panel);padding:24px 26px}
-.rule-item h3{font-family:Spectral,Georgia,serif;font-weight:400;font-size:19px;margin-bottom:6px}
-.rule-item p{margin:0;font-size:15px;color:var(--mute)}
-.status{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:28px 30px}
-.status ul{list-style:none;margin-top:16px;display:grid;gap:11px}
-.status li{padding-left:26px;position:relative;color:var(--mute);font-size:15px}
-.status li::before{content:"";position:absolute;left:0;top:.62em;width:9px;height:9px;
-  border:1px solid rgba(108,155,224,.5);border-radius:50%}
-footer{padding:52px 0 80px;border-top:1px solid var(--line);display:flex;
-  justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
-.fmark{width:30px;opacity:.75}.fmark svg{display:block;width:100%}
-.legal{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--mute)}
-@media (prefers-reduced-motion:no-preference){
-  .hero .inner>*{animation:rise .95s cubic-bezier(.2,.7,.3,1) both}
-  .hero .inner>*:nth-child(2){animation-delay:.09s}
-  .hero .inner>*:nth-child(3){animation-delay:.16s}
-  .hero .inner>*:nth-child(4){animation-delay:.23s}
-  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-}
-@media (max-width:620px){.h1{width:420px;height:420px}.h2r{width:300px;height:300px}.mark{width:96px}}
-</style>
-</head>
-<body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
-<linearGradient id="mg" x1="0" y1="0" x2=".85" y2="1">
-<stop offset="0" stop-color="#A6C6F5"/><stop offset=".45" stop-color="#6C9BE0"/>
-<stop offset="1" stop-color="#3D6AB4"/></linearGradient>
-<filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/>
-<feColorMatrix type="saturate" values="0"/></filter></defs></svg>
-
-<header class="hero">
-  <div class="glow"></div>
-  <div class="halo h1"></div><div class="halo h2r"></div>
-  <div class="inner">
-    <div class="mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="url(#mg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#mg)"/><circle cx="60" cy="60" r="10" fill="url(#mg)"/></svg></div>
-    <h1 class="word">Nekara</h1>
-    <div class="rule"></div>
-    <p class="tag">Nothing is ever removed</p>
-  </div>
-  <svg class="base" viewBox="0 0 1500 10" fill="currentColor" preserveAspectRatio="none"><rect x="0" y="0" width=".9" height="10"/><rect x="10" y="3.5" width=".9" height="6"/><rect x="20" y="3.5" width=".9" height="6"/><rect x="30" y="3.5" width=".9" height="6"/><rect x="40" y="3.5" width=".9" height="6"/><rect x="50" y="0" width=".9" height="10"/><rect x="60" y="3.5" width=".9" height="6"/><rect x="70" y="3.5" width=".9" height="6"/><rect x="80" y="3.5" width=".9" height="6"/><rect x="90" y="3.5" width=".9" height="6"/><rect x="100" y="0" width=".9" height="10"/><rect x="110" y="3.5" width=".9" height="6"/><rect x="120" y="3.5" width=".9" height="6"/><rect x="130" y="3.5" width=".9" height="6"/><rect x="140" y="3.5" width=".9" height="6"/><rect x="150" y="0" width=".9" height="10"/><rect x="160" y="3.5" width=".9" height="6"/><rect x="170" y="3.5" width=".9" height="6"/><rect x="180" y="3.5" width=".9" height="6"/><rect x="190" y="3.5" width=".9" height="6"/><rect x="200" y="0" width=".9" height="10"/><rect x="210" y="3.5" width=".9" height="6"/><rect x="220" y="3.5" width=".9" height="6"/><rect x="230" y="3.5" width=".9" height="6"/><rect x="240" y="3.5" width=".9" height="6"/><rect x="250" y="0" width=".9" height="10"/><rect x="260" y="3.5" width=".9" height="6"/><rect x="270" y="3.5" width=".9" height="6"/><rect x="280" y="3.5" width=".9" height="6"/><rect x="290" y="3.5" width=".9" height="6"/><rect x="300" y="0" width=".9" height="10"/><rect x="310" y="3.5" width=".9" height="6"/><rect x="320" y="3.5" width=".9" height="6"/><rect x="330" y="3.5" width=".9" height="6"/><rect x="340" y="3.5" width=".9" height="6"/><rect x="350" y="0" width=".9" height="10"/><rect x="360" y="3.5" width=".9" height="6"/><rect x="370" y="3.5" width=".9" height="6"/><rect x="380" y="3.5" width=".9" height="6"/><rect x="390" y="3.5" width=".9" height="6"/><rect x="400" y="0" width=".9" height="10"/><rect x="410" y="3.5" width=".9" height="6"/><rect x="420" y="3.5" width=".9" height="6"/><rect x="430" y="3.5" width=".9" height="6"/><rect x="440" y="3.5" width=".9" height="6"/><rect x="450" y="0" width=".9" height="10"/><rect x="460" y="3.5" width=".9" height="6"/><rect x="470" y="3.5" width=".9" height="6"/><rect x="480" y="3.5" width=".9" height="6"/><rect x="490" y="3.5" width=".9" height="6"/><rect x="500" y="0" width=".9" height="10"/><rect x="510" y="3.5" width=".9" height="6"/><rect x="520" y="3.5" width=".9" height="6"/><rect x="530" y="3.5" width=".9" height="6"/><rect x="540" y="3.5" width=".9" height="6"/><rect x="550" y="0" width=".9" height="10"/><rect x="560" y="3.5" width=".9" height="6"/><rect x="570" y="3.5" width=".9" height="6"/><rect x="580" y="3.5" width=".9" height="6"/><rect x="590" y="3.5" width=".9" height="6"/><rect x="600" y="0" width=".9" height="10"/><rect x="610" y="3.5" width=".9" height="6"/><rect x="620" y="3.5" width=".9" height="6"/><rect x="630" y="3.5" width=".9" height="6"/><rect x="640" y="3.5" width=".9" height="6"/><rect x="650" y="0" width=".9" height="10"/><rect x="660" y="3.5" width=".9" height="6"/><rect x="670" y="3.5" width=".9" height="6"/><rect x="680" y="3.5" width=".9" height="6"/><rect x="690" y="3.5" width=".9" height="6"/><rect x="700" y="0" width=".9" height="10"/><rect x="710" y="3.5" width=".9" height="6"/><rect x="720" y="3.5" width=".9" height="6"/><rect x="730" y="3.5" width=".9" height="6"/><rect x="740" y="3.5" width=".9" height="6"/><rect x="750" y="0" width=".9" height="10"/><rect x="760" y="3.5" width=".9" height="6"/><rect x="770" y="3.5" width=".9" height="6"/><rect x="780" y="3.5" width=".9" height="6"/><rect x="790" y="3.5" width=".9" height="6"/><rect x="800" y="0" width=".9" height="10"/><rect x="810" y="3.5" width=".9" height="6"/><rect x="820" y="3.5" width=".9" height="6"/><rect x="830" y="3.5" width=".9" height="6"/><rect x="840" y="3.5" width=".9" height="6"/><rect x="850" y="0" width=".9" height="10"/><rect x="860" y="3.5" width=".9" height="6"/><rect x="870" y="3.5" width=".9" height="6"/><rect x="880" y="3.5" width=".9" height="6"/><rect x="890" y="3.5" width=".9" height="6"/><rect x="900" y="0" width=".9" height="10"/><rect x="910" y="3.5" width=".9" height="6"/><rect x="920" y="3.5" width=".9" height="6"/><rect x="930" y="3.5" width=".9" height="6"/><rect x="940" y="3.5" width=".9" height="6"/><rect x="950" y="0" width=".9" height="10"/><rect x="960" y="3.5" width=".9" height="6"/><rect x="970" y="3.5" width=".9" height="6"/><rect x="980" y="3.5" width=".9" height="6"/><rect x="990" y="3.5" width=".9" height="6"/><rect x="1000" y="0" width=".9" height="10"/><rect x="1010" y="3.5" width=".9" height="6"/><rect x="1020" y="3.5" width=".9" height="6"/><rect x="1030" y="3.5" width=".9" height="6"/><rect x="1040" y="3.5" width=".9" height="6"/><rect x="1050" y="0" width=".9" height="10"/><rect x="1060" y="3.5" width=".9" height="6"/><rect x="1070" y="3.5" width=".9" height="6"/><rect x="1080" y="3.5" width=".9" height="6"/><rect x="1090" y="3.5" width=".9" height="6"/><rect x="1100" y="0" width=".9" height="10"/><rect x="1110" y="3.5" width=".9" height="6"/><rect x="1120" y="3.5" width=".9" height="6"/><rect x="1130" y="3.5" width=".9" height="6"/><rect x="1140" y="3.5" width=".9" height="6"/><rect x="1150" y="0" width=".9" height="10"/><rect x="1160" y="3.5" width=".9" height="6"/><rect x="1170" y="3.5" width=".9" height="6"/><rect x="1180" y="3.5" width=".9" height="6"/><rect x="1190" y="3.5" width=".9" height="6"/><rect x="1200" y="0" width=".9" height="10"/><rect x="1210" y="3.5" width=".9" height="6"/><rect x="1220" y="3.5" width=".9" height="6"/><rect x="1230" y="3.5" width=".9" height="6"/><rect x="1240" y="3.5" width=".9" height="6"/><rect x="1250" y="0" width=".9" height="10"/><rect x="1260" y="3.5" width=".9" height="6"/><rect x="1270" y="3.5" width=".9" height="6"/><rect x="1280" y="3.5" width=".9" height="6"/><rect x="1290" y="3.5" width=".9" height="6"/><rect x="1300" y="0" width=".9" height="10"/><rect x="1310" y="3.5" width=".9" height="6"/><rect x="1320" y="3.5" width=".9" height="6"/><rect x="1330" y="3.5" width=".9" height="6"/><rect x="1340" y="3.5" width=".9" height="6"/><rect x="1350" y="0" width=".9" height="10"/><rect x="1360" y="3.5" width=".9" height="6"/><rect x="1370" y="3.5" width=".9" height="6"/><rect x="1380" y="3.5" width=".9" height="6"/><rect x="1390" y="3.5" width=".9" height="6"/><rect x="1400" y="0" width=".9" height="10"/><rect x="1410" y="3.5" width=".9" height="6"/><rect x="1420" y="3.5" width=".9" height="6"/><rect x="1430" y="3.5" width=".9" height="6"/><rect x="1440" y="3.5" width=".9" height="6"/><rect x="1450" y="0" width=".9" height="10"/><rect x="1460" y="3.5" width=".9" height="6"/><rect x="1470" y="3.5" width=".9" height="6"/><rect x="1480" y="3.5" width=".9" height="6"/><rect x="1490" y="3.5" width=".9" height="6"/></svg>
-</header>
-
-<main class="wrap">
-<section>
-  <p class="eyebrow">What this is</p>
-  <h2>A public register of automated trading signals</h2>
-  <p>A screener reads liquidity, buy pressure and volume acceleration across Solana, Base, BNB and Ethereum. Every signal it fires is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
-  <p>The tracking is commodity. Anyone can build a screener. What is hard is publishing the calls that went to zero and leaving them there.</p>
-</section>
-
-<section>
-  <p class="eyebrow">The rules</p>
-  <h2>Four commitments, enforced in code</h2>
-  <div class="rules">
-    <div class="rule-item"><h3>Nothing is removed</h3><p>Rows can be inserted, never changed or deleted. The database itself refuses the operation. Corrections are new rows.</p></div>
-    <div class="rule-item"><h3>Misses stay in the denominator</h3><p>Hit rate is wins over every call in the window. There is no code path that drops a call from a statistic.</p></div>
-    <div class="rule-item"><h3>Market cap is computed, not quoted</h3><p>Price and supply are frozen separately at entry. No provider's cap field decides a verdict.</p></div>
-    <div class="rule-item"><h3>The chain is published</h3><p>Every record is hashed into a chain, and the head is anchored on-chain. Anyone can recompute the register from the public CSV and check it against the anchor.</p></div>
-  </div>
-</section>
-
-<section>
-  <p class="eyebrow">Status</p>
-  <h2>Not live yet</h2>
-  <p>The engine, the contracts and the verifier exist and are tested. The register is not open, because a register with nothing in it proves nothing.</p>
-  <div class="status">
-    <p class="note" style="margin:0">Before the first call is published:</p>
-    <ul>
-      <li>The screener runs against live market data, not fixtures</li>
-      <li>The anchor contract is deployed and the chain head is posted on-chain</li>
-      <li>The verifier is run by someone who is not us, against a CSV they downloaded</li>
-    </ul>
-  </div>
-  <p class="note" style="margin-top:22px">Until the third one is true, this site will say the register is unverifiable, because it would be.</p>
-</section>
-
-<section>
-  <p class="eyebrow">Risk</p>
-  <h2>Read this part</h2>
-  <p class="note">Nothing here is investment advice. Low-capitalisation tokens can and frequently do go to zero. Peak multiples shown on the register are the highest value observed, not a realised return — nobody sells the top. Past results, published honestly or otherwise, do not predict future ones.</p>
-</section>
+body{background:var(--n);color:var(--w);font:16.5px/1.7 "IBM Plex Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.c{max-width:800px;margin:0 auto;padding:0 26px}
+h1{font:200 clamp(36px,8vw,64px)/1 Spectral,Georgia,serif;text-transform:uppercase;letter-spacing:.5em;text-indent:.5em}
+h2{font:300 26px/1.3 Spectral,Georgia,serif;margin-bottom:12px}
+h3{font:400 18px/1.4 Spectral,Georgia,serif;margin-bottom:5px}
+p{margin-bottom:15px;max-width:62ch}
+.k{font:400 10.5px/1 "IBM Plex Mono",monospace;letter-spacing:.3em;text-transform:uppercase;color:var(--m);margin-bottom:14px}
+.q{color:var(--m);font-size:15px}
+header{position:relative;min-height:86vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;text-align:center;padding:100px 26px;overflow:hidden}
+.gl{position:absolute;inset:0;background:radial-gradient(600px 540px at 50% 40%,#16305E 0%,rgba(22,48,94,.24) 44%,transparent 74%)}
+.ha{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);border-radius:50%;border:1px solid rgba(108,155,224,.09);width:min(620px,86vw);height:min(620px,86vw)}
+.hb{width:min(410px,58vw);height:min(410px,58vw);border-color:rgba(108,155,224,.13)}
+header>*:not(.gl):not(.ha){position:relative}
+.mk{width:min(126px,26vw)}.mk svg{display:block;width:100%}
+.rl{width:170px;height:1px;background:linear-gradient(90deg,transparent,rgba(108,155,224,.8),transparent)}
+.tg{font:400 12px/1 "IBM Plex Mono",monospace;letter-spacing:.4em;text-transform:uppercase;color:var(--m)}
+section{padding:70px 0;border-top:1px solid var(--l)}
+.gr{display:grid;gap:1px;background:var(--l);border:1px solid var(--l);border-radius:3px;overflow:hidden}
+.gr div{background:var(--p);padding:22px 24px}
+.gr p{margin:0;font-size:14.5px;color:var(--m)}
+.st{background:var(--p);border:1px solid var(--l);border-radius:3px;padding:24px 26px}
+.st ul{list-style:none;margin-top:14px;display:grid;gap:10px}
+.st li{padding-left:24px;position:relative;color:var(--m);font-size:14.5px}
+.st li:before{content:"";position:absolute;left:0;top:.6em;width:9px;height:9px;border:1px solid rgba(108,155,224,.5);border-radius:50%}
+footer{padding:46px 0 70px;border-top:1px solid var(--l);display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.fm{width:28px;opacity:.7}.fm svg{display:block;width:100%}
+.lg{font:400 11px/1 "IBM Plex Mono",monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--m)}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs><linearGradient id="g" x1="0" y1="0" x2=".85" y2="1">
+<stop offset="0" stop-color="#A6C6F5"/><stop offset=".45" stop-color="#6C9BE0"/><stop offset="1" stop-color="#3D6AB4"/>
+</linearGradient></defs></svg>
+<header><div class="gl"></div><div class="ha"></div><div class="ha hb"></div>
+<div class="mk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="url(#g)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#g)"/><circle cx="60" cy="60" r="10" fill="url(#g)"/></svg></div><h1>Nekara</h1><div class="rl"></div><p class="tg">Nothing is ever removed</p></header>
+<main class="c">
+<section><p class="k">What this is</p><h2>A public register of automated trading signals</h2>
+<p>A screener reads liquidity, buy pressure and volume acceleration across Solana, Base, BNB and Ethereum. Every signal it fires is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
+<p>The tracking is commodity. Anyone can build a screener. What is hard is publishing the calls that went to zero and leaving them there.</p></section>
+<section><p class="k">The rules</p><h2>Four commitments, enforced in code</h2><div class="gr">
+<div><h3>Nothing is removed</h3><p>Rows can be inserted, never changed or deleted. The database itself refuses. Corrections are new rows.</p></div>
+<div><h3>Misses stay in the denominator</h3><p>Hit rate is wins over every call in the window. No code path drops a call from a statistic.</p></div>
+<div><h3>Market cap is computed, not quoted</h3><p>Price and supply are frozen separately at entry. No provider cap field decides a verdict.</p></div>
+<div><h3>The chain is published</h3><p>Every record is hashed into a chain and the head is anchored on-chain. Anyone can recompute the register from the public CSV and check it.</p></div>
+</div></section>
+<section><p class="k">Status</p><h2>Not live yet</h2>
+<p>The engine, the contracts and the verifier exist and are tested. The register is not open, because a register with nothing in it proves nothing.</p>
+<div class="st"><p class="q" style="margin:0">Before the first call is published:</p><ul>
+<li>The screener runs against live market data, not fixtures</li>
+<li>The anchor contract is deployed and the chain head is posted on-chain</li>
+<li>The verifier is run by someone who is not us, against a CSV they downloaded</li></ul></div>
+<p class="q" style="margin-top:20px">Until the third is true, this site will say the register is unverifiable, because it would be.</p></section>
+<section><p class="k">Risk</p><h2>Read this part</h2>
+<p class="q">Nothing here is investment advice. Low-capitalisation tokens can and frequently do go to zero. Peak multiples shown on the register are the highest value observed, not a realised return. Past results do not predict future ones.</p></section>
 </main>
-
-<footer class="wrap">
-  <div class="fmark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="url(#mg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#mg)"/><circle cx="60" cy="60" r="10" fill="url(#mg)"/></svg></div>
-  <p class="legal">Nekara · nekara.xyz</p>
-</footer>
-<svg class="grain"><rect width="100%" height="100%" filter="url(#grain)"/></svg>
-</body>
-</html>
+<footer class="c"><div class="fm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="Nekara"><circle cx="60" cy="60" r="51" stroke="url(#g)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#g)"/><circle cx="60" cy="60" r="10" fill="url(#g)"/></svg></div><p class="lg">Nekara · nekara.xyz</p></footer>
+</body></html>
