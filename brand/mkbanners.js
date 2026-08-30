@@ -33,10 +33,14 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 18px 50px -22px rgba(0,0,0,.9)}
 .url{font-family:var(--mono);font-size:15px;color:var(--tx-3);letter-spacing:.02em}
+.shot{position:absolute;inset:0;background:url('file:///home/user/mintnft/brand/shots/grid.png') center/cover no-repeat}
+.scrim{position:absolute;inset:0}
 </style>`;
 
-const page=(w,h,inner)=>`${BASE}<style>body{width:${w}px;height:${h}px}</style>
-<div class="aur"></div><div class="dots"></div>${inner}<div class="grain"></div>`;
+const page=(w,h,inner,scrim,shot='')=>`${BASE}<style>body{width:${w}px;height:${h}px}</style>
+<div class="shot" style="opacity:.85;${shot}"></div>
+<div class="scrim" style="background:${scrim}"></div>
+<div class="aur"></div><div class="dots" style="opacity:.5"></div>${inner}<div class="grain"></div>`;
 
 /* 1 — X header, left 380px kept clear for the avatar */
 fs.writeFileSync('brand/banners/b1-x-header.html', page(1500,500,`
@@ -45,7 +49,8 @@ fs.writeFileSync('brand/banners/b1-x-header.html', page(1500,500,`
   <h1 style="font-size:47px">Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
   <div class="url">nekara.xyz</div>
 </div>
-<div style="position:absolute;right:56px;bottom:40px" class="mono" style="font-size:13px">SOLANA · BASE · BNB · ETHEREUM</div>`));
+<div style="position:absolute;right:56px;bottom:40px" class="mono">SOLANA · BASE · BNB · ETHEREUM</div>`,
+'linear-gradient(90deg,#08090B 18%,rgba(8,9,11,.90) 44%,rgba(8,9,11,.55) 76%,rgba(8,9,11,.42))'));
 
 /* 2 — the introduction post */
 fs.writeFileSync('brand/banners/b2-intro.html', page(1600,900,`
@@ -55,7 +60,8 @@ fs.writeFileSync('brand/banners/b2-intro.html', page(1600,900,`
   <p style="font-size:23px;line-height:1.6;color:var(--tx-2);max-width:820px">Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead — so you can judge the reasoning, not just the result.</p>
   <div class="wm" style="margin-top:16px">${MARK}<span>Nekara</span></div>
   <div class="url">nekara.xyz</div>
-</div>`));
+</div>`,
+'radial-gradient(120% 100% at 50% 50%,rgba(8,9,11,.70) 28%,rgba(8,9,11,.90) 74%)'));
 
 /* 3 — the method, copy lifted from the site */
 const M=[["Eight hard vetoes first","Liquidity floor, age window, cap ceiling, liquidity-to-cap ratio, sell pressure, no vertical entries, real socials, sane quote."],
@@ -77,14 +83,17 @@ fs.writeFileSync('brand/banners/b3-method.html', page(1600,900,`
       <p style="font-size:17px;line-height:1.62;color:var(--tx-2)">${d}</p></div>`).join('')}
   </div>
   <div class="url">nekara.xyz</div>
-</div>`));
+</div>`,
+'linear-gradient(180deg,rgba(8,9,11,.90) 40%,rgba(8,9,11,.96))'));
 
 /* 4 — square, for Telegram and IG */
 fs.writeFileSync('brand/banners/b4-square.html', page(1080,1080,`
 <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 92px;gap:38px">
   <div style="width:112px">${MARK}</div>
-  <h1 style="font-size:62px">Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
+  <h1 style="font-size:60px;line-height:1.14">Signals with their<br>reasons attached.<br><span class="grad-tx">Including the ones<br>that failed.</span></h1>
   <div class="pill"><i></i>Failed calls are never removed</div>
   <div class="url" style="margin-top:10px">nekara.xyz</div>
-</div>`));
+</div>`,
+'radial-gradient(110% 90% at 50% 46%,rgba(8,9,11,.70) 26%,rgba(8,9,11,.93) 72%)',
+'background-size:150% auto;background-position:center 62%'));
 console.log('4 banner html ditulis');
