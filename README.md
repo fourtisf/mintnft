@@ -43,6 +43,8 @@ cd signal-engine
 node test.js               # rules against fixtures
 node simulate.js           # pipeline + integrity tamper test
 node backtest.js           # threshold sweep, reason attribution
+node test-marks.js         # a mark comes off the pair the call fired on, not
+                          # off whichever pool the token is deepest in
 node test-gating.js        # Tier I cannot get a call inside 10s, any route
 node test-gating.js --nogate   # the same test failing, on purpose
 ```

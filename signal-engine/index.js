@@ -68,14 +68,25 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
     for (const c of calls) (byChain[c.chain] ??= []).push(c);
     for (const [chain, list] of Object.entries(byChain)) {
       const pairs = await api.tokensBatch(chain, list.map(c => c.tokenAddress));
-      const best = {};
+      const best = {}, byPair = {};
       for (const p of pairs) {
         const a = p.baseToken?.address;
         if (!a) continue;
+        if (p.pairAddress) byPair[p.pairAddress] = p;
         if (!best[a] || (p.liquidity?.usd ?? 0) > (best[a].liquidity?.usd ?? 0)) best[a] = p;
       }
       for (const c of list) {
-        const p = best[c.tokenAddress];
+        // The mark has to come off the market the call was fired on. Taking the
+        // token's deepest pair instead prices entry in one pool and every later
+        // mark in another, and a token quoted differently across two pools is
+        // then settled dead within seconds of firing with no trade behind it —
+        // a wrong verdict written onto a record that cannot be edited.
+        //
+        // A pair that has actually gone is the one exception: a bonding curve
+        // that migrated leaves an empty pool behind, and the token's deepest
+        // pair is the honest continuation rather than a different market.
+        const own = byPair[c.pairAddress];
+        const p = own && (own.liquidity?.usd ?? 0) > 0 ? own : best[c.tokenAddress];
         if (!p) continue;
         // Same supply the call was frozen at, so peakX is a pure price ratio and
         // a provider redefining its cap cannot move a verdict already published.
@@ -120,7 +131,8 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
   log(`register api on :${port}  ·  discovery ${DISCOVER/1000}s  hot ${HOT/1000}s  warm ${WARM/1000}s`);
   log(`tier latency  III ${delays[3]}s · II ${delays[2]}s · I ${delays[1]}s · public ${delays[0]}s`);
   if (!publishAnchorTx) log("anchoring is not wired — /api/verify will report the register as unanchored");
-  return { stop() { timers.forEach(clearInterval); feed.close(); server.close(); }, store, engine, triage, feed, server };
+  return { stop() { timers.forEach(clearInterval); feed.close(); server.close(); },
+           store, engine, triage, feed, server, refresh };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) start();
