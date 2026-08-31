@@ -37,7 +37,8 @@ say "1/6  node"
 command -v node >/dev/null || die "node is not installed. install 20 or newer."
 NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
 [ "$NODE_MAJOR" -ge 20 ] || die "node $NODE_MAJOR is too old — the engine needs global fetch, so 20 or newer"
-echo "node $(node -v)"
+command -v npm >/dev/null || die "npm is missing. the engine has a dependency and cannot install it."
+echo "node $(node -v), npm $(npm -v)"
 
 # 2 ──────────────────────────────────────────────────────────────────────────
 say "2/6  source"
@@ -57,6 +58,11 @@ else
   find "$SRC/signal-engine" -maxdepth 1 -type f -exec cp -f {} "$ENGINE/" ';'
 fi
 echo "engine at $ENGINE"
+
+# auth.js needs ethereumjs-util for signature recovery, and index.js imports it
+# at boot, so a missing node_modules is not a degraded engine — it is no engine.
+( cd "$ENGINE" && npm install --omit=dev --no-audit --no-fund ) \
+  || die "npm install failed — the engine cannot boot without ethereumjs-util"
 
 if [ -f "$ENGINE/data/register.json" ]; then
   N=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(process.argv[1])).calls.length)}catch(e){console.log("?")}' "$ENGINE/data/register.json")
