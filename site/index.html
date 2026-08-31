@@ -262,6 +262,31 @@
       <div class="simstat" id="simStat"></div>
       <div class="gap" id="simGap"></div>
     </div>
+    <div class="box" style="grid-column:1/-1">
+      <h3>Caller leaderboard</h3>
+      <p class="sub">Ranked on hit rate over every call the caller made, misses included. There is no best-ever column — one 200× does not make a caller, and a table sorted on it would only reward whoever got luckiest once.</p>
+      <div class="sim-ctl">
+        <div class="seg" id="lbMin">
+          <button data-m="1" class="on">≥1 call</button>
+          <button data-m="3">≥3 calls</button>
+          <button data-m="5">≥5 calls</button>
+        </div>
+        <select class="sel" id="lbWin">
+          <option value="0">All time</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+      </div>
+      <table class="tbl"><thead><tr><th>#</th><th>Caller</th>
+        <th style="text-align:right">Calls 7d / 30d / all</th>
+        <th style="text-align:right">Hit ≥2×</th>
+        <th style="text-align:right">Med peak</th>
+        <th style="text-align:right">Med now</th>
+        <th style="text-align:right">Return / call</th>
+        <th>Last 5</th><th>Top chain</th></tr></thead>
+      <tbody id="qCallers"></tbody></table>
+      <p class="sub" style="margin:14px 0 0">Return per call assumes the exit rule selected above and the same 5% round trip. Change the rule and the ranking changes with it — which is the point, since a caller is only good relative to how you would actually have traded them.</p>
+    </div>
     <div class="box">
       <h3>Reason performance</h3>
       <p class="sub">Lift of 1.00 means the reason tells you nothing beyond the base rate. Below 1.00 means calls carrying it do worse than average.</p>

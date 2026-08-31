@@ -631,7 +631,7 @@ function go(v,hash){
   document.getElementById("tkr").classList.toggle("hide",v!=="reg");
   document.body.style.paddingBottom=v==="reg"?"36px":"0";
   document.querySelectorAll("#navLinks a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
-  if(v==="quant"){renderQuant();renderSim()} if(v==="ops")renderOps(); if(v==="vault")renderVault();
+  if(v==="quant"){renderQuant();renderSim();renderLeaders()} if(v==="ops")renderOps(); if(v==="vault")renderVault();
   if(hash){const t=document.querySelector(hash);if(t)setTimeout(()=>t.scrollIntoView({behavior:"smooth"}),40)}else scrollTo(0,0);
   setTimeout(reveal,60);
 }
@@ -806,9 +806,50 @@ function renderSim(){
      That gap is why peak and now are always shown together — nobody sells the top, and 5% round-trip
      cost across ${r.n} calls is real money.`;
 }
+
+/* the leaderboard the multi-caller schema was always for. ranked on hit rate
+   over every call, never on the single best one, and the return column names
+   the exit rule it assumes instead of quoting an unqualified number. */
+let lbMin=1, lbWin=0;
+function renderLeaders(){
+  const now=Date.now(), cut=lbWin?now-lbWin*24*60*MIN:0;
+  const pool=calls.filter(c=>c.at>=cut);
+  const g={}; pool.forEach(c=>{(g[c.by]=g[c.by]||[]).push(c)});
+  const rows=Object.entries(g).map(([by,v])=>{
+    const ms=v.map(mult).sort((a,b)=>a-b), ns=v.map(nx).sort((a,b)=>a-b);
+    const mid=a=>a[Math.floor(a.length/2)];
+    const chains={}; v.forEach(c=>chains[c.chain]=(chains[c.chain]||0)+1);
+    const last=[...v].sort((a,b)=>b.at-a.at).slice(0,5);
+    return {by, n:v.length,
+      d7:v.filter(c=>c.at>=now-7*24*60*MIN).length,
+      d30:v.filter(c=>c.at>=now-30*24*60*MIN).length,
+      rate:v.filter(win).length/v.length,
+      medPk:mid(ms), medNow:mid(ns),
+      ret:v.reduce((a,c)=>a+(exitMultiple(c,simX)*(1-FEE)-1),0)/v.length,
+      chain:Object.entries(chains).sort((a,b)=>b[1]-a[1])[0][0],
+      last};
+  }).filter(r=>r.n>=lbMin).sort((a,b)=>b.rate-a.rate||b.ret-a.ret);
+
+  document.getElementById("qCallers").innerHTML = rows.length ? rows.map((r,i)=>
+    `<tr><td class="n" style="text-align:left;color:var(--tx-3)">${i+1}</td>
+      <td class="k">${r.by==="desk"?"House desk":"@"+r.by}</td>
+      <td class="n">${r.d7} / ${r.d30} / ${r.n}</td>
+      <td class="n" style="color:var(--tx)">${Math.round(r.rate*100)}%</td>
+      <td class="n">${r.medPk.toFixed(2)}×</td>
+      <td class="n" style="color:${r.medNow>=1?"var(--tx-2)":"var(--dead)"}">${r.medNow.toFixed(2)}×</td>
+      <td class="n" style="color:${r.ret>=0?"var(--win)":"var(--dead)"}">${r.ret>=0?"+":"−"}${Math.abs(r.ret*100).toFixed(0)}%</td>
+      <td><span class="vdots">${r.last.map(c=>`<i class="${vrd(c)}"></i>`).join("")}${
+        Array.from({length:Math.max(0,5-r.last.length)},()=>"<i></i>").join("")}</span></td>
+      <td>${r.chain}</td></tr>`).join("")
+    : `<tr><td colspan="9" style="color:var(--tx-3);padding:16px 0">No caller has that many calls in this window yet.</td></tr>`;
+}
+document.getElementById("lbMin").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;lbMin=+b.dataset.m;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderLeaders();});
+document.getElementById("lbWin").addEventListener("change",e=>{lbWin=+e.target.value;renderLeaders()});
 document.getElementById("simExit").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;simX=b.dataset.x;
-  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderSim();});
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderSim();renderLeaders();});
 document.getElementById("simSize").addEventListener("change",e=>{simSize=+e.target.value;renderSim()});
 
 /* ═══════ Hindsight · Triage · Vault ═══════

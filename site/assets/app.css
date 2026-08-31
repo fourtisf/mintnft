@@ -355,6 +355,11 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .tbl tr:last-child td{border-bottom:none}
 .tbl td.k{color:var(--tx);font-weight:500}
 .tbl td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.vdots{display:flex;gap:4px}
+.vdots i{width:14px;height:5px;border-radius:2px;display:block;background:rgba(255,255,255,.08)}
+.vdots i.win{background:var(--accent)}
+.vdots i.open{background:var(--win)}
+.vdots i.dead{background:var(--dead)}
 .lift{display:flex;align-items:center;gap:9px;min-width:120px}
 .lift i{display:block;height:5px;border-radius:3px;background:var(--grad)}
 .lift i.low{background:linear-gradient(90deg,#6E757E,#8C929C)}
