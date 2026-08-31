@@ -224,6 +224,7 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .rail .cnt{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--tx-3)}
 .reg-grid{display:grid;grid-template-columns:minmax(0,1fr) 312px;gap:26px;padding:24px 0 90px;align-items:start}
 .feed{display:flex;flex-direction:column;gap:11px}
+.feedcol{min-width:0;display:flex;flex-direction:column;gap:14px}
 .side{position:sticky;top:126px;display:flex;flex-direction:column;gap:12px}
 .pnl{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);padding:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
 .pnl h4{font-size:12px;font-weight:550;color:var(--tx-2);margin-bottom:14px;display:flex;justify-content:space-between}

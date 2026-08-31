@@ -786,6 +786,9 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
     <select class="sel" id="volSel" aria-label="Minimum hourly volume at entry">
       <option value="0">Any volume</option><option value="10000">Vol ≥ $10K</option>
       <option value="25000">Vol ≥ $25K</option><option value="100000">Vol ≥ $100K</option></select>
+    <select class="sel" id="timeSel" aria-label="Time window">
+      <option value="0">Any time</option><option value="24">Last 24h</option>
+      <option value="168">Last 7d</option><option value="720">Last 30d</option></select>
     <button class="chip hide" id="chipChain"></button>
     <span class="cnt" id="cnt"></span>
   </div>
@@ -1522,7 +1525,7 @@ function renderMarquee(){
 }
 
 /* ═══════ render ═══════ */
-const S={f:"all",sort:"recent",chain:null,q:"",minMc:0,minVol:0};
+const S={f:"all",sort:"recent",chain:null,q:"",minMc:0,minVol:0,hours:0};
 function vis(){
   let a=calls.filter(c=>{
     if(S.chain&&c.chain!==S.chain)return false;
@@ -1530,6 +1533,7 @@ function vis(){
       if(!(c.name.toLowerCase().includes(q)||c.tick.toLowerCase().includes(q)||c.ca.toLowerCase().includes(q)))return false}
     if(S.minMc&&!(c.entry>=S.minMc))return false;
     if(S.minVol&&!(c.vol>=S.minVol))return false;
+    if(S.hours&&c.at<Date.now()-S.hours*3600e3)return false;
     const v=vrd(c);
     return S.f==="live"?c.live:S.f==="win"?v==="win":S.f==="dead"?v==="dead":true});
   if(S.sort==="peak")a.sort((x,y)=>mult(y)-mult(x));
@@ -1728,6 +1732,7 @@ document.getElementById("seg").addEventListener("click",e=>{
 document.getElementById("sortSel").addEventListener("change",e=>{S.sort=e.target.value;renderFeed()});
 document.getElementById("mcSel").addEventListener("change",e=>{S.minMc=+e.target.value;renderFeed()});
 document.getElementById("volSel").addEventListener("change",e=>{S.minVol=+e.target.value;renderFeed()});
+document.getElementById("timeSel").addEventListener("change",e=>{S.hours=+e.target.value;renderFeed()});
 document.getElementById("q").addEventListener("input",e=>{S.q=e.target.value.trim();renderFeed()});
 
 const drw=document.getElementById("drw"),scrim=document.getElementById("scrim");

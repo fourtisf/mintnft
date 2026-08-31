@@ -488,7 +488,9 @@ function renderMarquee(){
 }
 
 /* ═══════ render ═══════ */
-const S={f:"all",sort:"recent",chain:null,q:"",minMc:0,minVol:0};
+const S={f:"all",sort:"recent",chain:null,q:"",minMc:0,minVol:0,hours:0};
+let total=0;                          // how many the register holds under this filter
+const PAGE=60;
 function vis(){
   let a=calls.filter(c=>{
     if(S.chain&&c.chain!==S.chain)return false;
@@ -503,6 +505,7 @@ function vis(){
     // the one a reader is asking, which is what we were looking at.
     if(S.minMc&&!(c.entry>=S.minMc))return false;
     if(S.minVol&&!(c.vol>=S.minVol))return false;
+    if(S.hours&&c.at<Date.now()-S.hours*3600e3)return false;
     // A call can be in both Wins and Dead. That is the record, not a bug.
     return S.f==="live"?c.live:S.f==="win"?vrd(c)==="win":S.f==="dead"?deadOf(c):true});
   if(S.sort==="peak")a.sort((x,y)=>mult(y)-mult(x));
@@ -532,7 +535,14 @@ function emptyLine(){
 function renderFeed(){
   const a=vis();
   document.getElementById("feed").innerHTML=a.length?a.map((c,i)=>card(c,i)).join(""):`<div class="empty">${emptyLine()}</div>`;
-  document.getElementById("cnt").textContent=a.length+" / "+calls.length;
+  // Held versus what the register actually holds under this filter. "60 / 60"
+  // read as the whole story; it was the first page of it.
+  // What the register holds under this filter, not what the page happens to
+  // have: with paging those are different numbers, and only one is honest.
+  const held=DEMO?a.length:total;
+  document.getElementById("cnt").textContent=a.length+" of "+held;
+  const more=document.getElementById("loadMoreCalls");
+  if(more)more.classList.toggle("hide",DEMO||calls.length>=total);
 }
 function renderPreview(){
   const a=[...calls].sort((x,y)=>y.at-x.at).slice(0,3);
@@ -740,17 +750,25 @@ document.addEventListener("click",e=>{
   if(ch){S.chain=S.chain===ch.dataset.chain?null:ch.dataset.chain;
     const cp=document.getElementById("chipChain");
     cp.classList.toggle("hide",!S.chain);cp.textContent=S.chain?S.chain+"  ✕":"";
-    renderChains();renderFeed();return}
+    renderChains();applyFilters();return}
 });
 document.getElementById("chipChain").addEventListener("click",()=>{
-  S.chain=null;document.getElementById("chipChain").classList.add("hide");renderChains();renderFeed()});
+  S.chain=null;document.getElementById("chipChain").classList.add("hide");renderChains();applyFilters()});
 document.getElementById("seg").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;S.f=b.dataset.f;
-  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderFeed()});
-document.getElementById("sortSel").addEventListener("change",e=>{S.sort=e.target.value;renderFeed()});
-document.getElementById("mcSel").addEventListener("change",e=>{S.minMc=+e.target.value;renderFeed()});
-document.getElementById("volSel").addEventListener("change",e=>{S.minVol=+e.target.value;renderFeed()});
-document.getElementById("q").addEventListener("input",e=>{S.q=e.target.value.trim();renderFeed()});
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));applyFilters()});
+document.getElementById("sortSel").addEventListener("change",e=>{S.sort=e.target.value;applyFilters()});
+document.getElementById("mcSel").addEventListener("change",e=>{S.minMc=+e.target.value;applyFilters()});
+document.getElementById("volSel").addEventListener("change",e=>{S.minVol=+e.target.value;applyFilters()});
+document.getElementById("timeSel").addEventListener("change",e=>{S.hours=+e.target.value;applyFilters()});
+// Typing is filtered locally on every keystroke and asked of the engine once
+// the typing stops, rather than a request per character.
+let qTimer=null;
+document.getElementById("q").addEventListener("input",e=>{
+  S.q=e.target.value.trim();renderFeed();
+  clearTimeout(qTimer);qTimer=setTimeout(applyFilters,250)});
+document.getElementById("loadMoreCalls").addEventListener("click",()=>{
+  loadRegister(true).then(renderAll).catch(()=>{})});
 
 const drw=document.getElementById("drw"),scrim=document.getElementById("scrim");
 const openD=o=>{drw.classList.toggle("on",o);scrim.classList.toggle("on",o);drw.setAttribute("aria-hidden",!o)};
@@ -1486,13 +1504,88 @@ async function pullVerify(){
   renderVault();
 }
 
+const CHAIN_ID={SOL:"solana",BASE:"base",BSC:"bsc",ETH:"ethereum"};
+/* The filter runs on the server. The same predicate lives in vis() above, but
+   only as a guard on rows the socket pushes in between polls — the register is
+   whatever the engine says matches, not whatever this page happens to hold. */
+function registerQuery(offset){
+  const p=new URLSearchParams();
+  if(S.f==="win")p.set("verdict","win");
+  else if(S.f==="dead")p.set("dead","1");
+  else if(S.f==="live")p.set("live","1");
+  if(S.chain&&CHAIN_ID[S.chain])p.set("chain",CHAIN_ID[S.chain]);
+  if(S.q)p.set("q",S.q);
+  if(S.minMc)p.set("min_mc",S.minMc);
+  if(S.minVol)p.set("min_vol",S.minVol);
+  if(S.hours)p.set("hours",S.hours);
+  if(S.sort!=="recent")p.set("sort",S.sort);
+  p.set("limit",PAGE);
+  if(offset)p.set("offset",offset);
+  return p.toString();
+}
+async function loadRegister(append){
+  const r=await fetch(`${API}/register?${registerQuery(append?calls.length:0)}`,{cache:"no-store"});
+  if(!r.ok)throw new Error("register answered "+r.status);
+  const rows=await r.json();
+  if(!Array.isArray(rows))throw new Error("register did not answer with a list");
+  total=Number(r.headers.get("x-total-count"))||rows.length;
+  if(!append)calls.length=0;          // the engine decides what matches, not us
+  rows.forEach(upsert);
+  CONN.read=Date.now();
+}
+
+/* Filters live in the URL, so a view can be sent to someone and survives a
+   reload. Nothing else on the page reads the query string. */
+function pushUrl(){
+  if(DEMO||!history.replaceState)return;
+  const p=new URLSearchParams();
+  if(S.f!=="all")p.set("f",S.f);
+  if(S.sort!=="recent")p.set("sort",S.sort);
+  if(S.chain)p.set("chain",S.chain);
+  if(S.q)p.set("q",S.q);
+  if(S.minMc)p.set("mc",S.minMc);
+  if(S.minVol)p.set("vol",S.minVol);
+  if(S.hours)p.set("h",S.hours);
+  const qs=p.toString();
+  history.replaceState(null,"",qs?"?"+qs:location.pathname);
+}
+function syncControls(){
+  [...document.getElementById("seg").children].forEach(b=>b.classList.toggle("on",b.dataset.f===S.f));
+  document.getElementById("sortSel").value=S.sort;
+  document.getElementById("mcSel").value=String(S.minMc);
+  document.getElementById("volSel").value=String(S.minVol);
+  document.getElementById("timeSel").value=String(S.hours);
+  document.getElementById("q").value=S.q;
+  const cp=document.getElementById("chipChain");
+  cp.classList.toggle("hide",!S.chain);
+  cp.textContent=S.chain?S.chain+"  ✕":"";
+}
+function readUrl(){
+  const p=new URLSearchParams(location.search);
+  if(![...p.keys()].length)return false;
+  const pick=(k,ok,d)=>ok.includes(p.get(k))?p.get(k):d;
+  S.f=pick("f",["all","live","win","dead"],"all");
+  S.sort=pick("sort",["recent","peak","now"],"recent");
+  S.chain=CHAIN_ID[p.get("chain")]?p.get("chain"):null;
+  S.q=(p.get("q")??"").slice(0,64);
+  S.minMc=Math.max(0,+p.get("mc")||0);
+  S.minVol=Math.max(0,+p.get("vol")||0);
+  S.hours=Math.max(0,+p.get("h")||0);
+  syncControls();
+  return true;
+}
+/* One path for every control: show what we hold immediately, then ask the
+   engine. Without the first half a filter feels broken on a slow connection. */
+function applyFilters(){
+  pushUrl();
+  renderFeed();
+  if(!DEMO)pullLive();
+}
+
 async function pullLive(){
   if(DEMO)return;
   try{
-    const reg=await fetch(API+"/register?limit=60",{cache:"no-store"});
-    if(!reg.ok)throw new Error("register answered "+reg.status);
-    const rows=await reg.json();
-    if(!Array.isArray(rows))throw new Error("register did not answer with a list");
+    await loadRegister(false);
     // Statistics are a separate question from the register. An engine that
     // serves rows but not this route is behind, not down, and the figures go
     // blank on their own without taking the feed with them.
@@ -1501,8 +1594,6 @@ async function pullLive(){
       catch{return null}
     };
     [statsAll,stats7]=await Promise.all([readStats("?days=all"),readStats("")]);
-    rows.forEach(upsert);
-    CONN.read=Date.now();
     setConn(sock&&sock.readyState===1&&CONN.state==="live"?"live":"polling");
     renderAll();
   }catch(e){
@@ -1516,6 +1607,8 @@ async function pullLive(){
   }
 }
 
+// A link carrying filters opens on the page those filters belong to.
+if(readUrl())go("reg");
 paintConn();
 renderAll();
 drawKey(preview);renderMarquee();syncMint();renderColl(true);reveal();

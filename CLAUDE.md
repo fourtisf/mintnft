@@ -147,14 +147,18 @@ continuing. Everything else is recoverable; that one is not.
    silently. The public leg is `PUBLIC_DELAY_S` (default 3600) and is the only
    one that is settable — with no keys minted it is an hour nobody has paid to
    skip. The paid ladder is the promise and does not move.
-6. **Custody and the call detail still print an anchor that does not exist.**
-   Custody shows a last anchor date, an anchor network and a table of past
-   anchors built from `calls.length`; the call detail page prints "Anchored
-   29 Aug 2026 · Base" on every call. `/api/verify` correctly reports the
-   register as unanchored, and the in-browser chain demo hashes whatever rows
-   the page happens to hold rather than the record. Everything else on the live
-   site now comes from the engine or stays blank; these two are the exception,
-   and integrity is the worst place to have one.
+6. **Nothing is anchored.** The chain is internally consistent and has never
+   been published, so it is not independently verifiable — `/api/verify` says
+   exactly that and the site now repeats it rather than printing an anchor date
+   it invented. What is missing is a publisher with a funded key; `anchor.js`
+   and `test-anchor.js` are ready for one.
+7. **Volume is recorded but not hashed.** `entryVolumeH1` sits outside
+   `IMMUTABLE` because `canonical()` has no per-version field list, so adding a
+   field there would change the canonical form of every row already written and
+   break verification of the whole chain. The comment in `integrity.js` says to
+   bump `HASH_VERSION` when the list changes; doing that today fails every old
+   row. Fix the versioning first, with a migration test, then move the field
+   inside. It will never be cheaper than while the register is small.
 
 ## Things that are decided, do not relitigate
 

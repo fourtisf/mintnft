@@ -214,12 +214,45 @@ pick("dead");
 ok(cards().length === 1, "and under Dead — one call, both marks");
 pick("all");
 
-/* ── 7. and it survives the engine going away again ──────────────────────── */
+/* ── 7. more than one page of register, filtered where it should be ─────── */
+console.log("\nLEBIH DARI SATU HALAMAN");
+const extra = [["SMALL", 50_000], ["BIG", 500_000], ["HUGE", 1_000_000]];
+for (const [symbol, mc] of extra)
+  store.insertCall({
+    callerId: 1, chain: "solana", tokenAddress: "TOK" + symbol, pairAddress: "P" + symbol,
+    symbol, name: symbol + " Coin", dex: "raydium", firedAt: new Date().toISOString(),
+    entryMc: mc, entryPriceUsd: mc / 1e9, entrySupply: 1e9, liquidityUsd: 30_000,
+    entryVolumeH1: 20_000, score: 80, reasons: ["Volume running 2.0× the hourly pace"],
+  });
+
+pickSel("timeSel", 0);                      // any change re-asks the engine
+await waitFor("the new calls arrive", () => cards().length === 4);
+ok(cards().length === 4, "all four calls are on the page");
+ok(/4 of 4/.test(text("cnt")), `the count says what the register holds: "${text("cnt")}"`);
+
+pickSel("mcSel", 500000);
+// The local predicate narrows the list first; the count only settles once the
+// engine has answered, which is the number worth asserting on.
+await waitFor("the server filters by size", () => /2 of 2/.test(text("cnt")));
+ok(cards().length === 2, "MC ≥ $500K leaves the two that entered above it");
+ok(/2 of 2/.test(text("cnt")), "and the count follows the filter, not the page");
+ok(/mc=500000/.test(win.location.search), "the filter is in the URL and can be sent to someone");
+
+// Paging, asked of the API directly: sixty rows is a page, not the register.
+const page = await fetch(`${BASE}/api/register?limit=2&offset=2`);
+ok(page.headers.get("x-total-count") === "4", "the register reports its true total in the header");
+ok((await page.json()).length === 2, "and an offset returns the next page rather than the first");
+
+pickSel("mcSel", 0);
+await waitFor("clearing the filter restores the list", () => cards().length === 4);
+ok(!/mc=/.test(win.location.search), "clearing it takes it back out of the URL");
+
+/* ── 8. and it survives the engine going away again ──────────────────────── */
 console.log("\nENGINE MATI LAGI");
 feed.close(); srv.close();
 await waitFor("the page notices the engine went away", () => text("syncTxt").startsWith("engine offline"), 30000);
 ok(text("syncTxt").startsWith("engine offline"), `header reads "${text("syncTxt")}"`);
-ok(cards().length === 1, "the call stays on the page — it is the record, not a cache");
+ok(cards().length === 4, "the calls stay on the page — they are the record, not a cache");
 ok(text("rCalls") === "—", "the statistics do not: those we no longer know");
 
 win.close();

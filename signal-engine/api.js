@@ -41,9 +41,9 @@ export function serve(store, {
     log("SESSION_SECRET unset — sessions will not survive a restart");
   }
 
-  const json = (res, code, body) => {
+  const json = (res, code, body, extra = {}) => {
     res.writeHead(code, { "content-type": "application/json",
-      "access-control-allow-origin": "*", "cache-control": "no-store" });
+      "access-control-allow-origin": "*", "cache-control": "no-store", ...extra });
     res.end(JSON.stringify(body));
   };
   const notFound = res => json(res, 404, { error: "not found" });
@@ -90,8 +90,47 @@ export function serve(store, {
     const rows = filterForTier(store.register(), tier, Date.now(), delays);
 
     if (p === "/api/register") {
-      const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
-      return json(res, 200, rows.sort((a, b) => Date.parse(b.firedAt) - Date.parse(a.firedAt)).slice(0, limit));
+      // Filtering belongs here, not in the browser. A page holding the newest
+      // sixty rows and filtering those answers "wins among the last sixty" while
+      // showing the word Wins — right until the register outgrows a page, and
+      // wrong quietly from then on.
+      //
+      // Every filter narrows what is returned and none of them touch /api/stats:
+      // the published numbers stay over the whole register, misses included.
+      const s = url.searchParams;
+      const num = k => { const v = Number(s.get(k)); return Number.isFinite(v) && v > 0 ? v : 0; };
+      const verdict = s.get("verdict"), chain = s.get("chain");
+      const q = (s.get("q") ?? "").trim().toLowerCase();
+      const cut = num("hours") ? Date.now() - num("hours") * 3600e3 : 0;
+      const minMc = num("min_mc"), minVol = num("min_vol");
+
+      const hit = r =>
+           (!verdict || r.verdict === verdict)
+        && (!chain || r.chain === chain)
+        && (s.get("dead") !== "1" || !!r.isDead)
+        && (s.get("live") !== "1" || r.state !== "settled")
+        && (!cut || Date.parse(r.firedAt) >= cut)
+        && (!minMc || (r.entryMc ?? 0) >= minMc)
+        // A call written before the engine recorded volume cannot satisfy a
+        // volume floor, and must not be counted as though it had.
+        && (!minVol || (r.entryVolumeH1 ?? 0) >= minVol)
+        && (!q || `${r.name ?? ""} ${r.symbol ?? ""} ${r.tokenAddress ?? ""}`.toLowerCase().includes(q));
+
+      const sort = s.get("sort");
+      const out = rows.filter(hit).sort(
+        sort === "peak" ? (a, b) => (b.peakX ?? 0) - (a.peakX ?? 0)
+        : sort === "now" ? (a, b) => (b.nowX ?? 0) - (a.nowX ?? 0)
+        : (a, b) => Date.parse(b.firedAt) - Date.parse(a.firedAt));
+
+      const limit = Math.min(Math.max(Number(s.get("limit") ?? 50), 1), 200);
+      const offset = Math.max(Number(s.get("offset") ?? 0), 0);
+      // The total is how a page can say "60 of 214" instead of implying 60 is
+      // all there is. A header keeps the body an array, which every caller and
+      // the gating test already expect.
+      return json(res, 200, out.slice(offset, offset + limit), {
+        "x-total-count": String(out.length),
+        "access-control-expose-headers": "x-total-count",
+      });
     }
     if (p === "/api/stats") {
       // Two windows, because the site asks two questions: the home page says

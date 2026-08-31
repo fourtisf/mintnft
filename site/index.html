@@ -220,11 +220,17 @@
     <select class="sel" id="volSel" aria-label="Minimum hourly volume at entry">
       <option value="0">Any volume</option><option value="10000">Vol ≥ $10K</option>
       <option value="25000">Vol ≥ $25K</option><option value="100000">Vol ≥ $100K</option></select>
+    <select class="sel" id="timeSel" aria-label="Time window">
+      <option value="0">Any time</option><option value="24">Last 24h</option>
+      <option value="168">Last 7d</option><option value="720">Last 30d</option></select>
     <button class="chip hide" id="chipChain"></button>
     <span class="cnt" id="cnt"></span>
   </div>
   <div class="reg-grid">
-    <main class="feed" id="feed"></main>
+    <div class="feedcol">
+      <main class="feed" id="feed"></main>
+      <button class="btn btn-s btn-full hide" id="loadMoreCalls">Load more</button>
+    </div>
     <aside class="side">
       <div class="srch"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#585E68" stroke-width="1.6"><circle cx="7" cy="7" r="4.8"/><path d="M10.8 10.8L14 14"/></svg>
         <input id="q" placeholder="Search name, ticker, contract" aria-label="Search"></div>
