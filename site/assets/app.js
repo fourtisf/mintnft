@@ -965,8 +965,14 @@ function renderOps(){
        ["Pass rate",t.passRate===null?"—":(t.passRate*100).toFixed(1)+"%"]]
     : null;
 
+  // How close the ones that cleared every gate came. A threshold argument
+  // without this is a guess — candidates sitting at 74 and candidates sitting
+  // at 40 produce the same "scored low" count.
+  const cs=t?.clearedScores;
+  const near=cs?.n?[["Best score, gates cleared",cs.best+" / "+(g?.scoreToFire??100)],
+                    ["Median score, gates cleared",cs.median]]:[];
   document.getElementById("oCounts").innerHTML = counts
-    ? counts.map(([l,v])=>`<div class="stat"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("")
+    ? counts.concat(near).map(([l,v])=>`<div class="stat"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("")
     : `<p class="sub" style="margin:0">Waiting for the screener to report its first pass.</p>`;
 
   const rejects=DEMO?REJECTS:(t?.rejects??[]).map(r=>["$"+r.symbol,r.why,GATE_LABEL[r.gate]??r.gate]);

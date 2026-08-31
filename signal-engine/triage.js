@@ -21,6 +21,7 @@ export class Triage {
     this.now = now;
     this.buckets = new Map();   // hour -> counts
     this.rejects = [];          // most recent first
+    this.scores = [];           // scores of candidates that cleared every gate
     this.startedAt = now();
   }
 
@@ -42,13 +43,23 @@ export class Triage {
   /** A candidate the screener refused, and the gate that refused it. */
   rejected(pair, ev) {
     const b = this.#bucket();
-    const gate = ev.vetoIds?.[0] ?? null;
+    let gate = ev.vetoIds?.[0] ?? null;
+    // The liquidity gate reads a missing field as zero, so "too thin" and "the
+    // provider sent no figure" land in the same bucket and look like the same
+    // problem. They are not: one is a market judgement, the other is a hole in
+    // the data, and only one of them is an argument for moving the threshold.
+    if (gate === "liquidity_floor" && pair?.liquidity?.usd == null) gate = "liquidity_missing";
     if (ev.vetoes?.length) {
       b.killed += 1;
       if (gate) b.gates[gate] = (b.gates[gate] ?? 0) + 1;
     } else {
       b.scoredLow += 1;
       b.gates.score = (b.gates.score ?? 0) + 1;
+      // How close the ones that cleared every gate actually came. Without this
+      // a threshold argument is a guess: candidates clustered at 74 and
+      // candidates clustered at 40 look identical from the counts alone.
+      this.scores.push({ at: this.now(), score: ev.score });
+      if (this.scores.length > 500) this.scores.shift();
     }
     this.rejects.unshift({
       at: this.now(),
@@ -73,8 +84,27 @@ export class Triage {
       t.scoredLow += b.scoredLow; t.fired += b.fired;
       for (const [g, n] of Object.entries(b.gates)) gates[g] = (gates[g] ?? 0) + n;
     }
+    const cutMs = this.now() - HOURS * 3600e3;
+    const recent = this.scores.filter(s => s.at >= cutMs).map(s => s.score);
+    const band = { "0-40": 0, "40-55": 0, "55-65": 0, "65-70": 0, "70-75": 0, "75+": 0 };
+    for (const v of recent) {
+      if (v < 40) band["0-40"]++;
+      else if (v < 55) band["40-55"]++;
+      else if (v < 65) band["55-65"]++;
+      else if (v < 70) band["65-70"]++;
+      else if (v < 75) band["70-75"]++;
+      else band["75+"]++;
+    }
     return {
       ...t,
+      // Only for candidates that passed every gate — the population a
+      // threshold decision is actually about.
+      clearedScores: {
+        n: recent.length,
+        best: recent.length ? Math.max(...recent) : null,
+        median: recent.length ? recent.slice().sort((a, b) => a - b)[Math.floor(recent.length / 2)] : null,
+        bands: band,
+      },
       // Undefined rather than 0: a pass rate over nothing scanned is not zero,
       // it is unanswerable, and the page should say so rather than print 0.0%.
       passRate: t.scanned ? t.fired / t.scanned : null,
