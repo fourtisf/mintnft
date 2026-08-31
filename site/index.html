@@ -348,18 +348,18 @@
 <div id="v-vault" class="hide"><div class="wrap-w">
   <div class="pghead">
     <h1>Custody</h1>
-    <p>The permanent record. Every call is hashed at insert and chained onto the one before it, so removing or editing any past call breaks every hash after it. The head is published daily.</p>
+    <p>The permanent record. Every call is hashed at insert and chained onto the one before it, so removing or editing any past call breaks every hash after it. Publishing that head on-chain is what makes it checkable by someone who does not trust us — the state of that is below, stated rather than assumed.</p>
   </div>
   <div class="cols c2">
     <div class="box" style="grid-column:1/-1">
       <h3>Chain head</h3>
-      <p class="sub">Recomputed from the full register in your browser, right now.</p>
+      <p class="sub">As the engine reports it for the whole register, recomputed there over every call.</p>
       <div class="hash" id="vHead">—</div>
       <div id="vStats" style="margin-top:16px"></div>
     </div>
     <div class="box">
       <h3>Try to break it</h3>
-      <p class="sub">The claim is only worth something if you can test it. Edit a stored entry or remove a call, and see what the chain says.</p>
+      <p class="sub">The claim is only worth something if you can test it. Edit a stored entry or remove a call, and see what the chain says. This runs on the calls this page has loaded, in your browser — a demonstration of the mechanism, not a check of the register.</p>
       <div class="tamper">
         <button class="btn btn-s" data-tamper="edit">Edit an entry MC</button>
         <button class="btn btn-s" data-tamper="delete">Delete a call</button>
@@ -369,7 +369,7 @@
     </div>
     <div class="box">
       <h3>Anchors</h3>
-      <p class="sub">The head, published on-chain once a day. Costs cents; makes the record checkable by anyone.</p>
+      <p class="sub">The head, published on-chain once a day. Costs cents; makes the record checkable by anyone. What has actually been published is below.</p>
       <table class="tbl"><thead><tr><th>Date</th><th style="text-align:right">Calls</th><th>Head</th></tr></thead>
       <tbody id="vAnchors"></tbody></table>
       <button class="btn btn-s btn-full" style="margin-top:16px" id="vCsv">Download full register as CSV</button>

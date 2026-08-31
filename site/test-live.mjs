@@ -57,6 +57,7 @@ win.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} }
 win.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {},
                           addListener() {}, removeListener() {} });
 win.fetch = (u, o) => fetch(String(u).startsWith("http") ? String(u) : BASE + u, o);
+win.scrollTo = () => {};                 // jsdom has no layout; the page scrolls on nav
 
 const text = id => (doc.getElementById(id)?.textContent ?? "").trim();
 const feedText = () => doc.getElementById("feed").textContent.trim();
@@ -173,6 +174,29 @@ ok(cards().length === 1, "Vol ≥ $10K keeps a call that fired on $52K of hourly
 pickSel("volSel", 100000);
 ok(cards().length === 0, "Vol ≥ $100K drops it");
 pickSel("volSel", 0);
+
+ok(/Died after/.test(rec().textContent), "the card says how long it lasted");
+const chart = rec().querySelector("a.lnk");
+ok(!!chart && chart.getAttribute("href") === "https://dexscreener.com/solana/P1",
+  "and links out to the pair it was fired on, so the claim can be checked");
+
+/* ── the integrity pages, which used to print an anchor nobody published ─── */
+console.log("\nINTEGRITAS");
+rec().dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+await waitFor("the detail view opens", () => !doc.getElementById("v-call").classList.contains("hide"));
+const stored = store.allCalls()[0].recordHash;
+ok(doc.getElementById("cdHash").textContent === stored, "the detail shows the record hash as stored");
+ok(doc.getElementById("cdCalc").textContent === "matches",
+  "and recomputing it in the browser over the engine's own field list agrees");
+ok(/never been published/.test(doc.getElementById("cdAnchor").textContent),
+  "and it claims no anchor, because there is none");
+
+doc.querySelector('#navLinks a[data-v="vault"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+await waitFor("Custody re-reads the chain", () => text("vHead") === store.head());
+ok(text("vHead") === store.head(), "Custody shows the head the engine reports, not one recomputed here");
+ok(/unanchored/.test(doc.getElementById("vAnchors").textContent),
+  "and the anchor table says nothing has been published");
+doc.querySelector('#navLinks a[data-v="reg"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
 
 const seg = doc.getElementById("seg");
 const pick = f => seg.querySelector(`[data-f="${f}"]`)

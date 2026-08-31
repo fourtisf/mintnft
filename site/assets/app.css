@@ -196,6 +196,11 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .ca{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);transition:.15s}
 .ca:hover{border-color:var(--border-hi);color:var(--tx-2);background:rgba(255,255,255,.03)}
 .ca.ok{border-color:rgba(62,207,142,.4);color:var(--win)}
+/* The way out to the pair itself. Same weight as the address beside it: this
+   page asks to be checked, so the link that lets you check cannot be buried. */
+.lnk{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;
+  border:1px solid var(--border);color:var(--tx-3);transition:.15s}
+.lnk:hover{border-color:rgba(110,123,255,.45);color:var(--accent);background:rgba(110,123,255,.08)}
 .live-tag{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--win)}
 
 /* ══ register ══ */

@@ -67,7 +67,7 @@ const LBL={win:"WIN",miss:"MISS",open:"LIVE",dead:"DEAD"};
 function ago(ts){const m=Math.floor((Date.now()-ts)/MIN);if(m<1)return"just now";if(m<60)return m+"m ago";
   const h=Math.floor(m/60);return h<24?h+"h ago":Math.floor(h/24)+"d ago"}
 const utc=ts=>{const d=new Date(ts);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",timeZone:"UTC"})+" · "+d.toISOString().slice(11,19)+" UTC"};
-const secs=s=>s<60?s+"s":Math.floor(s/60)+"m "+(s%60)+"s";
+const secs=s=>s<60?s+"s":s<7200?Math.floor(s/60)+"m "+(s%60)+"s":(s/3600).toFixed(1)+"h";
 
 /* ═══════ sparkline with 2x threshold ═══════ */
 function spark(c){
@@ -87,8 +87,18 @@ function spark(c){
     <path d="${d}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round" opacity=".45"/>
     <path d="${d}" fill="none" stroke="#8E9AFF" stroke-width="1.8" stroke-linejoin="round" clip-path="url(#${cl})"/></svg>`};
 }
+/* The fourth cell on a card. A call that reached 2x is asked how fast; one that
+   died is asked how long it lasted - the number that decides whether any of
+   this is tradeable at all - and one still running is asked how far it has
+   slipped off its peak. */
+function cell4(c){
+  if(c.twoIn)return["Reached 2\u00d7 in",secs(c.twoIn)];
+  if(c.deadAt)return["Died after",secs(Math.max(0,Math.round((c.deadAt-c.at)/1000)))];
+  return["Off peak",((c.nowMc/c.peak-1)*100).toFixed(1)+"%"];
+}
+const DEX="https://dexscreener.com/";
 function card(c,i,mini){
-  const v=badgeOf(c),n=nx(c),off=(c.nowMc/c.peak-1)*100,sp=spark(c);
+  const v=badgeOf(c),n=nx(c),off=(c.nowMc/c.peak-1)*100,sp=spark(c),[k4,v4]=cell4(c);
   // A dead call's story is where it ended; a settled one's is how far it got.
   // Keying this off the badge instead printed the peak on a dead call, so a
   // token sitting at 4% of entry headlined "1.00×" — it never rose, and that
@@ -107,9 +117,11 @@ function card(c,i,mini){
       <div><div class="k">Entry MC</div><div class="v mut">${fmt(c.entry)}</div></div>
       <div><div class="k">Peak MC</div><div class="v">${fmt(c.peak)}</div></div>
       <div><div class="k">Now MC</div><div class="v ${n>=1?"up":"dn"}" data-now="${c.id}">${fmt(c.nowMc)}</div></div>
-      <div><div class="k">${c.twoIn?"Reached 2× in":"Off peak"}</div><div class="v mut" data-x="${c.id}">${c.twoIn?secs(c.twoIn):off.toFixed(1)+"%"}</div></div></div>
+      <div><div class="k" data-xk="${c.id}">${k4}</div><div class="v mut" data-x="${c.id}">${v4}</div></div></div>
     ${mini?"":`<div class="rft"><span>${utc(c.at)}</span>
       <button class="ca" data-ca="${c.ca}">${c.ca}<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.6" y="3.6" width="7" height="7" rx="1.4"/><path d="M8.4 1.4h-7v7"/></svg></button>
+      ${c.pair?`<a class="lnk" href="${DEX}${c.chainId}/${c.pair}" target="_blank" rel="noopener noreferrer"
+        title="Open the pair this call was fired on">chart<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 7.5L9 3M5.5 3H9v3.5"/></svg></a>`:""}
       <span class="live-tag">${deadOf(c)?'<span style="color:var(--dead)">Died</span>'
         :c.live?'<span class="pulse"></span>Live':'<span style="color:var(--tx-3)">Settled</span>'}</span>
       <button class="shbtn" data-share="${c.id}">
@@ -702,7 +714,10 @@ function go(v,hash){
   document.getElementById("tkr").classList.toggle("hide",v!=="reg");
   document.body.style.paddingBottom=v==="reg"?"36px":"0";
   document.querySelectorAll("#navLinks a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
-  if(v==="quant"){renderQuant();renderSim();renderLeaders()} if(v==="ops")renderOps(); if(v==="vault")renderVault();
+  if(v==="quant"){renderQuant();renderSim();renderLeaders()} if(v==="ops")renderOps();
+  // Opening Custody re-reads the chain rather than showing a minute-old answer
+  // about integrity, which is the one thing nobody should read stale.
+  if(v==="vault"){renderVault();pullVerify()}
   if(hash){const t=document.querySelector(hash);if(t)setTimeout(()=>t.scrollIntoView({behavior:"smooth"}),40)}else scrollTo(0,0);
   setTimeout(reveal,60);
 }
@@ -794,7 +809,7 @@ function openCall(id){
       <div class="cd-id"><h1>${c.name}</h1>
         <div class="cd-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}
           <span class="dotsep"></span>${c.src}<span class="dotsep"></span>${utc(c.at)}</div></div>
-      <div class="cd-mx"><div class="big" style="${v==="win"&&!deadOf(c)?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(v==="open"?n:mult(c)).toFixed(2)}×</div>
+      <div class="cd-mx"><div class="big" style="${v==="win"&&!deadOf(c)?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(c.live||deadOf(c)?n:mult(c)).toFixed(2)}×</div>
         <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
     </div>
     <div class="cd-chart">${cdChart(c)}
@@ -809,25 +824,47 @@ function openCall(id){
         <h3>Marks</h3><p class="sub">Entry is frozen at insert. Peak stops at settle; now keeps moving, so a win can still be marked dead.</p>
         <div class="rf" style="border-top:none;padding-top:0;margin-top:0">
           ${f("Entry MC",fmt(c.entry),"mut")}${f("Peak MC",fmt(c.peak))}
-          ${f("Now MC",fmt(c.nowMc),n>=1?"up":"dn")}${f(c.twoIn?"Reached 2× in":"Off peak",c.twoIn?secs(c.twoIn):((c.nowMc/c.peak-1)*100).toFixed(1)+"%","mut")}
+          ${f("Now MC",fmt(c.nowMc),n>=1?"up":"dn")}${f(cell4(c)[0],cell4(c)[1],"mut")}
         </div>
-        <div class="stat" style="margin-top:18px"><span class="l">Score at fire</span><span class="v">${c.score}/100</span></div>
+        <div class="stat" style="margin-top:18px"><span class="l">Score at fire</span><span class="v">${c.score}</span></div>
         <div class="stat"><span class="l">State</span><span class="v">${c.live?"Live":"Settled"}</span></div>
         <div class="stat"><span class="l">Contract</span><span class="v">${c.ca}</span></div>
+        ${c.pair?`<div class="stat"><span class="l">Pair</span><span class="v"><a class="lnk" style="display:inline-flex" href="${DEX}${c.chainId}/${c.pair}" target="_blank" rel="noopener noreferrer">open the chart</a></span></div>`:""}
         <button class="btn btn-s btn-full" style="margin-top:16px" data-share="${c.id}">Post templates</button>
       </div>
       <div class="box">
         <h3>Why it fired</h3><p class="sub">The exact conditions, recorded at the moment of the call and never edited.</p>
         ${(c.reasons||[]).map(r=>`<div class="gate"><span class="g" style="font-size:13px;line-height:1.5">${r}</span></div>`).join("")}
         <h3 style="margin-top:24px">Verification</h3>
-        <p class="sub">Record hash, recomputed from this call in your browser.</p>
+        <p class="sub">The record hash as stored, and the same hash recomputed here from this call's own fields.</p>
         <div class="hash vfy" id="cdHash">—</div>
-        <div class="stat" style="margin-top:12px"><span class="l">Position in chain</span><span class="v">seq ${seq}</span></div>
-        <div class="stat"><span class="l">Anchored</span><span class="v">29 Aug 2026 · Base</span></div>
+        <div class="stat" style="margin-top:12px"><span class="l">Recomputed in your browser</span><span class="v" id="cdCalc">—</span></div>
+        <div class="stat"><span class="l">Position in chain</span><span class="v">seq ${seq}</span></div>
+        <div class="stat"><span class="l">Anchored</span><span class="v" id="cdAnchor">—</span></div>
       </div>
     </div>
     <a class="back" href="#" data-v="reg">← Back to the signals</a>`;
-  document.getElementById("cdHash").textContent=sha(canon(c));
+  // The stored hash next to one recomputed here over the same fields the chain
+  // hashes. A match is a real check; the old panel hashed six fields of the
+  // page's own choosing and could never have disagreed with anything.
+  const raw=c.raw;
+  const hEl=document.getElementById("cdHash"),cEl=document.getElementById("cdCalc");
+  if(raw?.recordHash){
+    const calc=recomputeHash(raw),same=calc===raw.recordHash;
+    hEl.textContent=raw.recordHash;
+    cEl.textContent=same?"matches":"DOES NOT MATCH";
+    cEl.style.color=same?"var(--win)":"var(--dead)";
+  }else{
+    hEl.textContent=sha(canon(c));
+    cEl.textContent=DEMO?"demo data — no record behind it":"unavailable";
+  }
+  // Anchoring is the one claim this page cannot make on its own.
+  const a=verifyState?.latestAnchor;
+  document.getElementById("cdAnchor").textContent=
+    !verifyState?"—"
+    :verifyState.anchored&&verifyState.anchoredThrough>=seq&&a
+      ?`${utc(Date.parse(a.at)).split(" · ")[0]} · tx ${String(a.txHash).slice(0,10)}…`
+      :"Not yet — the register has never been published on-chain";
   go("call");
 }
 
@@ -1105,6 +1142,23 @@ function sha(str){
   }
   return H.map(x=>x.toString(16).padStart(8,"0")).join("");
 }
+/* integrity.js, field for field. The page used to hash six fields of its own
+   choosing and present the result as the record hash: a number that looks like
+   proof, computed over something the chain never hashed. If this list drifts
+   from IMMUTABLE the check below starts failing loudly, which is the point. */
+const IMMUTABLE=["hashVersion","callerId","chain","tokenAddress","pairAddress","symbol",
+  "firedAt","entryPriceUsd","entrySupply","entryMc","entrySupplySource",
+  "liquidityUsd","score","reasonIds","sourceKind","sourceRef"];
+function canonRecord(row){
+  const o={};
+  for(const k of [...IMMUTABLE].sort()){
+    const v=k==="hashVersion"?(row.hashVersion??2):row[k];
+    o[k]=Array.isArray(v)?v.map(String):typeof v==="number"?String(v):v==null?null:String(v);
+  }
+  return JSON.stringify(o);
+}
+const recomputeHash=row=>sha(canonRecord(row));
+
 function canon(c){
   return JSON.stringify({chain:c.chain,entryMc:String(c.entry),firedAt:new Date(c.at).toISOString(),
     score:String(c.score),symbol:c.tick,tokenAddress:c.ca});
@@ -1122,14 +1176,27 @@ function buildChain(){
   return prev;
 }
 let VBASE=null;
+/* This page states facts about the chain, so it may not compute them itself.
+   It printed a head recomputed from whatever rows the browser held, a last
+   anchor date and an anchor network — for a register the engine correctly
+   reports as never published. The engine answers now, or the page says it
+   cannot. The demonstration below keeps its own numbers, clearly labelled. */
 function renderVault(){
-  const head=buildChain();
-  document.getElementById("vHead").textContent=head;
-  if(!VBASE&&!VTAMPER)VBASE=head;
-  document.getElementById("vStats").innerHTML=[
-    ["Calls on record",VCHAIN.length],["Genesis","0000…0000"],
-    ["Last anchor","29 Aug 2026 · 00:00 UTC"],["Anchor network","Base"]
-  ].map(([l,v])=>`<div class="stat"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("");
+  const demoHead=buildChain();
+  if(!VBASE&&!VTAMPER)VBASE=demoHead;
+  const V=(!DEMO&&verifyState)?verifyState:null;
+  document.getElementById("vHead").textContent=V?V.head:(DEMO?demoHead:"—");
+  const stats=V
+    ?[["Calls on record",V.count],["Genesis","0000…0000"],
+      ["Chain check",V.ok?"intact — recomputed by the engine":"BROKEN — "+(V.why??"see /api/verify")],
+      ["Anchored",V.anchored?`through seq ${V.anchoredThrough}`:"never published on-chain"]]
+    :DEMO
+    ?[["Calls on record",VCHAIN.length],["Genesis","0000…0000"],
+      ["Chain check","demo data"],["Anchored","demo data"]]
+    :[["Calls on record","—"],["Genesis","0000…0000"],
+      ["Chain check","engine not answering"],["Anchored","—"]];
+  document.getElementById("vStats").innerHTML=
+    stats.map(([l,v])=>`<div class="stat"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("");
 
   const box=document.getElementById("vResult");
   if(!VTAMPER){box.className="vres ok";
@@ -1137,13 +1204,18 @@ function renderVault(){
   }else{box.className="vres bad";
     box.innerHTML=(VTAMPER==="edit"
       ? "<b>Detected at seq 2.</b> One stored entry MC was changed. Its record hash no longer matches, and because every later link is built on it, all "+(VCHAIN.length-1)+" hashes after it changed too."
-      : "<b>Detected at seq 3.</b> A call was removed. The chain head moved, so the published anchor from this morning no longer matches what is stored.")
+      : "<b>Detected at seq 3.</b> A call was removed. The chain head moved, which is exactly what a published anchor would catch.")
       +`<div style="margin-top:9px;font-family:var(--mono);font-size:11px;opacity:.85">was ${(VBASE||"").slice(0,28)}…<br>now ${head.slice(0,28)}…</div>`;
   }
-  document.getElementById("vAnchors").innerHTML=
-    [["29 Aug 2026",calls.length],["28 Aug 2026",calls.length-3],["27 Aug 2026",calls.length-7]]
-    .map(([d,n],i)=>`<tr><td class="k">${d}</td><td class="n">${Math.max(n,1)}</td>
-      <td class="n" style="font-size:11px">${(i?VCHAIN[Math.max(0,VCHAIN.length-1-i*2)]?.link:head||"").slice(0,14)}…</td></tr>`).join("");
+  // Real anchors or none. The three rows here were built from calls.length —
+  // a publication history invented on a register nothing has ever published.
+  const a=V?.latestAnchor;
+  document.getElementById("vAnchors").innerHTML = a
+    ? `<tr><td class="k">${utc(Date.parse(a.at)).split(" · ")[0]}</td><td class="n">${a.seqTo}</td>
+       <td class="n" style="font-size:11px">${String(a.chainHead??"").slice(0,14)}…</td></tr>`
+    : `<tr><td colspan="3" class="k" style="padding:14px 2px">${
+        V?"Nothing published yet — /api/verify reports the register as unanchored."
+         :DEMO?"Demo page — no engine behind it.":"—"}</td></tr>`;
 }
 document.addEventListener("click",e=>{
   const t=e.target.closest("[data-tamper]");if(!t)return;
@@ -1223,7 +1295,7 @@ document.addEventListener("click",e=>{
   const sh=e.target.closest("[data-share]");
   if(sh){e.stopPropagation();openShare(sh.dataset.share);return}
   const rec=e.target.closest(".rec");
-  if(rec&&rec.dataset.id&&!e.target.closest(".ca,.shbtn,.pv-body")){openCall(rec.dataset.id);return}
+  if(rec&&rec.dataset.id&&!e.target.closest(".ca,.lnk,.shbtn,.pv-body")){openCall(rec.dataset.id);return}
   const cp=e.target.closest("[data-copy]");
   if(cp){const el=document.getElementById(cp.dataset.copy);
     navigator.clipboard?.writeText(el.textContent);
@@ -1289,6 +1361,9 @@ function rowToCall(d){
 
     entry:d.entryMc,peak:d.peakMc??d.entryMc,nowMc:d.nowMc??d.entryMc,
     liq:d.liquidityUsd??0,vol:d.entryVolumeH1??null,   // null = fired before we recorded it
+    chainId:d.chain,pair:d.pairAddress??"",             // the pair it fired on, for the chart link
+    deadAt:d.deadAt?Date.parse(d.deadAt):null,
+    raw:d,                              // the row as the engine wrote it, for verification
     verdict:d.verdict,isDead:d.isDead??false,
     twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state!=="settled",
     reasons:d.reasons||[],score:d.score,path:seedPath(d),flash:false};
@@ -1311,6 +1386,7 @@ function applyMark(seq,m){
   if(m.secondsTo2x!=null)c.twoIn=m.secondsTo2x;
   if(m.verdict)c.verdict=m.verdict;
   if(m.isDead!=null)c.isDead=m.isDead;
+  if(m.deadAt&&!c.deadAt)c.deadAt=Date.parse(m.deadAt);
   if(m.state)c.live=m.state!=="settled";
   c.path.push(c.nowMc);if(c.path.length>48)c.path.shift();
   // Flash is for reaching 2×. A call turning dead redraws without celebrating.
@@ -1333,8 +1409,10 @@ function paintMarks(){
       el.textContent=fmt(c.nowMc);el.className="v "+(n>=1?"up":"dn")});
     document.querySelectorAll(`[data-mx="${c.id}"]`).forEach(el=>
       el.textContent=(c.live||deadOf(c)?n:mult(c)).toFixed(2)+"×");
-    if(!c.twoIn)document.querySelectorAll(`[data-x="${c.id}"]`).forEach(el=>
-      el.textContent=((c.nowMc/c.peak-1)*100).toFixed(1)+"%");
+    // Both halves: which question the cell answers can change under a mark.
+    const[k4,v4]=cell4(c);
+    document.querySelectorAll(`[data-xk="${c.id}"]`).forEach(el=>el.textContent=k4);
+    document.querySelectorAll(`[data-x="${c.id}"]`).forEach(el=>el.textContent=v4);
   });
   if(dirty||calls.some(c=>c.flash)){dirty=false;renderAll();flashCards()}
 }
@@ -1352,7 +1430,7 @@ function connectFeed(){
     let m;try{m=JSON.parse(e.data)}catch{return}
     // A socket that has just come up may have been down while calls were
     // fired, and it carries no history — so a connect is also a backfill.
-    if(m.type==="joined"){wait=1000;CONN.delay=m.delaySeconds??null;setConn("live");renderFeed();pullLive();return}
+    if(m.type==="joined"){wait=1000;CONN.delay=m.delaySeconds??null;setConn("live");renderFeed();pullLive();pullVerify();return}
     if(m.type==="call"&&m.call){upsert(m.call).flash=true;renderAll();flashCards();return}
     if(m.type==="mark"&&m.mark&&applyMark(m.seq,m.mark))paintMarks();
   };
@@ -1376,6 +1454,20 @@ function retryFeed(){setTimeout(connectFeed,wait);wait=Math.min(wait*2,30000)}
 /* ── the poll ─────────────────────────────────────────────────────────────
    An empty register is an answer, not an outage. Treating the two the same is
    what let an engine that had stopped look exactly like a quiet market. */
+let verifyState=null;
+/* The integrity pages state facts about the chain. They now come from the
+   engine, which recomputes it, rather than from whatever rows the browser has
+   in hand. An unreachable engine leaves them blank rather than optimistic. */
+async function pullVerify(){
+  if(DEMO)return;
+  try{
+    const r=await fetch(API+"/verify",{cache:"no-store"});
+    // 409 is a real answer: the chain is broken and says so.
+    verifyState=(r.ok||r.status===409)?await r.json():null;
+  }catch{ verifyState=null }
+  renderVault();
+}
+
 async function pullLive(){
   if(DEMO)return;
   try{
@@ -1413,5 +1505,6 @@ if(!DEMO){
   connectFeed();
   pullLive();  setInterval(pullLive,20000);
   pullTriage();setInterval(pullTriage,20000);
+  pullVerify();setInterval(pullVerify,60000);
   setInterval(paintConn,1000);
 }
