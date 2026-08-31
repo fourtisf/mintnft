@@ -176,6 +176,13 @@ ok(cards().length === 0, "Vol ≥ $100K drops it");
 pickSel("volSel", 0);
 
 ok(/Died after/.test(rec().textContent), "the card says how long it lasted");
+
+// The chart has to be marks we saw, not a curve drawn between three numbers.
+ok(store.samples(call.seq).length === 3, "the engine kept a sample per mark, entry included");
+const row = (await (await fetch(`${BASE}/api/register?limit=1`)).json())[0];
+ok(Array.isArray(row.spark) && row.spark.length === 3, "and sends them with the row");
+const drawn = (rec().querySelector(".spark path")?.getAttribute("d") ?? "").split("L").length;
+ok(drawn >= 3, `the sparkline is drawn from ${drawn} observed points, not a straight line`);
 const chart = rec().querySelector("a.lnk");
 ok(!!chart && chart.getAttribute("href") === "https://dexscreener.com/solana/P1",
   "and links out to the pair it was fired on, so the claim can be checked");

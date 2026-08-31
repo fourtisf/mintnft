@@ -812,7 +812,7 @@ function openCall(id){
       <div class="cd-mx"><div class="big" style="${v==="win"&&!deadOf(c)?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(c.live||deadOf(c)?n:mult(c)).toFixed(2)}×</div>
         <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
     </div>
-    <div class="cd-chart">${cdChart(c)}
+    <div class="cd-chart"><div id="cdChartSvg">${cdChart(c)}</div>
       <div class="cd-lg">
         <span><i style="background:rgba(255,255,255,.25)"></i>entry</span>
         <span><i style="background:#8E9AFF"></i>2× threshold</span>
@@ -866,6 +866,18 @@ function openCall(id){
       ?`${utc(Date.parse(a.at)).split(" · ")[0]} · tx ${String(a.txHash).slice(0,10)}…`
       :"Not yet — the register has never been published on-chain";
   go("call");
+  // The whole observed series for the big chart. The list route sends a thinned
+  // one; here is where someone looks to see that the peak was a mark we saw.
+  if(!DEMO&&c.seq!=null)fetch(`${API}/call/${c.seq}`,{cache:"no-store"})
+    .then(r=>r.ok?r.json():null)
+    .then(d=>{
+      if(!d?.samples?.length||d.samples.length<2)return;
+      if(document.getElementById("v-call").classList.contains("hide"))return;
+      c.path=d.samples.map(([,mc])=>mc);
+      const host=document.getElementById("cdChartSvg");
+      if(host)host.innerHTML=cdChart(c);
+    })
+    .catch(()=>{});
 }
 
 /* ═══════ performance simulator ═══════
@@ -1366,12 +1378,18 @@ function rowToCall(d){
     raw:d,                              // the row as the engine wrote it, for verification
     verdict:d.verdict,isDead:d.isDead??false,
     twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state!=="settled",
-    reasons:d.reasons||[],score:d.score,path:seedPath(d),flash:false};
+    reasons:d.reasons||[],score:d.score,flash:false,
+    // The marks the poller actually saw, when the engine has them. seedPath is
+    // the fallback for a row written before it kept a series: three points it
+    // can stand behind, rather than a curve invented between them.
+    path:Array.isArray(d.spark)&&d.spark.length>1?d.spark.slice():seedPath(d)};
 }
 function upsert(row){
   const c=rowToCall(row),i=calls.findIndex(x=>x.seq===c.seq);
   if(i<0){calls.push(c);return c}
-  c.path=calls[i].path;               // keep what we have watched since it fired
+  // Keep whichever series is longer: ours grows with every mark the socket
+  // delivers, the engine's spans everything from before this page was opened.
+  if(calls[i].path.length>c.path.length)c.path=calls[i].path;
   c.flash=calls[i].flash;
   calls[i]=c;
   return c;

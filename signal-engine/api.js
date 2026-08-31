@@ -167,7 +167,10 @@ export function serve(store, {
     if (p.startsWith("/api/call/")) {
       const seq = Number(p.split("/").pop());
       const row = rows.find(r => r.seq === seq);
-      return row ? json(res, 200, row) : notFound(res);
+      if (!row) return notFound(res);
+      // The whole observed series here, not the thinned one on the list route:
+      // this is where someone checks that peakMc is a mark we actually saw.
+      return json(res, 200, { ...row, samples: store.samples ? store.samples(seq) : [] });
     }
 
     notFound(res);

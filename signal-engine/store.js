@@ -9,6 +9,31 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { recordHash, linkHash, GENESIS, verifyChain, HASH_VERSION } from "./integrity.js";
 
+/**
+ * Observed marks kept per call, so a chart can plot points the poller actually
+ * saw rather than a curve drawn between entry, peak and now. Twenty-four hours
+ * at a 20s poll is 4,320 of them — more than any shape needs and more than an
+ * API should carry — so the series halves itself when full by dropping every
+ * second interior point. That keeps the span and the shape; it loses
+ * resolution, which is the right thing to lose. First and last always survive.
+ */
+const SAMPLE_CAP = 96;
+function decimate(series) {
+  if (series.length <= SAMPLE_CAP) return series;
+  const kept = [series[0]];
+  for (let i = 1; i < series.length - 1; i += 2) kept.push(series[i]);
+  kept.push(series[series.length - 1]);
+  return kept;
+}
+/** Evenly spaced subset, for the small chart on a card. */
+function thin(series, n) {
+  if (series.length <= n) return series;
+  const out = [];
+  for (let i = 0; i < n - 1; i++) out.push(series[Math.floor(i * (series.length - 1) / (n - 1))]);
+  out.push(series[series.length - 1]);
+  return out;
+}
+
 export class FileStore {
   constructor(path = "./data/register.json") {
     this.path = path;
@@ -35,6 +60,7 @@ export class FileStore {
     call.chainHash = linkHash(this.db.head, call.recordHash);
     this.db.head = call.chainHash;
     this.db.calls.push(call);
+    (this.db.samples ??= {})[call.seq] = [[Math.round(Date.parse(call.firedAt) / 1000), call.entryMc]];
     this.db.marks[call.seq] = {
       seq: call.seq,
       peakMc: call.entryMc, peakAt: call.firedAt, peakX: 1,
@@ -51,8 +77,24 @@ export class FileStore {
   liveCalls() { return this.db.calls.filter(c => this.db.marks[c.seq].state === "live"); }
   allCalls()  { return this.db.calls; }
   mark(seq)   { return this.db.marks[seq]; }
-  setMark(seq, m) { this.db.marks[seq] = m; this.#flush(); }
-  register()  { return this.db.calls.map(c => ({ ...c, ...this.db.marks[c.seq] })); }
+  setMark(seq, m) {
+    this.db.marks[seq] = m;
+    // Every mark is a sample. Recording it here rather than in the worker keeps
+    // the two from drifting apart, and costs the same single flush.
+    const s = ((this.db.samples ??= {})[seq] ??= []);
+    s.push([Math.round(Date.parse(m.updatedAt ?? new Date().toISOString()) / 1000), m.nowMc]);
+    this.db.samples[seq] = decimate(s);
+    this.#flush();
+  }
+  samples(seq) { return this.db.samples?.[seq] ?? []; }
+  register()  {
+    return this.db.calls.map(c => ({
+      ...c, ...this.db.marks[c.seq],
+      // Values only, and few of them: the card draws a 24-point line and the
+      // full series is a call away at /api/call/:seq for anyone recomputing.
+      spark: thin(this.samples(c.seq), 24).map(([, mc]) => mc),
+    }));
+  }
   head()      { return this.db.head; }
   verify()    { return verifyChain(this.db.calls); }
   anchors()   { return this.db.anchors; }
