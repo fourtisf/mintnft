@@ -146,6 +146,8 @@ ok(rec().querySelector(".badge").textContent.trim() === "WIN",
   "the page agrees: it stays a win, because /api/stats counts it as one");
 ok(rec().classList.contains("dead"), "and the card carries the death");
 ok(/Died/.test(rec().textContent), "which the footer says in words");
+ok((doc.querySelector(`#feed [data-mx="r${call.seq}"]`)?.textContent ?? "").startsWith("0.01"),
+  "and the headline is where it ended, not the peak it once touched");
 
 // The box promises contracts, and a contract is 44 characters nobody abbreviates.
 const q = doc.getElementById("q");

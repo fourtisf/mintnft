@@ -89,12 +89,17 @@ function spark(c){
 }
 function card(c,i,mini){
   const v=badgeOf(c),n=nx(c),off=(c.nowMc/c.peak-1)*100,sp=spark(c);
+  // A dead call's story is where it ended; a settled one's is how far it got.
+  // Keying this off the badge instead printed the peak on a dead call, so a
+  // token sitting at 4% of entry headlined "1.00×" — it never rose, and that
+  // read as breaking even.
+  const head=(c.live||deadOf(c)?n:mult(c)).toFixed(2)+"×";
   const bg=deadOf(c)?"d":v==="win"?"w":v==="open"?"":"m";
   return `<article class="rec ${deadOf(c)?"dead":""}" data-id="${c.id}" style="animation-delay:${Math.min(i*34,300)}ms">
     <div class="rh"><div class="tok">${c.tick[0]}</div>
       <div class="rh-id"><h3>${c.name}</h3>
         <div class="rh-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}<span class="dotsep"></span>${c.src}<span class="dotsep"></span>${c.by==="desk"?"house desk":"@"+c.by}</div></div>
-      <div class="mx"><div class="big ${bg}" data-mx="${c.id}">${(v==="open"?n:mult(c)).toFixed(2)}×</div><span class="badge ${v}">${LBL[v]}</span></div></div>
+      <div class="mx"><div class="big ${bg}" data-mx="${c.id}">${head}</div><span class="badge ${v}">${LBL[v]}</span></div></div>
     <div class="spark">${sp.html}<span class="thresh-lbl" style="top:${sp.yT/54*100}%">2×</span></div>
     ${mini?"":`<div class="why"><span class="why-h">Why it fired<b>${c.score}</b></span>
       ${c.reasons.map(r=>`<span class="wchip">${r}</span>`).join("")}</div>`}
@@ -1327,7 +1332,7 @@ function paintMarks(){
     document.querySelectorAll(`[data-now="${c.id}"]`).forEach(el=>{
       el.textContent=fmt(c.nowMc);el.className="v "+(n>=1?"up":"dn")});
     document.querySelectorAll(`[data-mx="${c.id}"]`).forEach(el=>
-      el.textContent=(v==="open"?n:mult(c)).toFixed(2)+"×");
+      el.textContent=(c.live||deadOf(c)?n:mult(c)).toFixed(2)+"×");
     if(!c.twoIn)document.querySelectorAll(`[data-x="${c.id}"]`).forEach(el=>
       el.textContent=((c.nowMc/c.peak-1)*100).toFixed(1)+"%");
   });
