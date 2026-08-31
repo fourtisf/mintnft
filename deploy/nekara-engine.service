@@ -1,0 +1,42 @@
+# /etc/systemd/system/nekara-engine.service
+#
+# One process: discovery, the hot and warm scorers, the daily anchor, the
+# register API on :8787 and the websocket feed. index.js starts all of it.
+
+[Unit]
+Description=Nekara signal engine
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/nekara/signal-engine
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=5
+
+# The register lives here as an append-only file. Losing it loses the record,
+# and the hash chain is what makes that irrecoverable rather than annoying.
+ReadWritePaths=/opt/nekara/signal-engine/data
+
+# Sessions are signed with this. Leave it unset and index.js generates a random
+# one at boot, which silently logs every key holder out on each restart.
+Environment=SESSION_SECRET=CHANGE_ME
+Environment=AUTH_DOMAIN=nekara.xyz
+Environment=CALLER_ID=1
+
+# Telegram is optional. Without it the engine still records everything; it just
+# does not announce.
+# Environment=TG_TOKEN=
+# Environment=TG_CHAT=
+
+# Tier gating resolves on-chain when both are set. Without them everyone is
+# public tier, which is correct while no keys exist.
+# Environment=KEYS_CONTRACT=
+# Environment=BASE_RPC=
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
