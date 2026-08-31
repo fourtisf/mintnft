@@ -43,11 +43,21 @@ echo "node $(node -v), npm $(npm -v)"
 # 2 ──────────────────────────────────────────────────────────────────────────
 say "2/7  source"
 if [ -d "$SRC/.git" ]; then
-  git -C "$SRC" fetch --depth 1 origin "$BRANCH"
-  git -C "$SRC" reset --hard "origin/$BRANCH"
+  # Point the remote at $REPO first. An existing checkout carries whatever
+  # remote it was cloned with, which on this box is a repo the project has
+  # moved off, so fetching "origin" fetched the wrong source entirely.
+  git -C "$SRC" remote set-url origin "$REPO" 2>/dev/null \
+    || git -C "$SRC" remote add origin "$REPO"
+  git -C "$SRC" fetch --depth 1 origin "$BRANCH" \
+    || die "could not fetch $BRANCH from $REPO"
+  # FETCH_HEAD, not origin/$BRANCH: a --depth 1 fetch of a branch name writes
+  # FETCH_HEAD and need not create the remote-tracking ref at all, so resetting
+  # to origin/$BRANCH failed with "unknown revision" on a box that had one.
+  git -C "$SRC" reset --hard FETCH_HEAD
 else
   git clone --depth 1 -b "$BRANCH" "$REPO" "$SRC"
 fi
+echo "source at $(git -C "$SRC" rev-parse --short HEAD) from $(git -C "$SRC" remote get-url origin)"
 
 mkdir -p "$ENGINE/data" "$APP/backup"
 # data/ is left alone deliberately. The register is append-only and this script
@@ -139,6 +149,17 @@ if [ -z "$CONF" ]; then
 elif grep -qF "snippets/nekara-api.conf" "$CONF"; then
   echo "already included in $CONF"
   nginx -t && systemctl reload nginx
+elif grep -qE '^[[:space:]]*location[[:space:]]+/api/' "$CONF"; then
+  # A hand-written location /api/ already there. Adding the include would put a
+  # second one in the same server block, nginx would refuse to load, and this
+  # script would roll back and stop before it ever published the site.
+  printf '\n\033[33m%s\033[0m\n' "$CONF already has its own location /api/"
+  echo "Not touching it — two of them will not load. Replace that block by hand"
+  echo "with this line, then: nginx -t && systemctl reload nginx"
+  echo "$INCLUDE_LINE"
+  echo
+  echo "It matters: the snippet also carries /feed, which is what makes the page"
+  echo "say \"live\" instead of \"polling\", and the no-cache header for /assets/."
 else
   BACKUP="$CONF.bak.$(date +%s)"
   cp "$CONF" "$BACKUP"
@@ -170,12 +191,20 @@ fi
 
 # 6 ──────────────────────────────────────────────────────────────────────────
 say "6/7  site"
-# The pages are three files and no build step. They were being uploaded by hand,
+# The pages are four files and no build step. They were being uploaded by hand,
 # which is how a front-end fix sits in git for a week while the live site keeps
 # the old bug. Only ever writes where nginx already serves from.
+# A server file can carry several roots — the :80 redirect, an acme-challenge
+# webroot — and the first one is not necessarily the site. The one already
+# holding an index.html is.
 WEBROOT=""
-[ -n "${CONF:-}" ] && WEBROOT=$(awk '$1 == "root" { sub(/;.*/, "", $2); print $2; exit }' "$CONF" || true)
-[ -z "$WEBROOT" ] && [ -d /var/www/nekara ] && WEBROOT=/var/www/nekara
+if [ -n "${CONF:-}" ]; then
+  for R in $(awk '$1 == "root" { sub(/;.*/, "", $2); print $2 }' "$CONF" | sort -u); do
+    if [ -f "$R/index.html" ]; then WEBROOT=$R; break; fi
+    if [ -z "$WEBROOT" ] && [ -d "$R" ]; then WEBROOT=$R; fi
+  done
+fi
+if [ -z "$WEBROOT" ] && [ -d /var/www/nekara ]; then WEBROOT=/var/www/nekara; fi
 if [ -n "$WEBROOT" ] && [ -d "$WEBROOT" ]; then
   install -d "$WEBROOT/assets"
   install -m 644 "$SRC/site/index.html" "$SRC/site/favicon.svg" "$WEBROOT/"
