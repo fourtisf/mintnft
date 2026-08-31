@@ -4,13 +4,16 @@
  * The site is a single script with no build step and had no test at all, which
  * is how it ended up printing "synced 1s" over an engine it had never reached.
  * So this boots the engine's own API and websocket, loads site/index.html in a
- * DOM, and reads the page back — the four states a reader can actually be in:
+ * DOM, and reads the page back — the states a reader can actually be in:
  *
  *   offline   nothing is answering, and the page says so instead of showing 0
  *   live      the socket is up and the register is empty, which is not the same
  *   fired     a call arrives over the socket, well inside the 20s poll
  *   marked    its numbers move without the list re-rendering underneath
+ *   died      a win that later went to zero keeps both marks, as the engine
+ *             records it — this is the shape the live register produces most
  *
+
  * Gating is not what this proves — test-gating.js owns that, and the delays
  * here are zeroed so delivery is the only variable.
  */
@@ -129,7 +132,30 @@ ok(doc.querySelector(`.rec[data-id="r${call.seq}"] .badge`).textContent.trim() =
   "the verdict flipped to WIN");
 ok(cards().length === 1, "still one card — a mark does not duplicate the call");
 
-/* ── 6. and it survives the engine going away again ──────────────────────── */
+/* ── 6. the shape the live register actually produces: 2×, then to zero ──── */
+console.log("\nNAIK 2× LALU MATI");
+const died = applyObservation(call, store.mark(call.seq), 1_700);   // 0.7% of entry
+store.setMark(call.seq, died);
+feed.publishMark(call, died);
+ok(died.verdict === "win" && died.isDead, "the engine calls it a win that died");
+
+const rec = () => doc.querySelector(`#feed .rec[data-id="r${call.seq}"]`);
+await waitFor("the death reaches the card", () => rec()?.classList.contains("dead"));
+ok(rec().querySelector(".badge").textContent.trim() === "WIN",
+  "the page agrees: it stays a win, because /api/stats counts it as one");
+ok(rec().classList.contains("dead"), "and the card carries the death");
+ok(/Died/.test(rec().textContent), "which the footer says in words");
+
+const seg = doc.getElementById("seg");
+const pick = f => seg.querySelector(`[data-f="${f}"]`)
+  .dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+pick("win");
+ok(cards().length === 1, "it is under Wins");
+pick("dead");
+ok(cards().length === 1, "and under Dead — one call, both marks");
+pick("all");
+
+/* ── 7. and it survives the engine going away again ──────────────────────── */
 console.log("\nENGINE MATI LAGI");
 feed.close(); srv.close();
 await waitFor("the page notices the engine went away", () => text("syncTxt").startsWith("engine offline"), 30000);

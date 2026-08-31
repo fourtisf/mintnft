@@ -50,8 +50,18 @@ const calls=SEED.map((s,i)=>({id:"r"+i,reasons:REASONS[i%REASONS.length],
 
 const fmt=v=>v>=1e9?(v/1e9).toFixed(2)+"B":v>=1e6?(v/1e6).toFixed(2)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":Math.round(v);
 const mult=c=>c.peak/c.entry, nx=c=>c.nowMc/c.entry;
-const dead=c=>c.nowMc<c.entry*.1, win=c=>mult(c)>=2;
-const vrd=c=>dead(c)?"dead":win(c)?"win":c.live?"open":"miss";
+/* The engine decides the verdict, and it records death separately on purpose:
+   a call that reached 2× and later went to zero is a win that died, and the
+   register keeps both marks rather than replacing one with the other. Deriving
+   the verdict here instead printed DEAD on a card while /api/stats counted the
+   same call as a win — the page contradicting the record it publishes. The
+   rules below are the fallback for the demo set, which carries no verdict. */
+const deadOf=c=>c.isDead??(c.nowMc<c.entry*.1);
+const win=c=>c.verdict?c.verdict==="win":mult(c)>=2;
+const vrd=c=>c.verdict??(deadOf(c)?"dead":win(c)?"win":c.live?"open":"miss");
+/* One badge has to carry both marks: a win stays a win however it ended, and
+   anything else that died reads DEAD. The card dims and the footer says which. */
+const badgeOf=c=>{const v=vrd(c);return v==="win"?"win":deadOf(c)?"dead":v};
 const LBL={win:"WIN",miss:"MISS",open:"LIVE",dead:"DEAD"};
 function ago(ts){const m=Math.floor((Date.now()-ts)/MIN);if(m<1)return"just now";if(m<60)return m+"m ago";
   const h=Math.floor(m/60);return h<24?h+"h ago":Math.floor(h/24)+"d ago"}
@@ -64,7 +74,7 @@ function spark(c){
   const mn=Math.min(...p,two*.72),mx=Math.max(...p,two*1.06),r=(mx-mn)||1;
   const X=i=>i/(p.length-1)*W, Y=v=>H-((v-mn)/r)*(H-8)-4;
   const v=vrd(c);
-  const col=v==="dead"?"var(--dead)":v==="open"?"var(--win)":v==="win"?"#7E8CFF":"var(--tx-3)";
+  const col=deadOf(c)?"var(--dead)":v==="open"?"var(--win)":v==="win"?"#7E8CFF":"var(--tx-3)";
   const d=p.map((y,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)).join("");
   const g="g"+c.id,cl="c"+c.id,yT=Y(two).toFixed(1);
   return{yT,html:`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
@@ -77,9 +87,9 @@ function spark(c){
     <path d="${d}" fill="none" stroke="#8E9AFF" stroke-width="1.8" stroke-linejoin="round" clip-path="url(#${cl})"/></svg>`};
 }
 function card(c,i,mini){
-  const v=vrd(c),n=nx(c),off=(c.nowMc/c.peak-1)*100,sp=spark(c);
-  const bg=v==="win"?"w":v==="dead"?"d":v==="open"?"":"m";
-  return `<article class="rec ${v==="dead"?"dead":""}" data-id="${c.id}" style="animation-delay:${Math.min(i*34,300)}ms">
+  const v=badgeOf(c),n=nx(c),off=(c.nowMc/c.peak-1)*100,sp=spark(c);
+  const bg=deadOf(c)?"d":v==="win"?"w":v==="open"?"":"m";
+  return `<article class="rec ${deadOf(c)?"dead":""}" data-id="${c.id}" style="animation-delay:${Math.min(i*34,300)}ms">
     <div class="rh"><div class="tok">${c.tick[0]}</div>
       <div class="rh-id"><h3>${c.name}</h3>
         <div class="rh-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}<span class="dotsep"></span>${c.src}<span class="dotsep"></span>${c.by==="desk"?"house desk":"@"+c.by}</div></div>
@@ -94,7 +104,8 @@ function card(c,i,mini){
       <div><div class="k">${c.twoIn?"Reached 2× in":"Off peak"}</div><div class="v mut" data-x="${c.id}">${c.twoIn?secs(c.twoIn):off.toFixed(1)+"%"}</div></div></div>
     ${mini?"":`<div class="rft"><span>${utc(c.at)}</span>
       <button class="ca" data-ca="${c.ca}">${c.ca}<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.6" y="3.6" width="7" height="7" rx="1.4"/><path d="M8.4 1.4h-7v7"/></svg></button>
-      <span class="live-tag">${c.live?'<span class="pulse"></span>Live':'<span style="color:var(--tx-3)">Settled</span>'}</span>
+      <span class="live-tag">${deadOf(c)?'<span style="color:var(--dead)">Died</span>'
+        :c.live?'<span class="pulse"></span>Live':'<span style="color:var(--tx-3)">Settled</span>'}</span>
       <button class="shbtn" data-share="${c.id}">
         <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 6.5h4M6 4.5v4M2 2h8v8H2z"/></svg>Share</button></div>`}
   </article>`;
@@ -465,8 +476,8 @@ function vis(){
     if(S.chain&&c.chain!==S.chain)return false;
     if(S.q){const q=S.q.toLowerCase();
       if(!(c.name.toLowerCase().includes(q)||c.tick.toLowerCase().includes(q)||c.ca.toLowerCase().includes(q)))return false}
-    const v=vrd(c);
-    return S.f==="live"?c.live:S.f==="win"?v==="win":S.f==="dead"?v==="dead":true});
+    // A call can be in both Wins and Dead. That is the record, not a bug.
+    return S.f==="live"?c.live:S.f==="win"?vrd(c)==="win":S.f==="dead"?deadOf(c):true});
   if(S.sort==="peak")a.sort((x,y)=>mult(y)-mult(x));
   else if(S.sort==="now")a.sort((x,y)=>nx(y)-nx(x));
   else a.sort((x,y)=>y.at-x.at);
@@ -734,7 +745,7 @@ function cdChart(c){
   const mn=Math.min(...p,dead*.9),mx=Math.max(...p,two*1.08),r=(mx-mn)||1;
   const X=i=>i/(p.length-1)*W, Y=v=>H-((v-mn)/r)*(H-24)-12;
   const v=vrd(c);
-  const col=v==="dead"?"var(--dead)":v==="open"?"var(--win)":v==="win"?"#8E9AFF":"var(--tx-3)";
+  const col=deadOf(c)?"var(--dead)":v==="open"?"var(--win)":v==="win"?"#8E9AFF":"var(--tx-3)";
   const d=p.map((y,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)).join("");
   const pk=p.indexOf(Math.max(...p));
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
@@ -754,7 +765,7 @@ function openCall(id){
   const c=calls.find(x=>x.id===id); if(!c)return;
   // The real sequence number when there is one. The +1 below is the demo set,
   // which is indexed from zero and has no chain position of its own.
-  const v=vrd(c),n=nx(c),seq=c.seq??+c.id.slice(1)+1;
+  const v=badgeOf(c),n=nx(c),seq=c.seq??+c.id.slice(1)+1;
   const f=(k,val,cls="")=>`<div><div class="k eyebrow">${k}</div><div class="v ${cls}" style="font-family:var(--mono);font-size:17px;font-weight:500;margin-top:6px">${val}</div></div>`;
   document.getElementById("cdBody").innerHTML=`
     <div class="cd-top">
@@ -762,7 +773,7 @@ function openCall(id){
       <div class="cd-id"><h1>${c.name}</h1>
         <div class="cd-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}
           <span class="dotsep"></span>${c.src}<span class="dotsep"></span>${utc(c.at)}</div></div>
-      <div class="cd-mx"><div class="big" style="${v==="win"?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(v==="open"?n:mult(c)).toFixed(2)}×</div>
+      <div class="cd-mx"><div class="big" style="${v==="win"&&!deadOf(c)?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(v==="open"?n:mult(c)).toFixed(2)}×</div>
         <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
     </div>
     <div class="cd-chart">${cdChart(c)}
@@ -881,7 +892,7 @@ function renderLeaders(){
       <td class="n">${r.medPk.toFixed(2)}×</td>
       <td class="n" style="color:${r.medNow>=1?"var(--tx-2)":"var(--dead)"}">${r.medNow.toFixed(2)}×</td>
       <td class="n" style="color:${r.ret>=0?"var(--win)":"var(--dead)"}">${r.ret>=0?"+":"−"}${Math.abs(r.ret*100).toFixed(0)}%</td>
-      <td><span class="vdots">${r.last.map(c=>`<i class="${vrd(c)}"></i>`).join("")}${
+      <td><span class="vdots">${r.last.map(c=>`<i class="${badgeOf(c)}"></i>`).join("")}${
         Array.from({length:Math.max(0,5-r.last.length)},()=>"<i></i>").join("")}</span></td>
       <td>${r.chain}</td></tr>`).join("")
     : `<tr><td colspan="9" style="color:var(--tx-3);padding:16px 0">No caller has that many calls in this window yet.</td></tr>`;
@@ -1139,8 +1150,8 @@ document.getElementById("vCsv").addEventListener("click",()=>{
    register. Wins and losses both get one — publishing the failures is the
    whole differentiator, and nobody does it. */
 function tplX(c){
-  const v=vrd(c), m=(v==="open"?nx(c):mult(c)).toFixed(2);
-  const head=v==="win"?`$${c.tick} · WIN ${m}×`
+  const v=badgeOf(c), m=(v==="open"?nx(c):mult(c)).toFixed(2);
+  const head=v==="win"?`$${c.tick} · WIN ${m}×${deadOf(c)?" · then died":""}`
     :v==="dead"?`$${c.tick} · DEAD · peaked ${mult(c).toFixed(2)}×`
     :v==="miss"?`$${c.tick} · MISS · peaked ${mult(c).toFixed(2)}×`
     :`$${c.tick} · LIVE ${m}×`;
@@ -1154,8 +1165,8 @@ function tplX(c){
     `nekara.xyz/call/${c.id.replace("r","")}`].join("\n");
 }
 function tplTG(c){
-  const v=vrd(c);
-  const tag=v==="win"?"✅ WIN":v==="dead"?"⚰️ DEAD":v==="miss"?"❌ MISS":"🟢 LIVE";
+  const v=badgeOf(c);
+  const tag=v==="win"?(deadOf(c)?"✅ WIN · ⚰️ then died":"✅ WIN"):v==="dead"?"⚰️ DEAD":v==="miss"?"❌ MISS":"🟢 LIVE";
   return [`${tag} · $${c.tick}  ·  ${c.chain} · ${c.src}`,
     `Score ${c.score}/100`,"",
     `Entry MC    ${fmt(c.entry)}`,
@@ -1174,7 +1185,7 @@ const shareDrw=document.getElementById("shareDrw");
 function openShare(id){
   const c=calls.find(x=>x.id===id); if(!c)return;
   const x=tplX(c),tg=tplTG(c);
-  document.getElementById("shareTitle").textContent=`$${c.tick} · ${LBL[vrd(c)]}`;
+  document.getElementById("shareTitle").textContent=`$${c.tick} · ${LBL[badgeOf(c)]}`;
   document.getElementById("shareBody").innerHTML=`
     <div class="tpl"><div class="th">${ICO_X}X post<span class="n">${x.length} chars</span></div>
       <pre id="tx">${x.replace(/</g,"&lt;")}</pre>
@@ -1254,6 +1265,7 @@ function rowToCall(d){
     chain:CHAIN[d.chain]||String(d.chain||"").toUpperCase(),
     by:d.callerName||"screener",src:d.dex,ca:shortCa(d.tokenAddress),
     entry:d.entryMc,peak:d.peakMc??d.entryMc,nowMc:d.nowMc??d.entryMc,
+    verdict:d.verdict,isDead:d.isDead??false,
     twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state!=="settled",
     reasons:d.reasons||[],score:d.score,path:seedPath(d),flash:false};
 }
@@ -1265,16 +1277,21 @@ function upsert(row){
   calls[i]=c;
   return c;
 }
+let dirty=false;                      // a verdict changed, so the card has to be redrawn
 function applyMark(seq,m){
   const c=calls.find(x=>x.seq===seq);
   if(!c)return false;                 // a mark for a call this tier cannot see yet
-  const wasWin=win(c);
+  const was=badgeOf(c),wasDead=deadOf(c);
   if(m.nowMc!=null)c.nowMc=m.nowMc;
   if(m.peakMc!=null&&m.peakMc>c.peak)c.peak=m.peakMc;
   if(m.secondsTo2x!=null)c.twoIn=m.secondsTo2x;
+  if(m.verdict)c.verdict=m.verdict;
+  if(m.isDead!=null)c.isDead=m.isDead;
   if(m.state)c.live=m.state!=="settled";
   c.path.push(c.nowMc);if(c.path.length>48)c.path.shift();
-  if(!wasWin&&win(c))c.flash=true;
+  // Flash is for reaching 2×. A call turning dead redraws without celebrating.
+  if(was!=="win"&&vrd(c)==="win")c.flash=true;
+  if(was!==badgeOf(c)||wasDead!==deadOf(c))dirty=true;
   return true;
 }
 function flashCards(){
@@ -1295,7 +1312,7 @@ function paintMarks(){
     if(!c.twoIn)document.querySelectorAll(`[data-x="${c.id}"]`).forEach(el=>
       el.textContent=((c.nowMc/c.peak-1)*100).toFixed(1)+"%");
   });
-  if(calls.some(c=>c.flash)){renderAll();flashCards()}
+  if(dirty||calls.some(c=>c.flash)){dirty=false;renderAll();flashCards()}
 }
 
 /* ── the socket ───────────────────────────────────────────────────────────
