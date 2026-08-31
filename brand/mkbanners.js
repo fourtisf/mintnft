@@ -122,6 +122,32 @@ fs.writeFileSync('brand/banners/b4-square.html', page(1080,1080,`
   <div class="rule" style="width:280px;margin:auto 0 22px"></div>
   <div class="eyebrow">Failed calls are never removed</div>
 </div>`));
+/* ── keys ──────────────────────────────────────────────────────────────── */
+
+/* A key is access, not an asset, and the site says so in those words. These
+   carry no price, no supply counter and no mint button: no contract is
+   deployed, so any of those would be advertising a sale that does not exist. */
+fs.writeFileSync('brand/banners/k1-keys.html', page(1600,900,`
+<div style="position:absolute;inset:0;background:url('${SHOT('k-gallery.png')}') center 42%/150% auto no-repeat"></div>
+<div style="position:absolute;inset:0;background:linear-gradient(90deg,#08090B 40%,rgba(8,9,11,.80) 56%,rgba(8,9,11,.28) 78%,transparent)"></div>
+<div style="position:absolute;left:74px;top:50%;transform:translateY(-50%);width:700px">
+  <div class="eyebrow">Keys</div>
+  <div class="rule-l" style="width:170px;margin:20px 0 26px"></div>
+  <h2 style="font-size:52px;line-height:1.08">Every holder gets<br>the same calls.<br><span class="grad-tx">Tier only changes<br>how early.</span></h2>
+  <p style="font-size:18px;line-height:1.64;color:var(--tx-2);margin-top:26px">666 keys, each drawn from its own token number — the same line geometry used on banknotes. What a key buys is not a position. It is seconds.</p>
+  <div class="wm" style="margin-top:44px">${MARK}<span>Nekara</span></div>
+</div>
+<div class="eyebrow" style="position:absolute;left:74px;bottom:52px">Access to a feed · not an investment</div>`));
+
+fs.writeFileSync('brand/banners/k2-keys-square.html', page(1080,1080,`
+<div style="position:absolute;inset:0;padding:76px 64px 66px;display:flex;flex-direction:column;align-items:center;text-align:center">
+  <div class="wm">${MARK}<span>Nekara</span></div>
+  <h1 style="font-size:48px;line-height:1.13;margin-top:40px">Every holder gets<br>the same calls.<br><span class="grad-tx">Tier only changes<br>how early.</span></h1>
+  <img class="ui" src="${SHOT('k-gallery.png')}" style="width:100%;height:498px;object-fit:cover;object-position:center 36%;margin-top:44px">
+  <div class="rule" style="width:280px;margin:auto 0 22px"></div>
+  <div class="eyebrow">666 keys · access to a feed · not an investment</div>
+</div>`));
+
 /* ── scoreboard ────────────────────────────────────────────────────────── */
 
 /* the format every call channel posts: a grid of results with the multiple as
@@ -316,4 +342,4 @@ fs.writeFileSync('brand/banners/x-avatar.html', `${BASE}<style>body{width:1000px
 <div style="position:absolute;inset:0;background:radial-gradient(115% 100% at 50% 40%,transparent 46%,rgba(0,0,0,.6))"></div>
 <div class="grain"></div>`);
 
-console.log('14 banner + 1 avatar ditulis');
+console.log('16 banner + 1 avatar ditulis');

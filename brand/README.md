@@ -78,6 +78,15 @@ on the right; the copy comes from the page the panel was cropped from.
 | `p5-scan.png` | 1080×1080 | what the screener passed on | Last 24 hours |
 | `p6-callers.png` | 1600×900 | callers ranked on every call, not the best one | Caller leaderboard |
 
+Keys. What a key actually is, in the site's own words. **No price, no supply
+counter, no mint button** — no contract is deployed, so any of those would be
+advertising a sale that does not exist.
+
+| File | Size | Where it goes |
+|---|---|---|
+| `k1-keys.png` | 1600×900 | X |
+| `k2-keys-square.png` | 1080×1080 | Telegram and Instagram |
+
 Scoreboards. The format every call channel posts, with a dead call left in the
 fourth slot and the current multiple beside every peak. **The four calls on
 these are the prototype's seed, not real ones** — edit `CALLS` in
