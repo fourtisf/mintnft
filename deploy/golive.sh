@@ -123,7 +123,9 @@ say "5/6  nginx"
 mkdir -p "$(dirname "$SNIP")"
 install -m 644 "$SRC/deploy/nginx-api.conf" "$SNIP"
 
-CONF=$(grep -rlF "server_name $DOMAIN" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null | head -1 || true)
+# -R, not -r: sites-enabled is symlinks on Debian and Ubuntu, and -r skips
+# symlinks it meets while walking a directory. -r finds nothing, every time.
+CONF=$(grep -RlF "server_name $DOMAIN" /etc/nginx/sites-enabled /etc/nginx/sites-available /etc/nginx/conf.d 2>/dev/null | head -1 || true)
 INCLUDE_LINE="    include snippets/nekara-api.conf;"
 
 if [ -z "$CONF" ]; then
