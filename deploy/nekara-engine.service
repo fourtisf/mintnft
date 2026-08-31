@@ -26,9 +26,16 @@ Environment=AUTH_DOMAIN=nekara.xyz
 Environment=CALLER_ID=1
 
 # Telegram is optional. Without it the engine still records everything; it just
-# does not announce.
-# Environment=TG_TOKEN=
-# Environment=TG_CHAT=
+# does not announce — and losses get posted too, which is the point. Set these
+# in a drop-in rather than here, for the same reason as PUBLIC_DELAY_S below:
+# golive.sh reinstalls this file on every run.
+#
+#   mkdir -p /etc/systemd/system/nekara-engine.service.d
+#   printf '[Service]\nEnvironment=TG_TOKEN=...\nEnvironment=TG_CHAT=...\n' \
+#     > /etc/systemd/system/nekara-engine.service.d/telegram.conf
+#   systemctl daemon-reload && systemctl restart nekara-engine
+#
+# The engine logs "[telegram] not configured, skipping" until they are set.
 
 # How far behind the desk a reader with no key sits. The paid tiers (0s, 5s,
 # 10s) are the promise and are not settable; this one is a product decision.

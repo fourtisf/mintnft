@@ -1609,6 +1609,16 @@ async function pullLive(){
 
 // A link carrying filters opens on the page those filters belong to.
 if(readUrl())go("reg");
+/* The brand links, in one place. They pointed at "#" on a live site, which is
+   worse than no icon: a reader who clicks one learns the page is unfinished.
+   Fill these in and they work; leave one empty and it does not appear. */
+const SOCIAL={x:"",tg:""};
+document.querySelectorAll("[data-social]").forEach(a=>{
+  const url=SOCIAL[a.dataset.social];
+  if(url){a.href=url;a.target="_blank";a.rel="noopener noreferrer"}
+  else a.classList.add("hide");
+});
+
 paintConn();
 renderAll();
 drawKey(preview);renderMarquee();syncMint();renderColl(true);reveal();
