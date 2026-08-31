@@ -112,7 +112,11 @@ fi
 sed -i "s|CHANGE_ME|$SECRET|" "$UNIT"
 
 systemctl daemon-reload
-systemctl enable --now nekara-engine
+systemctl enable nekara-engine >/dev/null
+# restart, not "enable --now": on a service that is already running the start
+# is a no-op, so every re-run of this script would leave the old code loaded
+# and report success.
+systemctl restart nekara-engine
 sleep 4
 systemctl is-active --quiet nekara-engine || { journalctl -u nekara-engine -n 40 --no-pager; die "engine did not stay up"; }
 curl -fsS -m 5 http://127.0.0.1:8787/api/register >/dev/null || { journalctl -u nekara-engine -n 40 --no-pager; die "api is not answering on :8787"; }
