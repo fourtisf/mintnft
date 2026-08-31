@@ -146,6 +146,17 @@ ok(rec().querySelector(".badge").textContent.trim() === "WIN",
 ok(rec().classList.contains("dead"), "and the card carries the death");
 ok(/Died/.test(rec().textContent), "which the footer says in words");
 
+// The box promises contracts, and a contract is 44 characters nobody abbreviates.
+const q = doc.getElementById("q");
+const type = v => { q.value = v; q.dispatchEvent(new win.Event("input", { bubbles: true })); };
+type("So1111111111111111111111111111111111111111");
+ok(cards().length === 1, "searching the full contract address finds the call");
+type("wire");                       // the call is "Live Wire"
+ok(cards().length === 1, "and so does part of the name");
+type("nothinglikethis");
+ok(cards().length === 0, "and something that matches nothing finds nothing");
+type("");
+
 const seg = doc.getElementById("seg");
 const pick = f => seg.querySelector(`[data-f="${f}"]`)
   .dispatchEvent(new win.MouseEvent("click", { bubbles: true }));

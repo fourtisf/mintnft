@@ -475,7 +475,11 @@ function vis(){
   let a=calls.filter(c=>{
     if(S.chain&&c.chain!==S.chain)return false;
     if(S.q){const q=S.q.toLowerCase();
-      if(!(c.name.toLowerCase().includes(q)||c.tick.toLowerCase().includes(q)||c.ca.toLowerCase().includes(q)))return false}
+      // The full address as well as the abbreviated one. The box says it
+      // searches contracts, and pasting a contract found nothing: the row only
+      // ever kept "6d2ttx…Hs2XB", which no one has to hand.
+      const hay=[c.name,c.tick,c.ca,c.addr??""].join(" ").toLowerCase();
+      if(!hay.includes(q))return false}
     // A call can be in both Wins and Dead. That is the record, not a bug.
     return S.f==="live"?c.live:S.f==="win"?vrd(c)==="win":S.f==="dead"?deadOf(c):true});
   if(S.sort==="peak")a.sort((x,y)=>mult(y)-mult(x));
@@ -1264,6 +1268,8 @@ function rowToCall(d){
   return{id:"r"+d.seq,seq:d.seq,name:d.name||d.symbol,tick:d.symbol||"?",
     chain:CHAIN[d.chain]||String(d.chain||"").toUpperCase(),
     by:d.callerName||"screener",src:d.dex,ca:shortCa(d.tokenAddress),
+    addr:d.tokenAddress||"",          // the card shows the short form; search needs the whole one
+
     entry:d.entryMc,peak:d.peakMc??d.entryMc,nowMc:d.nowMc??d.entryMc,
     verdict:d.verdict,isDead:d.isDead??false,
     twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state!=="settled",
