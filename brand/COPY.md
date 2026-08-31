@@ -10,10 +10,24 @@ see **Before you post** at the bottom, which is not optional.
 
 **Name** — `Nekara`
 
-**Bio** (153 / 160)
+**Bio.** The header already carries the statement, so the bio should not
+repeat it. Its job is the mechanism — why the claim is checkable.
 
-> A public register of automated trading signals. Every call published with the
-> reasons that fired it, then tracked to win, miss or dead. Failures stay up.
+Recommended (155 / 160):
+
+> An automated screener across four chains. Every call is hashed into an
+> append-only register — the misses stay up because the schema refuses to
+> delete them.
+
+Shorter (136), if you want the chains named:
+
+> Automated signals across Solana, Base, BNB and Ethereum. Every call hashed
+> into an append-only register, so the misses cannot come down.
+
+Sharpest (125), once the account has calls to back it:
+
+> Wins, misses and the ones that died, on the same page, under the same rules.
+> Removing any of them breaks every hash after it.
 
 **Pinned post** — use post 1 below.
 

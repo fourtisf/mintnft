@@ -65,16 +65,19 @@ const post=(eyebrow,head,sub,right)=>page(1600,900,`
 
 /* 1 — X header. Left 380px stays clear for the avatar; the register card
       leans in from the right so the profile shows the product, not a texture. */
+/* X header. Two things learned from seeing it on a live profile: the avatar
+   is far bigger than the guides suggest — it covers x 39-399 from y 295 down —
+   and the profile already prints the name under it, so a wordmark up here is
+   the same word twice. The statement gets the space instead, at a size that
+   survives the crop. */
 fs.writeFileSync('brand/banners/x-header.html', page(1500,500,`
-<img class="ui" src="${SHOT('c-win.png')}" style="position:absolute;left:948px;top:50%;
-  transform:translateY(-50%);width:660px;
-  -webkit-mask-image:linear-gradient(100deg,transparent,#000 30%,#000 82%,transparent);
-  mask-image:linear-gradient(100deg,transparent,#000 30%,#000 82%,transparent);border:0;box-shadow:none">
-<div style="position:absolute;inset:0;background:linear-gradient(90deg,#08090B 57%,rgba(8,9,11,.48) 71%,transparent 85%)"></div>
-<div style="position:absolute;left:400px;top:50%;transform:translateY(-50%);width:520px">
-  <div class="wm">${MARK}<span>Nekara</span></div>
-  <div class="rule-l" style="width:190px;margin:30px 0 28px"></div>
-  <h1 style="font-size:37px;line-height:1.16">Signals with their<br>reasons attached.<br><span class="grad-tx">Including the ones<br>that failed.</span></h1>
+<img src="${SHOT('pv-reg.png')}" style="position:absolute;right:-90px;top:50%;transform:translateY(-50%);
+  width:920px;opacity:.42;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 48%);
+  mask-image:linear-gradient(90deg,transparent,#000 48%)">
+<div style="position:absolute;inset:0;background:linear-gradient(90deg,#08090B 30%,rgba(8,9,11,.90) 52%,rgba(8,9,11,.66) 74%,rgba(8,9,11,.5))"></div>
+<div style="position:absolute;left:470px;top:50%;transform:translateY(-50%);width:950px">
+  <h1 style="font-size:46px;line-height:1.18">Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
   <div class="eyebrow" style="margin-top:30px">Solana · Base · BNB · Ethereum</div>
 </div>`));
 
