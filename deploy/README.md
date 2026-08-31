@@ -4,7 +4,7 @@
 
 On the VPS, as root:
 
-    curl -fsSL https://raw.githubusercontent.com/fourtisf/mintnft/claude/new-session-jzxh7a/deploy/golive.sh -o golive.sh
+    curl -fsSL https://raw.githubusercontent.com/fourtisf/nekara/main/deploy/golive.sh -o golive.sh
     bash golive.sh
 
 That does everything below — source, preflight, service, nginx, check — and

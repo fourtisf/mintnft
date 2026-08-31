@@ -2,7 +2,7 @@
 #
 # Takes the register from empty to live. Run it on the VPS, as root.
 #
-#   curl -fsSL https://raw.githubusercontent.com/fourtisf/mintnft/claude/new-session-jzxh7a/deploy/golive.sh -o golive.sh
+#   curl -fsSL https://raw.githubusercontent.com/fourtisf/nekara/main/deploy/golive.sh -o golive.sh
 #   bash golive.sh
 #
 # It stops at the preflight gate and waits for you, because starting an engine
@@ -15,8 +15,8 @@
 
 set -euo pipefail
 
-REPO=https://github.com/fourtisf/mintnft.git
-BRANCH=claude/new-session-jzxh7a
+REPO=https://github.com/fourtisf/nekara.git
+BRANCH=main
 SRC=/opt/nekara-src
 APP=/opt/nekara
 ENGINE=$APP/signal-engine
@@ -33,7 +33,7 @@ die() { printf '\n\033[31mstopped: %s\033[0m\n' "$*" >&2; exit 1; }
 [ "$(id -u)" = 0 ] || die "run this as root"
 
 # 1 ──────────────────────────────────────────────────────────────────────────
-say "1/6  node"
+say "1/7  node"
 command -v node >/dev/null || die "node is not installed. install 20 or newer."
 NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
 [ "$NODE_MAJOR" -ge 20 ] || die "node $NODE_MAJOR is too old — the engine needs global fetch, so 20 or newer"
@@ -41,7 +41,7 @@ command -v npm >/dev/null || die "npm is missing. the engine has a dependency an
 echo "node $(node -v), npm $(npm -v)"
 
 # 2 ──────────────────────────────────────────────────────────────────────────
-say "2/6  source"
+say "2/7  source"
 if [ -d "$SRC/.git" ]; then
   git -C "$SRC" fetch --depth 1 origin "$BRANCH"
   git -C "$SRC" reset --hard "origin/$BRANCH"
@@ -70,7 +70,7 @@ if [ -f "$ENGINE/data/register.json" ]; then
 fi
 
 # 3 ──────────────────────────────────────────────────────────────────────────
-say "3/6  preflight — nothing is written"
+say "3/7  preflight — nothing is written"
 cd "$ENGINE"
 set +e
 node preflight.js --rounds 3 | tee /tmp/nekara-preflight.log
@@ -100,7 +100,7 @@ if [ "${FIRED:-0}" = "0" ]; then
 fi
 
 # 4 ──────────────────────────────────────────────────────────────────────────
-say "4/6  service"
+say "4/7  service"
 # Keep the old secret if there is one. A fresh one logs every key holder out.
 OLD_SECRET=$(sed -n 's/^Environment=SESSION_SECRET=//p' "$UNIT" 2>/dev/null | head -1 || true)
 install -m 644 "$SRC/deploy/nekara-engine.service" "$UNIT"
@@ -123,7 +123,7 @@ curl -fsS -m 5 http://127.0.0.1:8787/api/register >/dev/null || { journalctl -u 
 echo "engine up, api answering on :8787"
 
 # 5 ──────────────────────────────────────────────────────────────────────────
-say "5/6  nginx"
+say "5/7  nginx"
 mkdir -p "$(dirname "$SNIP")"
 install -m 644 "$SRC/deploy/nginx-api.conf" "$SNIP"
 
@@ -169,7 +169,24 @@ else
 fi
 
 # 6 ──────────────────────────────────────────────────────────────────────────
-say "6/6  check"
+say "6/7  site"
+# The pages are three files and no build step. They were being uploaded by hand,
+# which is how a front-end fix sits in git for a week while the live site keeps
+# the old bug. Only ever writes where nginx already serves from.
+WEBROOT=""
+[ -n "${CONF:-}" ] && WEBROOT=$(awk '$1 == "root" { sub(/;.*/, "", $2); print $2; exit }' "$CONF" || true)
+[ -z "$WEBROOT" ] && [ -d /var/www/nekara ] && WEBROOT=/var/www/nekara
+if [ -n "$WEBROOT" ] && [ -d "$WEBROOT" ]; then
+  install -d "$WEBROOT/assets"
+  install -m 644 "$SRC/site/index.html" "$SRC/site/favicon.svg" "$WEBROOT/"
+  install -m 644 "$SRC/site/assets/"* "$WEBROOT/assets/"
+  echo "site published to $WEBROOT  (index.html, favicon.svg, assets/)"
+else
+  echo "no web root found — copy site/index.html, site/favicon.svg and site/assets/ up by hand"
+fi
+
+# 7 ──────────────────────────────────────────────────────────────────────────
+say "7/7  check"
 CODE=$(curl -s -o /tmp/nekara-api.json -w '%{http_code}' "https://$DOMAIN/api/register?limit=3" || true)
 echo "https://$DOMAIN/api/register -> HTTP $CODE"
 if [ "$CODE" = 200 ]; then
@@ -182,8 +199,19 @@ cat <<'NOTES'
 
 == what happens now ==
 The engine polls every 60s for candidates and every 20s to re-mark live calls.
-The site polls /api/register every 20s, so the first call to clear the filter
-appears on the pages by itself. There is nothing else to do.
+The site holds a websocket to /feed, so a signal lands on the page the moment
+its tier's timer fires, and falls back to a 20s poll if the socket drops. There
+is nothing else to do.
+
+The header says which of those is true — "live" for the socket, "polling" for
+the fallback, "engine offline" when neither answers. If it says offline while
+this script reported the API answering, the nginx include is the thing to look
+at, not the engine.
+
+Public readers are PUBLIC_DELAY_S behind the desk, an hour by default. With no
+keys minted that hour is a delay nobody has paid to skip, and the public page
+shows nothing until it passes. Set Environment=PUBLIC_DELAY_S= in the unit file
+to change it; the paid tiers are not settable and do not move.
 
 Watch it:   journalctl -u nekara-engine -f
 Look for:   [FIRED]  a call went on record

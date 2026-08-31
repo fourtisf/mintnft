@@ -30,6 +30,12 @@ Environment=CALLER_ID=1
 # Environment=TG_TOKEN=
 # Environment=TG_CHAT=
 
+# How far behind the desk a reader with no key sits. The paid tiers (0s, 5s,
+# 10s) are the promise and are not settable; this one is a product decision.
+# Leave it out for an hour. While no keys exist, an hour is a delay nobody has
+# paid to skip, and the public page is empty for that hour after every signal.
+# Environment=PUBLIC_DELAY_S=3600
+
 # Tier gating resolves on-chain when both are set. Without them everyone is
 # public tier, which is correct while no keys exist.
 # Environment=KEYS_CONTRACT=
