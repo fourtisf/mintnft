@@ -33,15 +33,40 @@ Six rules. They are what makes the account sound like the product.
 
 ## Keys
 
-Post it with `k1-keys.png` or `k2-keys-square.png`.
+Works with the banner or with a screenshot of the Keys page — the image carries
+the artwork either way, so the copy should carry the idea.
 
-> 666 keys. Every one drawn from its own token number — guilloché, the line
-> geometry engraved on banknotes and share certificates.
+**A — the short one.** Lead with the tension, not the supply.
+
+> Everyone gets the same calls.
 >
-> Every holder gets the same calls. Tier only changes how many seconds early
-> they land, and tier is rolled once on reveal from a single season seed.
+> A key only changes how many seconds early they land — which, in this market,
+> is the whole game.
 >
-> A key is access to a feed. Not an investment.
+> 666 keys. Access to a feed, not an investment.
+
+**B — the one that names what you are buying.**
+
+> What a key buys is not information. It is the head start on it.
+>
+> Same calls for every holder, same register, same reasons attached. Tier moves
+> one thing: when it reaches you.
+>
+> 666 keys. Access to a feed, not an investment.
+
+**C — one line, for a reply or a quote post.**
+
+> A key does not buy better calls. It buys the same ones, earlier.
+
+**D — when the image is the gallery.** The odds are the interesting part here,
+so say them.
+
+> 666 keys, every one drawn from its own token number.
+>
+> Tier is rolled once, on reveal, from a single seed for the whole season —
+> published odds, no shuffle. The last key minted can still pull the best one.
+>
+> What it unlocks is latency. Everyone gets the same calls.
 
 **Do not add a price, a supply counter, or a mint link until the contract is
 deployed.** Attaching either to a post is advertising a sale that does not
