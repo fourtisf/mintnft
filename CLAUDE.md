@@ -51,9 +51,15 @@ the SVG backdrop exactly so artwork shows no seam against its container.
 
 ### Seven pages, these names
 
-`Home · Register · Hindsight · Triage · Custody · Keys · Method`, plus the call
+`Home · Signals · Hindsight · Triage · Custody · Keys · Method`, plus the call
 detail view. Do not rename them — Hindsight, Triage and Custody were chosen
 specifically to avoid copying a competitor's Quant Desk, Ops Room and Vault.
+
+Register became **Signals** on the owner's instruction. Only the page changed:
+the append-only *record* is still the register everywhere it is a record — the
+API paths, the CSV export, `schema.sql`, the verifier and the Custody copy —
+because renaming that breaks every published link and the standalone verifier
+with it.
 
 ## Non-negotiables
 
@@ -101,6 +107,8 @@ node backtest.js     # threshold sweep and reason attribution
 
 cd ..
 node parity.js       # contracts vs prototype, must print 666 / 666
+node site/test-live.mjs   # the site against a real engine: offline, connected,
+                          # a signal arriving on the socket, its marks moving
 ```
 
 If `parity.js` prints anything other than 666/666, stop and fix it before
@@ -135,7 +143,17 @@ continuing. Everything else is recoverable; that one is not.
 5. **Tier latency is an unresolved product problem.** Several hundred holders
    acting on a $25K token move it themselves, and Tier III entering 10s before
    Tier I means Tier I buys Tier III's exit. Flag it; do not design around it
-   silently.
+   silently. The public leg is `PUBLIC_DELAY_S` (default 3600) and is the only
+   one that is settable — with no keys minted it is an hour nobody has paid to
+   skip. The paid ladder is the promise and does not move.
+6. **Custody and the call detail still print an anchor that does not exist.**
+   Custody shows a last anchor date, an anchor network and a table of past
+   anchors built from `calls.length`; the call detail page prints "Anchored
+   29 Aug 2026 · Base" on every call. `/api/verify` correctly reports the
+   register as unanchored, and the in-browser chain demo hashes whatever rows
+   the page happens to hold rather than the record. Everything else on the live
+   site now comes from the engine or stays blank; these two are the exception,
+   and integrity is the worst place to have one.
 
 ## Things that are decided, do not relitigate
 

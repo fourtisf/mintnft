@@ -472,13 +472,31 @@ function vis(){
   else a.sort((x,y)=>y.at-x.at);
   return a;
 }
+/* An empty list has three different meanings and the page has to say which one
+   it is. "No calls match this filter" over a dead engine is how an outage
+   spends a week looking like a quiet market. */
+const behind=s=>s>=3600?Math.round(s/3600)+"h":s>=60?Math.round(s/60)+"m":s+"s";
+function emptyLine(){
+  if(!DEMO&&CONN.state==="boot")return "Reading the register…";
+  if(!DEMO&&CONN.state==="offline")
+    return "The engine is not answering, so nothing is shown. Rather that than something invented.";
+  if(calls.length)return "No calls match this filter.";
+  // "nothing has fired" and "nothing has reached you yet" are different
+  // sentences, and only the engine knows which one is true for this reader.
+  if(CONN.delay===0)return "Nothing on the register yet. You are reading the desk as it fires.";
+  if(CONN.delay>0)return `Nothing on the register yet — this view runs ${behind(CONN.delay)} behind the desk.`;
+  return "Nothing on the register yet.";
+}
 function renderFeed(){
   const a=vis();
-  document.getElementById("feed").innerHTML=a.length?a.map((c,i)=>card(c,i)).join(""):`<div class="empty">No calls match this filter.</div>`;
+  document.getElementById("feed").innerHTML=a.length?a.map((c,i)=>card(c,i)).join(""):`<div class="empty">${emptyLine()}</div>`;
   document.getElementById("cnt").textContent=a.length+" / "+calls.length;
 }
 function renderPreview(){
-  document.getElementById("pvBody").innerHTML=[...calls].sort((a,b)=>b.at-a.at).slice(0,3).map((c,i)=>card(c,i,true)).join("");
+  const a=[...calls].sort((x,y)=>y.at-x.at).slice(0,3);
+  document.getElementById("pvBody").innerHTML=a.length
+    ?a.map((c,i)=>card(c,i,true)).join("")
+    :`<div class="empty">${emptyLine()}</div>`;
 }
 function anim(id,to,dec,suf){
   const el=document.getElementById(id);if(!el)return;
@@ -487,13 +505,29 @@ function anim(id,to,dec,suf){
   (function s(t){const k=Math.min((t-t0)/850,1),e=1-Math.pow(1-k,3);
     el.innerHTML=(to*e).toFixed(dec)+(suf?`<span>${suf}</span>`:"");if(k<1)requestAnimationFrame(s)})(t0);
 }
+/* Every published number comes from the engine's stats(), which counts misses
+   in every denominator. Recomputing them here from the 60 rows this page holds
+   would quietly answer a different question than the heading asks — and would
+   drift the moment the page pages. Two windows, because the two headings ask
+   two questions: home says "on record", the signals page says "7D". */
+let statsAll=null,stats7=null;
+const localStats=()=>{
+  const ms=calls.map(mult).sort((a,b)=>a-b),n=ms.length;
+  return{calls:n,hitRate:n?calls.filter(win).length/n:0,
+    medianPeak:!n?0:n%2?ms[(n-1)/2]:(ms[n/2-1]+ms[n/2])/2,
+    bestPeak:n?ms[n-1]:0,live:calls.filter(c=>c.live).length};
+};
 function renderStats(){
-  const w=calls.filter(win).length,ms=calls.map(mult).sort((a,b)=>a-b);
-  const n=ms.length;
-  const med=!n?0:n%2?ms[(n-1)/2]:(ms[n/2-1]+ms[n/2])/2;
-  [["mCalls","rCalls",calls.length,0,""],["mHit","rHit",n?Math.round(w/n*100):0,0,"%"],
-   ["mMed","rMed",med,2,"×"],["mBest","rBest",n?Math.max(...ms):0,1,"×"]].forEach(([a,b,v,d,s])=>{anim(a,v,d,s);anim(b,v,d,s)});
-  document.getElementById("pillCount").textContent=calls.length+" calls";
+  const all=DEMO?localStats():statsAll, wk=DEMO?localStats():stats7;
+  // No answer is not zero. Zero is a claim, and we would not have the numbers.
+  const put=(ids,s)=>{
+    if(!s)return ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent="—"});
+    const v=[[s.calls,0,""],[Math.round(s.hitRate*100),0,"%"],[s.medianPeak,2,"×"],[s.bestPeak,1,"×"]];
+    ids.forEach((id,i)=>anim(id,v[i][0],v[i][1],v[i][2]));
+  };
+  put(["mCalls","mHit","mMed","mBest"],all);
+  put(["rCalls","rHit","rMed","rBest"],wk);
+  document.getElementById("pillCount").textContent=all?all.calls+" calls":"—";
 }
 function renderCallers(){
   const g={};calls.forEach(c=>{(g[c.by]=g[c.by]||[]).push(c)});
@@ -514,20 +548,28 @@ function renderChains(){
       <span><span class="cn">${r.k}</span><span class="cs">${r.n} calls · avg ${r.avg.toFixed(2)}×</span></span>
       <span class="pc" style="color:${r.rate>=.5?"var(--win)":"var(--tx-2)"}">${Math.round(r.rate*100)}%</span></button>`).join("");
 }
+/* Reference prices are invented and drift on a timer, so they run in the
+   file:// demo and nowhere else. A made-up BTC print sitting next to a real
+   register is the one thing this strip cannot carry. */
 const MKT=[{k:"BTC",v:77680,d:-2.0},{k:"ETH",v:2438,d:-2.2},{k:"SOL",v:103.4,d:-2.5},{k:"BNB",v:688,d:-2.5}];
 function renderTicker(){
-  const w=calls.filter(win).length,lv=calls.filter(c=>c.live).length,ms=calls.map(mult);
+  const s=DEMO?localStats():statsAll;
+  const figs=s
+    ?[["on record",s.calls],["hit ≥2×",Math.round(s.hitRate*100)+"%"],
+      ["median peak",s.medianPeak.toFixed(2)+"×"],["live",s.live]]
+    :[["register",CONN.state==="offline"?"engine offline":"reading…"]];
   document.getElementById("tkrIn").innerHTML=
-    [["on record",calls.length],["hit ≥2×",(ms.length?Math.round(w/ms.length*100):0)+"%"],
-     ["avg peak",(ms.length?ms.reduce((a,b)=>a+b,0)/ms.length:0).toFixed(2)+"×"],["live",lv]]
-     .map(([k,v])=>`<span class="ti br"><k>${k}</k><v>${v}</v></span>`).join("")+
-    MKT.map(m=>`<span class="ti"><k>${m.k}</k><v>$${m.v>=1000?(m.v/1000).toFixed(2)+"K":m.v.toFixed(2)}</v><d class="${m.d>=0?"up":"dn"}">${m.d>=0?"+":""}${m.d.toFixed(1)}%</d></span>`).join("");
+    figs.map(([k,v])=>`<span class="ti br"><k>${k}</k><v>${v}</v></span>`).join("")+
+    (DEMO?MKT.map(m=>`<span class="ti"><k>${m.k}</k><v>$${m.v>=1000?(m.v/1000).toFixed(2)+"K":m.v.toFixed(2)}</v><d class="${m.d>=0?"up":"dn"}">${m.d>=0?"+":""}${m.d.toFixed(1)}%</d></span>`).join(""):"");
 }
 
-/* ═══════ live ═══════ */
+/* ═══════ demo motion ═══════
+   The prototype's random walk. It runs from a file:// URL and nowhere else: on
+   the deployed site every number on this page arrives from the engine or stays
+   blank, and nothing here invents movement. */
 let last=Date.now();
 function tick(){
-  if(liveMode)return;
+  if(!DEMO)return;
   let changed=false;
   calls.forEach(c=>{
     if(!c.live)return;
@@ -550,8 +592,7 @@ function tick(){
       if(!c.twoIn)document.querySelectorAll(`[data-x="${c.id}"]`).forEach(el=>el.textContent=((c.nowMc/c.peak-1)*100).toFixed(1)+"%")});
   }
 }
-setInterval(tick,2600);
-setInterval(()=>{document.getElementById("syncTxt").textContent="synced "+Math.round((Date.now()-last)/1000)+"s"},1000);
+if(DEMO)setInterval(tick,2600);
 
 /* ═══════ mint panel ═══════ */
 let qty=1,minted=412,preview=Math.floor(Math.random()*666)+1;
@@ -711,7 +752,9 @@ function cdChart(c){
 }
 function openCall(id){
   const c=calls.find(x=>x.id===id); if(!c)return;
-  const v=vrd(c),n=nx(c),seq=+c.id.replace("r","")+1;
+  // The real sequence number when there is one. The +1 below is the demo set,
+  // which is indexed from zero and has no chain position of its own.
+  const v=vrd(c),n=nx(c),seq=c.seq??+c.id.slice(1)+1;
   const f=(k,val,cls="")=>`<div><div class="k eyebrow">${k}</div><div class="v ${cls}" style="font-family:var(--mono);font-size:17px;font-weight:500;margin-top:6px">${val}</div></div>`;
   document.getElementById("cdBody").innerHTML=`
     <div class="cd-top">
@@ -751,7 +794,7 @@ function openCall(id){
         <div class="stat"><span class="l">Anchored</span><span class="v">29 Aug 2026 · Base</span></div>
       </div>
     </div>
-    <a class="back" href="#" data-v="reg">← Back to the register</a>`;
+    <a class="back" href="#" data-v="reg">← Back to the signals</a>`;
   document.getElementById("cdHash").textContent=sha(canon(c));
   go("call");
 }
@@ -1076,8 +1119,14 @@ document.addEventListener("click",e=>{
   renderVault();
 });
 document.getElementById("vCsv").addEventListener("click",()=>{
+  // The engine's export is the canonical one: the whole register at this
+  // reader's tier, and the exact file verify.js recomputes the chain from.
+  // Building it here from the rows this page holds produced something that
+  // called itself the full register, renumbered every call from 1, and could
+  // not be checked against anything.
+  if(!DEMO){location.href=API+"/export.csv";return}
   const cols=["seq","firedAt","chain","symbol","entryMc","peakMc","nowMc","peakX","verdict","score"];
-  const body=calls.map((c,i)=>[i+1,new Date(c.at).toISOString(),c.chain,c.tick,
+  const body=calls.map((c,i)=>[c.seq??i+1,new Date(c.at).toISOString(),c.chain,c.tick,
     Math.round(c.entry),Math.round(c.peak),Math.round(c.nowMc),mult(c).toFixed(3),vrd(c),c.score].join(","));
   const blob=new Blob([[cols.join(","),...body].join("\n")],{type:"text/csv"});
   const a=document.createElement("a");
@@ -1150,35 +1199,178 @@ document.addEventListener("click",e=>{
     setTimeout(()=>cp.textContent=o,1200);return}
 });
 
-/* ═══════ live register ═══════
-   Reads the running engine if it is there; falls back to the mock set so the
-   prototype still demonstrates without a backend. */
-const API=(location.protocol==="file:"?"http://localhost:8787":"")+"/api";
-let liveMode=false;
-async function pullLive(){
-  try{
-    const r=await fetch(API+"/register?limit=60",{cache:"no-store"});
-    if(!r.ok)throw 0;
-    const rows=await r.json();
-    if(!Array.isArray(rows)||!rows.length)throw 0;
-    calls.length=0;
-    rows.forEach((d,i)=>calls.push({
-      id:"r"+d.seq,name:d.name||d.symbol,tick:d.symbol,
-      chain:({solana:"SOL",base:"BASE",bsc:"BSC",ethereum:"ETH"})[d.chain]||d.chain.toUpperCase(),
-      by:"screener",src:d.dex,ca:(d.tokenAddress||"").slice(0,6)+"…"+(d.tokenAddress||"").slice(-4),
-      entry:d.entryMc,peak:d.peakMc,nowMc:d.nowMc,
-      twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state==="live",
-      reasons:d.reasons||[],score:d.score,
-      path:mkPath(d.entryMc,d.peakMc,d.nowMc,48),flash:false}));
-    if(!liveMode){liveMode=true;
-      document.getElementById("syncTxt").textContent="live";
-      const p=document.querySelector(".pill .tag");
-      if(p)p.textContent=rows.length+" live";}
-    renderFeed();renderPreview();renderStats();renderCallers();renderChains();renderTicker();
-  }catch{ if(liveMode){liveMode=false} }
-}
-pullLive(); setInterval(pullLive,20000);
-pullTriage(); setInterval(pullTriage,20000);
+/* ═══════ live signals ═══════
+   Socket first, poll second. The socket is the point — a signal reaches this
+   page the moment its tier's timer fires on the server — and the 20s poll only
+   backfills whatever the socket missed while it was down.
 
-renderFeed();renderPreview();renderStats();renderCallers();renderChains();renderTicker();
+   Which tier a socket joins is decided by the engine from the signed session
+   and from nothing this file sends, so there is no gating logic here to get
+   wrong: the page renders what it is given and asks for nothing else.
+
+   The other half of the job is saying what state we are actually in. The old
+   header counted seconds since a timer last ran and called it "synced", which
+   read identically whether the engine was answering, refusing or gone. */
+const API=(location.protocol==="file:"?"http://localhost:8787":"")+"/api";
+const FEED=(location.protocol==="file:"?"ws://localhost:8787"
+  :(location.protocol==="https:"?"wss://":"ws://")+location.host)+"/feed";
+const CHAIN={solana:"SOL",base:"BASE",bsc:"BSC",ethereum:"ETH"};
+
+const CONN={state:DEMO?"demo":"boot",read:0,delay:null};   // delay: this reader's own latency, learned from the socket
+const CONN_TX={live:"live",polling:"polling",offline:"engine offline",boot:"connecting…",demo:"demo data"};
+const renderAll=()=>{renderFeed();renderPreview();renderStats();renderCallers();renderChains();renderTicker()};
+
+function setConn(s){
+  if(CONN.state===s)return;
+  CONN.state=s;paintConn();renderFeed();renderTicker();
+}
+function paintConn(){
+  const t=document.getElementById("syncTxt"),d=document.getElementById("syncDot");
+  if(t){
+    const age=Math.round((Date.now()-CONN.read)/1000);
+    t.textContent=CONN.read&&(CONN.state==="polling"||CONN.state==="offline")
+      ?CONN_TX[CONN.state]+" · "+(age<60?age+"s":Math.round(age/60)+"m")
+      :CONN_TX[CONN.state];
+  }
+  if(d)d.className="pulse hide-sm"+(CONN.state==="live"||CONN.state==="demo"?""
+    :CONN.state==="offline"?" down":" warn");
+}
+
+/* ── register rows ─────────────────────────────────────────────────────────
+   The engine publishes the points it actually observed — entry, the highest
+   mark it saw, the last mark — and no path between them, because there is no
+   candle source to draw one from. The prototype filled the gap with a
+   plausible curve; a plausible curve is a picture of a price that never
+   happened. A live card plots the points we have and grows as marks arrive. */
+const shortCa=a=>!a?"":a.length<=12?a:a.slice(0,6)+"…"+a.slice(-4);
+function seedPath(d){
+  const e=d.entryMc,now=d.nowMc??e,pk=d.peakMc??e,p=[e];
+  if(pk>e&&pk!==now)p.push(pk);
+  p.push(now);
+  return p;
+}
+function rowToCall(d){
+  return{id:"r"+d.seq,seq:d.seq,name:d.name||d.symbol,tick:d.symbol||"?",
+    chain:CHAIN[d.chain]||String(d.chain||"").toUpperCase(),
+    by:d.callerName||"screener",src:d.dex,ca:shortCa(d.tokenAddress),
+    entry:d.entryMc,peak:d.peakMc??d.entryMc,nowMc:d.nowMc??d.entryMc,
+    twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state!=="settled",
+    reasons:d.reasons||[],score:d.score,path:seedPath(d),flash:false};
+}
+function upsert(row){
+  const c=rowToCall(row),i=calls.findIndex(x=>x.seq===c.seq);
+  if(i<0){calls.push(c);return c}
+  c.path=calls[i].path;               // keep what we have watched since it fired
+  c.flash=calls[i].flash;
+  calls[i]=c;
+  return c;
+}
+function applyMark(seq,m){
+  const c=calls.find(x=>x.seq===seq);
+  if(!c)return false;                 // a mark for a call this tier cannot see yet
+  const wasWin=win(c);
+  if(m.nowMc!=null)c.nowMc=m.nowMc;
+  if(m.peakMc!=null&&m.peakMc>c.peak)c.peak=m.peakMc;
+  if(m.secondsTo2x!=null)c.twoIn=m.secondsTo2x;
+  if(m.state)c.live=m.state!=="settled";
+  c.path.push(c.nowMc);if(c.path.length>48)c.path.shift();
+  if(!wasWin&&win(c))c.flash=true;
+  return true;
+}
+function flashCards(){
+  calls.filter(c=>c.flash).forEach(c=>{
+    document.querySelectorAll(`.rec[data-id="${c.id}"]`).forEach(el=>{
+      el.classList.add("flash");setTimeout(()=>el.classList.remove("flash"),1600)});
+    c.flash=false});
+}
+/* A mark moves numbers, not the shape of the page — patch the cells in place so
+   a settling call does not re-render the list out from under the reader. */
+function paintMarks(){
+  calls.forEach(c=>{
+    const n=nx(c),v=vrd(c);
+    document.querySelectorAll(`[data-now="${c.id}"]`).forEach(el=>{
+      el.textContent=fmt(c.nowMc);el.className="v "+(n>=1?"up":"dn")});
+    document.querySelectorAll(`[data-mx="${c.id}"]`).forEach(el=>
+      el.textContent=(v==="open"?n:mult(c)).toFixed(2)+"×");
+    if(!c.twoIn)document.querySelectorAll(`[data-x="${c.id}"]`).forEach(el=>
+      el.textContent=((c.nowMc/c.peak-1)*100).toFixed(1)+"%");
+  });
+  if(calls.some(c=>c.flash)){renderAll();flashCards()}
+}
+
+/* ── the socket ───────────────────────────────────────────────────────────
+   "live" waits for the engine's own joined frame rather than for the upgrade,
+   so a proxy answering in front of a dead engine cannot pass for a feed. */
+let sock=null,wait=1000;
+function connectFeed(){
+  if(DEMO||typeof WebSocket==="undefined")return;
+  let s;
+  try{s=new WebSocket(FEED)}catch{return retryFeed()}
+  sock=s;
+  s.onmessage=e=>{
+    let m;try{m=JSON.parse(e.data)}catch{return}
+    // A socket that has just come up may have been down while calls were
+    // fired, and it carries no history — so a connect is also a backfill.
+    if(m.type==="joined"){wait=1000;CONN.delay=m.delaySeconds??null;setConn("live");renderFeed();pullLive();return}
+    if(m.type==="call"&&m.call){upsert(m.call).flash=true;renderAll();flashCards();return}
+    if(m.type==="mark"&&m.mark&&applyMark(m.seq,m.mark))paintMarks();
+  };
+  // Whichever of error and close lands first schedules exactly one retry.
+  // Waiting on close alone loses the reconnect wherever a failed connection
+  // only errors, and the page then sits on a socket that will never come back.
+  let done=false;
+  const gone=()=>{
+    if(done)return;
+    done=true;
+    if(sock===s)sock=null;
+    try{s.close()}catch{}
+    if(CONN.state==="live")setConn(CONN.read?"polling":"offline");
+    retryFeed();
+  };
+  s.onerror=gone;
+  s.onclose=gone;
+}
+function retryFeed(){setTimeout(connectFeed,wait);wait=Math.min(wait*2,30000)}
+
+/* ── the poll ─────────────────────────────────────────────────────────────
+   An empty register is an answer, not an outage. Treating the two the same is
+   what let an engine that had stopped look exactly like a quiet market. */
+async function pullLive(){
+  if(DEMO)return;
+  try{
+    const reg=await fetch(API+"/register?limit=60",{cache:"no-store"});
+    if(!reg.ok)throw new Error("register answered "+reg.status);
+    const rows=await reg.json();
+    if(!Array.isArray(rows))throw new Error("register did not answer with a list");
+    // Statistics are a separate question from the register. An engine that
+    // serves rows but not this route is behind, not down, and the figures go
+    // blank on their own without taking the feed with them.
+    const readStats=async q=>{
+      try{const r=await fetch(API+"/stats"+q,{cache:"no-store"});return r.ok?await r.json():null}
+      catch{return null}
+    };
+    [statsAll,stats7]=await Promise.all([readStats("?days=all"),readStats("")]);
+    rows.forEach(upsert);
+    CONN.read=Date.now();
+    setConn(sock&&sock.readyState===1&&CONN.state==="live"?"live":"polling");
+    renderAll();
+  }catch(e){
+    // Rows already read stay on the page — they are the record, and the header
+    // says how stale they are. The statistics do not: those we no longer know.
+    statsAll=stats7=null;
+    // A live socket outranks a failed poll: the feed is demonstrably up, so the
+    // header keeps saying live and only the figures go blank.
+    if(!(sock&&sock.readyState===1&&CONN.state==="live"))setConn("offline");
+    renderAll();
+  }
+}
+
+paintConn();
+renderAll();
 drawKey(preview);renderMarquee();syncMint();renderColl(true);reveal();
+if(!DEMO){
+  connectFeed();
+  pullLive();  setInterval(pullLive,20000);
+  pullTriage();setInterval(pullTriage,20000);
+  setInterval(paintConn,1000);
+}

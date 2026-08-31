@@ -586,7 +586,7 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
   </div>
   <div class="nav-links" id="navLinks">
     <a href="#" data-v="home" class="on">Home</a>
-    <a href="#" data-v="reg">Register</a>
+    <a href="#" data-v="reg">Signals</a>
     <a href="#" data-v="quant">Hindsight</a>
     <a href="#" data-v="ops">Triage</a>
     <a href="#" data-v="vault">Custody</a>
@@ -606,13 +606,13 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
     <span class="pulse hide-sm"></span>
     <span class="mono hide-sm" style="font-size:11px;color:var(--tx-3)" id="syncTxt">synced 0s</span>
     <button class="btn btn-s hide-sm">Connect</button>
-    <button class="btn btn-p" data-v="mint">Keys a key</button>
+    <button class="btn btn-p" data-v="mint">Claim a key</button>
     <button class="menubtn" id="menuBtn" aria-label="Open menu">☰</button>
   </div>
 </div></nav>
 <div class="menu" id="menu">
   <a href="#" data-v="home">Home</a>
-  <a href="#" data-v="reg">Register</a>
+  <a href="#" data-v="reg">Signals</a>
   <a href="#" data-v="quant">Hindsight</a>
   <a href="#" data-v="ops">Triage</a>
   <a href="#" data-v="vault">Custody</a>
@@ -631,14 +631,14 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
         <h1>Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
         <p class="hero-sub">An automated screener reads liquidity, buy pressure and volume acceleration across four chains. Every signal is published with the exact conditions that triggered it, then tracked to win, miss or dead — so you can judge the reasoning, not just the result.</p>
         <div class="hero-cta">
-          <button class="btn btn-p btn-lg" data-v="reg">Open the register</button>
+          <button class="btn btn-p btn-lg" data-v="reg">Open the signals</button>
           <button class="btn btn-s btn-lg" data-v="mint">Claim a key</button>
         </div>
       </div>
     </div>
     <div class="wrap">
       <div class="preview">
-        <div class="pv-bar"><span class="pv-dot"></span><span class="pv-dot"></span><span class="pv-dot"></span><span class="pv-title">proof.app/register</span></div>
+        <div class="pv-bar"><span class="pv-dot"></span><span class="pv-dot"></span><span class="pv-dot"></span><span class="pv-title">proof.app/signals</span></div>
         <div class="pv-body" id="pvBody"></div>
       </div>
     </div>
@@ -662,7 +662,7 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
         <div class="ks"><div class="v">66</div><div class="k">Tier III keys</div></div>
       </div>
       <div style="text-align:center" class="rv">
-        <button class="btn btn-p btn-lg" data-v="mint">Keys a key</button>
+        <button class="btn btn-p btn-lg" data-v="mint">Claim a key</button>
         <p style="font-size:12.5px;color:var(--tx-3);margin-top:16px">Tier decides how many seconds early each call reaches you · 10s / 5s / instant</p>
       </div>
     </div>
@@ -750,7 +750,7 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
     <div class="ctaband rv"><div class="glow"></div>
       <h2>Check the record before you trust anyone.</h2>
       <p>Including us. Every call we've ever fired is sitting there, wins and failures in the same list.</p>
-      <button class="btn btn-p btn-lg" data-v="reg">Open the register</button>
+      <button class="btn btn-p btn-lg" data-v="reg">Open the signals</button>
     </div>
   </div></section>
 
@@ -765,10 +765,10 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
   </footer></div>
 </div>
 
-<!-- ═══════ REGISTER ═══════ -->
+<!-- ═══════ SIGNALS ═══════ -->
 <div id="v-reg" class="hide"><div class="wrap-w">
   <div class="reg-head">
-    <div><h1>Register</h1><p>Every call in the order it was fired. Wins, misses, and the ones that died.</p></div>
+    <div><h1>Signals</h1><p>Every call in the order it was fired. Wins, misses, and the ones that died.</p></div>
     <div class="reg-figs">
       <div class="rg"><div class="v" id="rCalls">—</div><div class="k">Calls 7D</div></div>
       <div class="rg"><div class="v" id="rHit">—<span>%</span></div><div class="k">Hit ≥2×</div></div>
@@ -1805,7 +1805,7 @@ function openCall(id){
         <div class="stat"><span class="l">Anchored</span><span class="v">29 Aug 2026 · Base</span></div>
       </div>
     </div>
-    <a class="back" href="#" data-v="reg">← Back to the register</a>`;
+    <a class="back" href="#" data-v="reg">← Back to the signals</a>`;
   document.getElementById("cdHash").textContent=sha(canon(c));
   go("call");
 }

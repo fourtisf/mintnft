@@ -34,6 +34,10 @@ node parity.js             # must print 666 / 666
 node test-anchor.js        # anchor + Merkle proof on a real EVM, then the
                            # public CSV recomputed by the standalone verifier
 node test-tier.js          # the tier read reaches the real ProofKeys function
+node site/test-live.mjs    # the real page against the real engine: an engine
+                           # that is down reads as down, one that is up and
+                           # empty reads as empty, and a fired signal reaches
+                           # the DOM over the socket rather than on the poll
 
 cd signal-engine
 node test.js               # rules against fixtures

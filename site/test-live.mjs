@@ -1,0 +1,143 @@
+/**
+ * The live feed, end to end: the real engine, the real page, no mock between.
+ *
+ * The site is a single script with no build step and had no test at all, which
+ * is how it ended up printing "synced 1s" over an engine it had never reached.
+ * So this boots the engine's own API and websocket, loads site/index.html in a
+ * DOM, and reads the page back — the four states a reader can actually be in:
+ *
+ *   offline   nothing is answering, and the page says so instead of showing 0
+ *   live      the socket is up and the register is empty, which is not the same
+ *   fired     a call arrives over the socket, well inside the 20s poll
+ *   marked    its numbers move without the list re-rendering underneath
+ *
+ * Gating is not what this proves — test-gating.js owns that, and the delays
+ * here are zeroed so delivery is the only variable.
+ */
+import { JSDOM } from "jsdom";
+import { readFileSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { FileStore } from "../signal-engine/store.js";
+import { serve } from "../signal-engine/api.js";
+import { attachFeed } from "../signal-engine/ws.js";
+import { StaticTierSource } from "../signal-engine/auth.js";
+import { applyObservation } from "../signal-engine/scorer.js";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const PORT = 8795, HOST = "127.0.0.1", BASE = `http://${HOST}:${PORT}`;
+const DELAYS = { 3: 0, 2: 0, 1: 0, 0: 0 };
+const DATA = join(ROOT, "signal-engine", "data", "site-live-test.json");
+
+let failures = 0;
+const ok = (cond, msg) => { console.log(`  ${cond ? "ok   " : "GAGAL"}  ${msg}`); if (!cond) failures++; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/** Polls rather than sleeps, so a pass is fast and a failure says what it saw. */
+async function waitFor(what, fn, ms = 8000) {
+  const t0 = Date.now();
+  for (;;) {
+    let v;
+    try { v = fn(); } catch { v = null; }
+    if (v) return Date.now() - t0;
+    if (Date.now() - t0 > ms) { ok(false, `${what} (timed out after ${ms}ms)`); return null; }
+    await sleep(50);
+  }
+}
+
+/* ── the page, with the four things jsdom does not have ──────────────────── */
+const dom = new JSDOM(readFileSync(join(ROOT, "site", "index.html"), "utf8"),
+  { url: BASE + "/", runScripts: "outside-only", pretendToBeVisual: true });
+const win = dom.window, doc = win.document;
+
+win.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
+win.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {},
+                          addListener() {}, removeListener() {} });
+win.fetch = (u, o) => fetch(String(u).startsWith("http") ? String(u) : BASE + u, o);
+
+const text = id => (doc.getElementById(id)?.textContent ?? "").trim();
+const feedText = () => doc.getElementById("feed").textContent.trim();
+const cards = () => [...doc.querySelectorAll("#feed .rec")];
+
+win.eval(readFileSync(join(ROOT, "site", "assets", "app.js"), "utf8"));
+
+/* ── 1. the rename, so it cannot quietly come back ───────────────────────── */
+console.log("\nNAMA HALAMAN");
+const nav = doc.getElementById("navLinks").textContent;
+ok(nav.includes("Signals"), "nav says Signals");
+ok(!nav.includes("Register"), "nav no longer says Register");
+ok(doc.querySelector("#v-reg h1").textContent.trim() === "Signals", "the page heading is Signals");
+
+/* ── 2. nothing is running: the page has to say that, not print zeroes ───── */
+console.log("\nENGINE MATI");
+await waitFor("the page notices there is no engine", () => text("syncTxt").startsWith("engine offline"));
+ok(text("syncTxt").startsWith("engine offline"), `header reads "${text("syncTxt")}"`);
+ok(/not answering/.test(feedText()), "the empty list says the engine is not answering");
+ok(text("rCalls") === "—" && text("rHit") === "—",
+  "no statistics are published when there are none to publish");
+ok(!doc.getElementById("tkrIn").textContent.includes("BTC"),
+  "no invented reference prices on a live page");
+
+/* ── 3. the engine comes up: connected, and empty is its own answer ──────── */
+console.log("\nENGINE HIDUP, REGISTER KOSONG");
+rmSync(DATA, { force: true });
+const store = new FileStore(DATA);
+const srv = serve(store, { port: PORT, secret: "site-live-test", domain: "test",
+  tierSource: new StaticTierSource(), delays: DELAYS, log: () => {} });
+const feed = attachFeed(srv, { delays: DELAYS, resolveTier: () => 0, log: () => {} });
+
+await waitFor("the socket connects", () => text("syncTxt") === "live");
+ok(text("syncTxt") === "live", "header reads live once the engine's own joined frame lands");
+ok(/Nothing on the register yet/.test(feedText()),
+  `empty register reads as empty, not as broken: "${feedText()}"`);
+ok(/reading the desk as it fires/i.test(feedText()),
+  "and it says how far behind the desk this reader is");
+await waitFor("statistics arrive", () => text("rCalls") === "0");
+ok(text("rCalls") === "0", "0 calls is now a number the engine gave us, not one we assumed");
+
+/* ── 4. a signal fires: it has to arrive on the socket, not on the poll ──── */
+console.log("\nSINYAL MASUK");
+const call = store.insertCall({
+  callerId: 1, chain: "solana", tokenAddress: "So1111111111111111111111111111111111111111",
+  pairAddress: "P1", symbol: "LIVE", name: "Live Wire", dex: "pump.fun",
+  firedAt: new Date().toISOString(), entryMc: 240_000, entryPrice: 0.00024, entrySupply: 1e9,
+  entryLiquidityUsd: 40_000, score: 88, reasons: ["Volume running 3.4× the hourly pace"],
+});
+feed.publish({ ...call, ...store.mark(call.seq) });
+
+const took = await waitFor("the call reaches the page", () => cards().length === 1, 4000);
+ok(cards().length === 1, "the signal is on the page");
+// The poll is 20s away, so anything this fast can only have come off the socket.
+ok(took !== null && took < 3000, `it arrived in ${took}ms, well inside the 20s poll`);
+ok(cards()[0].textContent.includes("LIVE"), "with its ticker");
+ok(cards()[0].textContent.includes("Volume running"), "and the reason it fired");
+
+/* ── 5. it moves: marks patch the numbers where they stand ───────────────── */
+console.log("\nHARGA BERGERAK");
+const before = store.mark(call.seq);
+const after = applyObservation(call, before, 600_000);   // 2.5× of entry
+store.setMark(call.seq, after);
+feed.publishMark(call, after);
+
+await waitFor("the multiple updates", () =>
+  (doc.querySelector(`[data-mx="r${call.seq}"]`)?.textContent ?? "").startsWith("2.50"));
+ok((doc.querySelector(`[data-mx="r${call.seq}"]`)?.textContent ?? "").startsWith("2.50"),
+  "the multiple moved to 2.50× on the mark");
+ok((doc.querySelector(`[data-now="r${call.seq}"]`)?.textContent ?? "") === "600.0K",
+  "and now MC with it");
+ok(doc.querySelector(`.rec[data-id="r${call.seq}"] .badge`).textContent.trim() === "WIN",
+  "the verdict flipped to WIN");
+ok(cards().length === 1, "still one card — a mark does not duplicate the call");
+
+/* ── 6. and it survives the engine going away again ──────────────────────── */
+console.log("\nENGINE MATI LAGI");
+feed.close(); srv.close();
+await waitFor("the page notices the engine went away", () => text("syncTxt").startsWith("engine offline"), 30000);
+ok(text("syncTxt").startsWith("engine offline"), `header reads "${text("syncTxt")}"`);
+ok(cards().length === 1, "the call stays on the page — it is the record, not a cache");
+ok(text("rCalls") === "—", "the statistics do not: those we no longer know");
+
+win.close();
+rmSync(DATA, { force: true });
+console.log(failures ? `\n${failures} GAGAL\n` : "\nsemua lolos\n");
+process.exit(failures ? 1 : 0);
