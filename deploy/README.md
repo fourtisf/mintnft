@@ -1,5 +1,24 @@
 # Going live
 
+## The short way
+
+On the VPS, as root:
+
+    curl -fsSL https://raw.githubusercontent.com/fourtisf/mintnft/claude/new-session-jzxh7a/deploy/golive.sh -o golive.sh
+    bash golive.sh
+
+That does everything below — source, preflight, service, nginx, check — and
+stops at the preflight gate to wait for you if the filter would not have fired
+once in three passes. Safe to re-run: it never touches `data/register.json`
+and it keeps the existing session secret.
+
+Download it rather than piping it into bash. Piped, the script's own bytes are
+stdin, so the gate cannot ask you anything.
+
+The rest of this file is the same thing by hand, and the reasoning.
+
+---
+
 The engine has never run against real market data. Everything in
 `signal-engine/` is tested against fixtures and a simulated market, which is why
 the register on nekara.xyz is empty. This is the shortest honest path from that
