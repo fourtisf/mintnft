@@ -11,13 +11,17 @@
  * seen to fail.
  */
 import { createConnection } from "node:net";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { rmSync } from "node:fs";
 import { FileStore } from "./store.js";
 import { serve } from "./api.js";
 import { attachFeed } from "./ws.js";
 import { issueSession, StaticTierSource } from "./auth.js";
 import { TIER_DELAY_S } from "./gating.js";
+
+// Our own copy, on purpose: reading the constant out of ws.js would make this
+// check agree with whatever ws.js says rather than with the protocol.
+const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 const NOGATE = process.argv.includes("--nogate");
 const DELAYS = NOGATE ? { 3: 0, 2: 0, 1: 0, 0: 0 } : TIER_DELAY_S;
@@ -30,9 +34,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* minimal websocket client: handshake, then read unmasked server frames */
 function wsConnect(token) {
   return new Promise((resolve, reject) => {
+    const key = randomBytes(16).toString("base64");
     const sock = createConnection(PORT, HOST, () => {
       sock.write(`GET /feed?token=${token} HTTP/1.1\r\nHost: ${HOST}\r\nUpgrade: websocket\r\n` +
-        `Connection: Upgrade\r\nSec-WebSocket-Key: ${randomBytes(16).toString("base64")}\r\n` +
+        `Connection: Upgrade\r\nSec-WebSocket-Key: ${key}\r\n` +
         `Sec-WebSocket-Version: 13\r\n\r\n`);
     });
     const messages = [];
@@ -42,7 +47,13 @@ function wsConnect(token) {
       if (!upgraded) {
         const end = buf.indexOf("\r\n\r\n");
         if (end < 0) return;
-        if (!buf.slice(0, end).toString().includes("101")) return reject(new Error("no upgrade"));
+        const head = buf.slice(0, end).toString();
+        if (!head.includes("101")) return reject(new Error("no upgrade"));
+        // What a browser checks, and what this client used to skip: a 101 with
+        // the wrong digest is a feed that answers here and nowhere else.
+        const got = /sec-websocket-accept:\s*(\S+)/i.exec(head)?.[1];
+        const want = createHash("sha1").update(key + WS_GUID).digest("base64");
+        if (got !== want) return reject(new Error(`bad Sec-WebSocket-Accept: ${got}, want ${want}`));
         upgraded = true; buf = buf.slice(end + 4);
         resolve({ messages, close: () => sock.destroy() });
       }

@@ -93,7 +93,16 @@ export function serve(store, {
       const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
       return json(res, 200, rows.sort((a, b) => Date.parse(b.firedAt) - Date.parse(a.firedAt)).slice(0, limit));
     }
-    if (p === "/api/stats") return json(res, 200, stats(rows));
+    if (p === "/api/stats") {
+      // Two windows, because the site asks two questions: the home page says
+      // "on record" and the signals page says "7D". Same stats(), one
+      // parameter, so neither heading is answered by a number computed
+      // somewhere else.
+      const raw = url.searchParams.get("days");
+      const days = raw === "all" ? 36500
+        : Math.min(Math.max(Math.floor(Number(raw)) || 7, 1), 36500);
+      return json(res, 200, { ...stats(rows, days), windowDays: days });
+    }
 
     // What the screener refused, and the thresholds it refused against. Public:
     // a filter nobody can inspect is a claim, not a filter.

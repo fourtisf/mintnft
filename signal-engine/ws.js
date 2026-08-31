@@ -13,7 +13,10 @@
 import { createHash } from "node:crypto";
 import { TIER_DELAY_S } from "./gating.js";
 
-const GUID = "258EAFA5-E914-47DA-95CA-5AB0DC85B11F";
+// RFC 6455 §1.3, exactly. The hand-rolled client in test-gating.js used to
+// accept any 101 without checking the digest, so a transposed character here
+// passed every test we had while no browser on earth could open the feed.
+const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const TIERS = [3, 2, 1, 0];
 
 function frame(text) {
@@ -45,7 +48,9 @@ export function attachFeed(server, { resolveTier, delays = TIER_DELAY_S, path = 
       `Sec-WebSocket-Accept: ${createHash("sha1").update(key + GUID).digest("base64")}\r\n\r\n`);
 
     rooms[tier].add(socket);
-    socket.write(frame(JSON.stringify({ type: "joined", tier })));
+    // Its own delay, not anyone else's: a reader has to be able to tell an
+    // empty register apart from one it is not allowed to see yet.
+    socket.write(frame(JSON.stringify({ type: "joined", tier, delaySeconds: delays[tier] })));
 
     const drop = () => rooms[tier].delete(socket);
     socket.on("close", drop);

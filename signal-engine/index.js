@@ -17,6 +17,7 @@ import { serve } from "./api.js";
 import { attachFeed } from "./ws.js";
 import { publishAnchor } from "./anchor.js";
 import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
+import { TIER_DELAY_S } from "./gating.js";
 import { Telegram, formatSignal, formatOutcome } from "./notify.js";
 
 const HOT = 20_000, WARM = 300_000, DISCOVER = 60_000, ANCHOR = 86_400_000;
@@ -31,10 +32,18 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
                           ? new ChainTierSource({ rpcUrl: process.env.BASE_RPC,
                                                   contract: process.env.KEYS_CONTRACT, log })
                           : new StaticTierSource(),
+                        // The paid ladder is the promise and stays where it is: Tier III as
+                        // it fires, II at +5s, I at +10s. The public delay is the one number
+                        // here that is a product decision rather than a commitment — with no
+                        // keys minted, an hour of it means the public page shows nothing at
+                        // all — so it is settable, in one place, on the server.
+                        publicDelayS = Number(process.env.PUBLIC_DELAY_S ?? TIER_DELAY_S[0]),
                         // Anchoring is off until a publisher is wired. It is never faked.
                         publishAnchorTx = null,
                         telegram = new Telegram({ token: process.env.TG_TOKEN,
                                                   chatId: process.env.TG_CHAT, log }) } = {}) {
+  const delays = { ...TIER_DELAY_S,
+    0: Number.isFinite(publicDelayS) && publicDelayS >= 0 ? Math.floor(publicDelayS) : TIER_DELAY_S[0] };
   const triage = new Triage();
   const engine = new Engine({
     client: api,
@@ -44,7 +53,10 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
     onSignal(sig) {
       if (store.hasToken(sig.chain, sig.tokenAddress, 24 * 3600e3)) return;
       const call = store.insertCall(sig);
-      feed.publish(call);
+      // The row, not the bare call: a feed message that arrives in a different
+      // shape than /api/register is a second format to keep in step, and the
+      // client would have to invent the mark fields it is missing.
+      feed.publish({ ...call, ...store.mark(call.seq) });
       triage.fired();
       log(`[FIRED] #${call.seq} ${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
       telegram.send(formatSignal(sig, call.seq));
@@ -98,14 +110,15 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
     }, ANCHOR),
   ];
 
-  const server = serve(store, { port, secret, domain, tierSource, triage, cfg: engine.cfg, log });
+  const server = serve(store, { port, secret, domain, tierSource, delays, triage, cfg: engine.cfg, log });
   const feed = attachFeed(server, {
-    log,
+    log, delays,
     // The tier comes from the signed session and nothing else the client sends.
     resolveTier: (req, url) => readSession(url.searchParams.get("token"), server.secret)?.tier ?? 0,
   });
 
   log(`register api on :${port}  ·  discovery ${DISCOVER/1000}s  hot ${HOT/1000}s  warm ${WARM/1000}s`);
+  log(`tier latency  III ${delays[3]}s · II ${delays[2]}s · I ${delays[1]}s · public ${delays[0]}s`);
   if (!publishAnchorTx) log("anchoring is not wired — /api/verify will report the register as unanchored");
   return { stop() { timers.forEach(clearInterval); feed.close(); server.close(); }, store, engine, triage, feed, server };
 }
