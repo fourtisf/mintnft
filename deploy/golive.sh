@@ -239,8 +239,18 @@ at, not the engine.
 
 Public readers are PUBLIC_DELAY_S behind the desk, an hour by default. With no
 keys minted that hour is a delay nobody has paid to skip, and the public page
-shows nothing until it passes. Set Environment=PUBLIC_DELAY_S= in the unit file
-to change it; the paid tiers are not settable and do not move.
+shows nothing until it passes. The paid tiers are not settable and do not move.
+
+To change it, use a drop-in — this script reinstalls the unit file on every run
+and an edit made in there is gone at the next deploy:
+
+  mkdir -p /etc/systemd/system/nekara-engine.service.d
+  printf '[Service]\nEnvironment=PUBLIC_DELAY_S=60\n' \
+    > /etc/systemd/system/nekara-engine.service.d/public-delay.conf
+  systemctl daemon-reload && systemctl restart nekara-engine
+
+Then read back what the engine actually loaded, rather than what you set:
+  journalctl -u nekara-engine -n 20 --no-pager | grep "tier latency"
 
 Watch it:   journalctl -u nekara-engine -f
 Look for:   [FIRED]  a call went on record

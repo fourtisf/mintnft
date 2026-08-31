@@ -34,7 +34,19 @@ Environment=CALLER_ID=1
 # 10s) are the promise and are not settable; this one is a product decision.
 # Leave it out for an hour. While no keys exist, an hour is a delay nobody has
 # paid to skip, and the public page is empty for that hour after every signal.
-# Environment=PUBLIC_DELAY_S=3600
+#
+# Do not set it by editing this file: golive.sh installs this file over yours
+# on every run, so the edit disappears at the next deploy. Use a drop-in, which
+# survives and wins over anything here:
+#
+#   mkdir -p /etc/systemd/system/nekara-engine.service.d
+#   printf '[Service]\nEnvironment=PUBLIC_DELAY_S=60\n' \
+#     > /etc/systemd/system/nekara-engine.service.d/public-delay.conf
+#   systemctl daemon-reload && systemctl restart nekara-engine
+#
+# The engine logs the ladder it actually loaded at boot — check it there rather
+# than trusting the edit:
+#   journalctl -u nekara-engine -n 20 --no-pager | grep "tier latency"
 
 # Tier gating resolves on-chain when both are set. Without them everyone is
 # public tier, which is correct while no keys exist.
