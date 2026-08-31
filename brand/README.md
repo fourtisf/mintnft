@@ -76,3 +76,14 @@ on the right; the copy comes from the page the panel was cropped from.
 | `p3-hindsight.png` | 1600×900 | peak × is a ceiling nobody sold at | What you would actually have made |
 | `p4-gates.png` | 1600×900 | eight vetoes run before anything is scored | Active gates |
 | `p5-scan.png` | 1080×1080 | what the screener passed on | Last 24 hours |
+| `p6-callers.png` | 1600×900 | callers ranked on every call, not the best one | Caller leaderboard |
+
+Scoreboards. The format every call channel posts, with a dead call left in the
+fourth slot and the current multiple beside every peak. **The four calls on
+these are the prototype's seed, not real ones** — edit `CALLS` in
+`mkbanners.js` and re-render before either of these goes anywhere.
+
+| File | Size | Where it goes |
+|---|---|---|
+| `s1-scoreboard.png` | 1600×900 | X |
+| `s2-scoreboard-square.png` | 1080×1080 | Telegram and Instagram |

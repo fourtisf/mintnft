@@ -221,6 +221,23 @@ fs.writeFileSync('brand/banners/s2-scoreboard-square.html', page(1080,1080,`
   <div class="eyebrow" style="text-align:center">Peak sits next to now — nobody sold the top</div>
 </div>`));
 
+/* p6 — the leaderboard, and the two columns it refuses to carry. the table
+      needs the full width to stay readable, so this one breaks the split. */
+fs.writeFileSync('brand/banners/p6-callers.html', page(1600,900,`
+<div style="position:absolute;inset:0;padding:60px 70px 52px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:60px">
+    <div>
+      <div class="eyebrow">Hindsight</div>
+      <h2 style="font-size:50px;margin-top:18px">Ranked on every call they ever made.<br><span class="grad-tx">Not on the best one.</span></h2>
+      <p style="font-size:18px;line-height:1.62;color:var(--tx-2);max-width:900px;margin-top:20px">One 200× does not make a caller, and a table sorted on it only rewards whoever got luckiest once. So the ranking is hit rate with the misses still in the denominator.</p>
+    </div>
+    <div class="wm" style="flex-shrink:0;margin-top:2px">${MARK}<span>Nekara</span></div>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;margin-top:30px">
+    <img class="ui" src="${SHOT('q-leaders.png')}" style="width:100%">
+  </div>
+</div>`));
+
 /* ── the first post ────────────────────────────────────────────────────── */
 
 /* the account's opening post. the rest of the set argues the product; this one
@@ -299,4 +316,4 @@ fs.writeFileSync('brand/banners/x-avatar.html', `${BASE}<style>body{width:1000px
 <div style="position:absolute;inset:0;background:radial-gradient(115% 100% at 50% 40%,transparent 46%,rgba(0,0,0,.6))"></div>
 <div class="grain"></div>`);
 
-console.log('13 banner + 1 avatar ditulis');
+console.log('14 banner + 1 avatar ditulis');
