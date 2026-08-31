@@ -24,6 +24,11 @@ export const FIXTURES = {
   too_fresh:     mk({ pairCreatedAt: now - 6 * 60e3 }),
   too_old:       mk({ pairCreatedAt: now - 120 * 3600e3 }),
   already_pumped:mk({ priceChange: { m5: 140, h1: 900 } }),
+  // $APEC, exactly as it fired on the live register: flat on the last candle,
+  // vertical on the hour, deep enough, and heavily boosted. It scored 76 — the
+  // firing threshold to the point — and was dead inside the hour.
+  hour_already_ran:mk({ priceChange: { m5: 4.5, h1: 126, h6: 180, h24: 210 },
+                        liquidity: { usd: 86000 }, boosts: { active: 100 } }),
   dumping:       mk({ txns: { m5: { buys: 5, sells: 30 }, h1: { buys: 90, sells: 320 } } }),
   no_identity:   mk({ info: { imageUrl: null, socials: [], websites: [] } }),
   weird_quote:   mk({ quoteToken: { symbol: "SHIBDOGE" } }),

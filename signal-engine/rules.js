@@ -38,6 +38,11 @@ export const CONFIG = {
   minLiqToMcRatio: 0.04,      // thin liquidity against a big cap is an exit trap
   maxSellPressure: 2.2,       // h1 sells vs buys
   maxRecentPumpPct: 60,       // never buy something already vertical on 5m
+  // The same question over the hour, which the 5m arm cannot see. A win here
+  // is 2×. A token already up 100% on the hour has made that move without us,
+  // and entering now asks the next buyer for a 4× from where the hour began.
+  // $APEC fired at +4.5% on 5m with +126% on the hour and was dead inside it.
+  maxHourPumpPct: num("MAX_HOUR_PUMP_PCT", 100),
   // 76 of a 134 maximum. The flow rules below added 28 points of headroom, and
   // leaving the threshold at its old 60 would have quietly dropped the bar from
   // 57% of maximum to 45% — a looser filter dressed up as a stricter one.
@@ -57,6 +62,7 @@ export const CONFIG = {
   maxBidFadePct: 18,          // m5 buy share this far under h1 = the bid is leaving
   sizeFloorUsd: num("SIZE_FLOOR_USD", 250), // a $250 average clip on a sub-$2M cap is size
   minSustainedBuyShare: 0.55, // buying that holds across h1 and h6
+  steadyHourCapPct: 30,       // past this an hour is a move, not a climb
   quoteWhitelist: ["SOL", "WETH", "ETH", "WBNB", "BNB", "USDC", "USDT"],
 };
 
@@ -193,8 +199,14 @@ export const GATES = [
   },
   {
     id: "not_vertical",
-    check: (p, c) => (p.priceChange?.m5 ?? 0) <= c.maxRecentPumpPct,
-    fail: p => `Already ${pct(p.priceChange?.m5 ?? 0)} in five minutes — this is the top, not the entry`,
+    check: (p, c) => (p.priceChange?.m5 ?? 0) <= c.maxRecentPumpPct
+                  && (p.priceChange?.h1 ?? 0) <= c.maxHourPumpPct,
+    // Two windows, and the veto says which one refused it. Checking only the
+    // five minutes let a token that had already doubled on the hour through as
+    // long as it paused on the way in — the top with a flat last candle.
+    fail: (p, c) => (p.priceChange?.m5 ?? 0) > c.maxRecentPumpPct
+      ? `Already ${pct(p.priceChange?.m5 ?? 0)} in five minutes — this is the top, not the entry`
+      : `Already ${pct(p.priceChange?.h1 ?? 0)} in the last hour — the 2× we look for has happened without us`,
   },
   {
     id: "has_identity",
@@ -299,11 +311,16 @@ export const SIGNALS = [
   {
     id: "steady_climb",
     max: 14,
-    run: p => {
+    run: (p, c) => {
       const m5 = p.priceChange?.m5 ?? 0, h1 = p.priceChange?.h1 ?? 0;
       if (m5 <= 2 || h1 <= 0) return null;
       if (m5 > 35) return null;                  // a spike is not a climb
-      return { pts: Math.min(14, Math.round(m5 * 0.5 + h1 * 0.12)),
+      // The hour needs the same ceiling, for the same reason. Uncapped, the
+      // steeper the hour the more this paid — so the one reason that reads as
+      // patience was quietly paying its maximum for the vertical move the gate
+      // above exists to refuse, and carried $APEC to the threshold on the nose.
+      const hour = Math.min(h1, c.steadyHourCapPct) * 0.12;
+      return { pts: Math.min(14, Math.round(m5 * 0.5 + hour)),
                why: `Climbing steadily — ${pct(m5)} on 5m, ${pct(h1)} on the hour` };
     },
   },

@@ -95,7 +95,7 @@ function card(c,i,mini){
         <div class="rh-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}<span class="dotsep"></span>${c.src}<span class="dotsep"></span>${c.by==="desk"?"house desk":"@"+c.by}</div></div>
       <div class="mx"><div class="big ${bg}" data-mx="${c.id}">${(v==="open"?n:mult(c)).toFixed(2)}×</div><span class="badge ${v}">${LBL[v]}</span></div></div>
     <div class="spark">${sp.html}<span class="thresh-lbl" style="top:${sp.yT/54*100}%">2×</span></div>
-    ${mini?"":`<div class="why"><span class="why-h">Why it fired<b>${c.score}/100</b></span>
+    ${mini?"":`<div class="why"><span class="why-h">Why it fired<b>${c.score}</b></span>
       ${c.reasons.map(r=>`<span class="wchip">${r}</span>`).join("")}</div>`}
     <div class="rf">
       <div><div class="k">Entry MC</div><div class="v mut">${fmt(c.entry)}</div></div>
@@ -1041,7 +1041,7 @@ function renderOps(){
     ["Cap window",usdShort(g.minMarketCap)+" – "+usdShort(g.maxMarketCap)],
     ["Liquidity / cap","≥ "+(g.minLiqToMcRatio*100).toFixed(0)+"%"],
     ["Sell pressure","≤ "+g.maxSellPressure+"× buys"],
-    ["Not vertical","5m ≤ +"+g.maxRecentPumpPct+"%"],
+    ["Not vertical","5m ≤ +"+g.maxRecentPumpPct+"% · 1h ≤ +"+g.maxHourPumpPct+"%"],
     ["Has identity","socials or site"],
     ["Sane quote",g.quoteWhitelist.slice(0,4).join(" / ")]];
   document.getElementById("oGates").innerHTML=gates.map(([n,v])=>

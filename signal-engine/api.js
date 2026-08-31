@@ -114,6 +114,7 @@ export function serve(store, {
         maxAgeHours: cfg.maxAgeHours, minMarketCap: cfg.minMarketCap,
         maxMarketCap: cfg.maxMarketCap, minLiqToMcRatio: cfg.minLiqToMcRatio,
         maxSellPressure: cfg.maxSellPressure, maxRecentPumpPct: cfg.maxRecentPumpPct,
+        maxHourPumpPct: cfg.maxHourPumpPct,
         minAvgTradeUsd: cfg.minAvgTradeUsd, quoteWhitelist: cfg.quoteWhitelist,
         scoreToFire: cfg.scoreToFire,
       } } : s);

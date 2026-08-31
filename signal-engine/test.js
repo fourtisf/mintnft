@@ -25,6 +25,20 @@ const sig = toSignal(FIXTURES.strong, ev);
 console.log(`Contoh sinyal penuh — $${sig.symbol}, skor ${sig.score}/${MAX}:`);
 sig.reasons.forEach((r, i) => console.log(`  ${i + 1}. ${r}`));
 
+// $APEC, apa adanya dari register: satu-satunya alasan gate jam itu ada.
+// Ditampilkan dua arah, karena gate yang belum pernah terlihat meloloskan
+// sesuatu tidak bisa diperdebatkan siapa pun.
+const OLD = { ...CONFIG, maxHourPumpPct: Infinity, steadyHourCapPct: Infinity };
+const beforeFix = evaluate(FIXTURES.hour_already_ran, OLD, new Map());
+const afterFix = evaluate(FIXTURES.hour_already_ran, CONFIG, new Map());
+const climb = beforeFix.reasons.find(r => r.id === "steady_climb");
+console.log(`\n$APEC — +4.5% pada 5m, +126% pada jam terakhir:`);
+console.log(`  aturan lama : ${beforeFix.fire ? "TEMBAK" : "ditahan"} pada skor ${beforeFix.score}` +
+  `${climb ? ` — "steady_climb" menyumbang ${climb.pts} poin, maksimum` : ""}`);
+console.log(`  aturan baru : ${afterFix.vetoes[0] ?? (afterFix.fire ? "TEMBAK" : "skor " + afterFix.score)}`);
+const gateOk = beforeFix.fire && !afterFix.fire && afterFix.vetoIds?.includes("not_vertical");
+console.log(`  ${gateOk ? "ok   " : "GAGAL"}  lolos di aturan lama, ditahan gate jam di aturan baru`);
+
 // pengecekan waras: cooldown benar-benar menahan sinyal kedua
 const seen = new Map();
 evaluate(FIXTURES.strong, CONFIG, seen);
