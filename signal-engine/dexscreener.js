@@ -5,6 +5,8 @@
  * https://docs.dexscreener.com/api/reference — no API key needed.
  *
  *   /token-profiles/latest/v1              60 req/min
+ *   /token-boosts/latest/v1                60 req/min
+ *   /token-boosts/top/v1                   60 req/min
  *   /latest/dex/search?q=                 300 req/min
  *   /token-pairs/v1/{chain}/{token}       300 req/min
  *   /tokens/v1/{chain}/{addresses}        300 req/min   (up to 30, comma separated)
@@ -72,6 +74,11 @@ export class Dexscreener {
   latestProfiles() {
     return this.#get("/token-profiles/latest/v1", this.slow);
   }
+
+  /** Tokens someone is paying to promote. A different slice of the market to
+   *  the profile feed, on the same free API, and it turns over faster. */
+  latestBoosts() { return this.#get("/token-boosts/latest/v1", this.slow); }
+  topBoosts()    { return this.#get("/token-boosts/top/v1", this.slow); }
 
   /** Every pair for a token. Returns the deepest one first. */
   async pairsForToken(chainId, tokenAddress) {

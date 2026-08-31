@@ -6,20 +6,27 @@
  *   evaluate  -> gates, then score
  *   emit      -> anything that clears the threshold
  *
- * Discovery honesty: Dexscreener has no new-pool firehose. /token-profiles
- * only surfaces tokens whose team filled in a profile, so this misses plenty.
+ * Discovery honesty: Dexscreener has no new-pool firehose. Profiles and boosts
+ * together are what the free API offers, and both still miss the pools that are
+ * minutes old — which is where the best signals are.
  * For real coverage, feed candidates in from a pool-creation watcher
  * (Helius/Geyser on Solana, logs on EVM) and let this engine do the judging.
  */
 import { Dexscreener } from "./dexscreener.js";
 import { evaluate, toSignal, CONFIG } from "./rules.js";
-import { ProfileSource } from "./sources.js";
+import { ProfileSource, BoostSource, MergedSource } from "./sources.js";
 
 export class Engine {
   constructor({ client, cfg = CONFIG, onSignal, onReject, onScan, source, callerId = 1,
                 sourceKind = "screener", log = console.log } = {}) {
     this.api = client ?? new Dexscreener({ log });
-    this.source = source ?? new ProfileSource(this.api);
+    // Profiles alone are close to a fixed list; boosts turn over. Both are the
+    // free API and neither needs a key. Real coverage still wants a pool-
+    // creation watcher — Helius on Solana, factory logs on EVM, both in
+    // sources.js waiting for keys.
+    this.source = source ?? new MergedSource([
+      new ProfileSource(this.api), new BoostSource(this.api),
+    ]);
     this.cfg = cfg;
     this.attribution = { callerId, sourceKind };
     this.onSignal = onSignal ?? (s => log("SIGNAL", s));

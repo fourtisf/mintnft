@@ -126,6 +126,39 @@ export class EvmFactorySource {
   }
 }
 
+/**
+ * Boosted tokens, from the same free API as the profile feed.
+ *
+ * The profile feed returns the latest profiles, which is close to a fixed list
+ * — the same thirty tokens on every poll until a team files a new one. An
+ * engine reading only that scans the same candidates for hours and fires
+ * nothing, which is indistinguishable from a broken filter.
+ *
+ * Boosts turn over faster and select differently: someone paid for attention
+ * rather than filled in a form. Being paid for is not a quality signal and is
+ * not treated as one — the gates are unchanged, this only widens what they get
+ * to refuse.
+ */
+export class BoostSource {
+  constructor(api) { this.api = api; this.name = "dexscreener-boosts"; }
+  async candidates() {
+    const seen = new Set(), out = [];
+    for (const call of [() => this.api.latestBoosts(), () => this.api.topBoosts()]) {
+      let list = [];
+      try { list = await call(); } catch { continue; }
+      for (const b of Array.isArray(list) ? list : []) {
+        if (!b.chainId || !b.tokenAddress) continue;
+        const key = `${b.chainId}:${b.tokenAddress}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const pairs = await this.api.pairsForToken(b.chainId, b.tokenAddress);
+        if (pairs.length) out.push(pairs[0]);
+      }
+    }
+    return out;
+  }
+}
+
 /** Runs several sources and merges, dropping duplicate tokens. */
 export class MergedSource {
   constructor(sources) { this.sources = sources; this.name = "merged"; }
