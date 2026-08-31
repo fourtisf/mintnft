@@ -7,7 +7,7 @@ const SHOT=p=>`file://${__dirname}/shots/${p}`;
 const BASE=`<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <style>
-:root{--bg:#08090B;--surface:#101216;--surface-2:#14171C;--border:rgba(255,255,255,.07);
+:root{--bg:#08090B;--art:#090B0D;--surface:#101216;--surface-2:#14171C;--border:rgba(255,255,255,.07);
 --border-hi:rgba(255,255,255,.13);--tx:#F3F4F6;--tx-2:#8C929C;--tx-3:#585E68;
 --blue:#5B7CFA;--violet:#9B6DFF;--accent:#6E7BFF;--grad:linear-gradient(120deg,#5B7CFA,#9B6DFF);
 --win:#3ECF8E;--dead:#E5606B;--r:11px;--display:"Inter Tight",system-ui,sans-serif;--ui:"Inter",system-ui,sans-serif;
@@ -32,6 +32,8 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
  letter-spacing:.26em;text-transform:uppercase}
 .rule{height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.13),transparent)}
 .rule-l{height:1px;background:linear-gradient(90deg,rgba(255,255,255,.13),transparent)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 2px 6px rgba(0,0,0,.5),0 24px 50px -24px rgba(0,0,0,.9)}
 
 /* a real screenshot of the site. elevation is shadow, never coloured glow */
 .ui{display:block;border:1px solid var(--border-hi);border-radius:var(--r);
@@ -120,6 +122,105 @@ fs.writeFileSync('brand/banners/b4-square.html', page(1080,1080,`
   <div class="rule" style="width:280px;margin:auto 0 22px"></div>
   <div class="eyebrow">Failed calls are never removed</div>
 </div>`));
+/* ── scoreboard ────────────────────────────────────────────────────────── */
+
+/* the format every call channel posts: a grid of results with the multiple as
+   the hero. the difference is the fourth cell. peak sits next to now in every
+   one of them, because peak alone is the number nobody sold at. */
+const fmt=n=>n>=1e6?(n/1e6).toFixed(2)+"M":n>=1e3?(n/1e3).toFixed(1)+"K":String(n);
+const mins=s=>s<60?s+"s":Math.floor(s/60)+"m "+(s%60?s%60+"s":"");
+const CALLS=[
+  {t:"BRASS", n:"Brass Monkey", ch:"BASE", src:"clanker",  key:288, e:31800,  pk:214000, now:168400, two:840},
+  {t:"TOUCH", n:"Touchstone",   ch:"SOL",  src:"pump.fun", key:113, e:8900,   pk:31200,  now:27400,  two:198},
+  {t:"CRUC",  n:"Crucible",     ch:"ETH",  src:"uniswap",  key:401, e:126000, pk:388000, now:341000, two:1512},
+  {t:"FINE",  n:"Fineness",     ch:"BASE", src:"clanker",  key:522, e:16800,  pk:19200,  now:1300,   two:null},
+];
+const cell=(c,i)=>{
+  const pk=c.pk/c.e, now=c.now/c.e, dead=now<1;
+  const hue=dead?"var(--dead)":"#9AA6FF";
+  return `<div class="card" style="position:relative;overflow:hidden;padding:24px 28px;
+    background:var(--art);display:flex;flex-direction:column;justify-content:space-between">
+    <img src="${SHOT('key-'+c.key+'.png')}" style="position:absolute;right:-52px;top:50%;
+      transform:translateY(-50%);height:138%;width:auto;opacity:${dead?".6":".92"};
+      -webkit-mask-image:linear-gradient(90deg,transparent,#000 46%);
+      mask-image:linear-gradient(90deg,transparent,#000 46%)">
+    <div style="position:relative">
+      <div class="mono" style="font-size:11px;letter-spacing:.22em;color:var(--tx-3)">0${i+1}</div>
+      <div style="font-family:var(--display);font-weight:600;letter-spacing:-.028em;font-size:27px;margin-top:9px">$${c.t}</div>
+      <div class="mono" style="font-size:12.5px;margin-top:6px">${c.ch} · ${c.src}</div>
+    </div>
+    <div style="position:relative;display:flex;align-items:center;gap:18px">
+      <div style="font-family:var(--display);font-weight:600;letter-spacing:-.045em;font-size:80px;line-height:.88;
+        ${dead?"color:var(--dead)":"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent"}">${pk.toFixed(2)}×</div>
+      <div>
+        <div class="mono" style="font-size:10.5px;letter-spacing:.22em;color:var(--tx-3)">PEAK</div>
+        <div class="mono" style="font-size:16px;color:${hue};margin-top:7px">${now.toFixed(2)}× now</div>
+      </div>
+      <div class="mono" style="font-size:10.5px;letter-spacing:.14em;padding:5px 10px;border-radius:5px;
+        border:1px solid ${dead?"rgba(229,96,107,.42)":"rgba(110,123,255,.42)"};color:${hue};align-self:flex-end;margin-bottom:6px">${dead?"DEAD":"WIN"}</div>
+    </div>
+    <div class="mono" style="position:relative;font-size:12.5px;color:var(--tx-3)">
+      Entry ${fmt(c.e)} · ${c.two?"2× in "+mins(c.two):"never reached 2×"}</div>
+  </div>`;
+};
+
+fs.writeFileSync('brand/banners/s1-scoreboard.html', page(1600,900,`
+<div style="position:absolute;inset:0;padding:50px 54px 44px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:24px;
+    border-bottom:1px solid var(--border-hi)">
+    <div>
+      <div class="eyebrow">Nekara // on record</div>
+      <h2 style="font-size:52px;margin-top:16px">The last four calls.<br><span class="grad-tx">One of them died.</span></h2>
+    </div>
+    <div class="wm" style="padding-bottom:6px">${MARK}<span>Nekara</span></div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:22px;margin:24px 0 20px">
+    ${CALLS.map(cell).join("")}
+  </div>
+  <div class="eyebrow" style="text-align:center">Every call stays on the record — including the ones that died</div>
+</div>`));
+
+/* square: the same board as four rows, for Telegram and Instagram */
+const row=(c,i)=>{
+  const pk=c.pk/c.e, now=c.now/c.e, dead=now<1;
+  const hue=dead?"var(--dead)":"#9AA6FF";
+  return `<div class="card" style="position:relative;overflow:hidden;background:var(--art);
+    flex:1;padding:20px 24px;display:flex;align-items:center;gap:20px">
+    <div class="mono" style="font-size:11px;letter-spacing:.2em;color:var(--tx-3);flex-shrink:0">0${i+1}</div>
+    <img src="${SHOT('key-'+c.key+'.png')}" style="width:118px;height:118px;object-fit:cover;object-position:center 26%;
+      border-radius:9px;flex-shrink:0;opacity:${dead?".7":"1"}">
+    <div style="min-width:0">
+      <div style="font-family:var(--display);font-weight:600;letter-spacing:-.028em;font-size:26px">$${c.t}</div>
+      <div class="mono" style="font-size:12px;margin-top:6px">${c.ch} · ${c.two?"2× in "+mins(c.two):"never reached 2×"}</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:18px">
+      <div style="text-align:right">
+        <div style="font-family:var(--display);font-weight:600;letter-spacing:-.04em;font-size:52px;line-height:.9;
+          ${dead?"color:var(--dead)":"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent"}">${pk.toFixed(2)}×</div>
+        <div class="mono" style="font-size:13px;color:${hue};margin-top:8px">${now.toFixed(2)}× now</div>
+      </div>
+      <div class="mono" style="font-size:10px;letter-spacing:.14em;padding:5px 9px;border-radius:5px;
+        border:1px solid ${dead?"rgba(229,96,107,.42)":"rgba(110,123,255,.42)"};color:${hue}">${dead?"DEAD":"WIN"}</div>
+    </div>
+  </div>`;
+};
+
+fs.writeFileSync('brand/banners/s2-scoreboard-square.html', page(1080,1080,`
+<div style="position:absolute;inset:0;padding:60px 58px 52px;display:flex;flex-direction:column">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:24px;
+    border-bottom:1px solid var(--border-hi)">
+    <div>
+      <div class="eyebrow">Nekara // on record</div>
+      <h2 style="font-size:44px;margin-top:16px">The last four calls.<br><span class="grad-tx">One of them died.</span></h2>
+    </div>
+    <div style="width:56px;flex-shrink:0;margin-top:4px">${MARK}</div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;gap:16px;margin:22px 0 20px">
+    ${CALLS.map(row).join("")}
+  </div>
+  <div class="eyebrow" style="text-align:center">Peak sits next to now — nobody sold the top</div>
+</div>`));
+
 /* ── the first post ────────────────────────────────────────────────────── */
 
 /* the account's opening post. the rest of the set argues the product; this one
@@ -198,4 +299,4 @@ fs.writeFileSync('brand/banners/x-avatar.html', `${BASE}<style>body{width:1000px
 <div style="position:absolute;inset:0;background:radial-gradient(115% 100% at 50% 40%,transparent 46%,rgba(0,0,0,.6))"></div>
 <div class="grain"></div>`);
 
-console.log('11 banner + 1 avatar ditulis');
+console.log('13 banner + 1 avatar ditulis');
