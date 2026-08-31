@@ -10,6 +10,7 @@
  */
 import { Dexscreener } from "./dexscreener.js";
 import { Engine } from "./engine.js";
+import { Triage } from "./triage.js";
 import { FileStore } from "./store.js";
 import { applyObservation } from "./scorer.js";
 import { serve } from "./api.js";
@@ -34,14 +35,18 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
                         publishAnchorTx = null,
                         telegram = new Telegram({ token: process.env.TG_TOKEN,
                                                   chatId: process.env.TG_CHAT, log }) } = {}) {
+  const triage = new Triage();
   const engine = new Engine({
     client: api,
     callerId,
+    onScan(n) { triage.scanned(n); },
+    onReject(pair, ev) { triage.rejected(pair, ev); },
     onSignal(sig) {
       if (store.hasToken(sig.chain, sig.tokenAddress, 24 * 3600e3)) return;
       const call = store.insertCall(sig);
       feed.publish(call);
-      log(`[FIRED] #${call.seq} $${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
+      triage.fired();
+      log(`[FIRED] #${call.seq} ${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
       telegram.send(formatSignal(sig, call.seq));
     },
   });
@@ -93,7 +98,7 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
     }, ANCHOR),
   ];
 
-  const server = serve(store, { port, secret, domain, tierSource, log });
+  const server = serve(store, { port, secret, domain, tierSource, triage, cfg: engine.cfg, log });
   const feed = attachFeed(server, {
     log,
     // The tier comes from the signed session and nothing else the client sends.
@@ -102,7 +107,7 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
 
   log(`register api on :${port}  ·  discovery ${DISCOVER/1000}s  hot ${HOT/1000}s  warm ${WARM/1000}s`);
   if (!publishAnchorTx) log("anchoring is not wired — /api/verify will report the register as unanchored");
-  return { stop() { timers.forEach(clearInterval); feed.close(); server.close(); }, store, engine, feed, server };
+  return { stop() { timers.forEach(clearInterval); feed.close(); server.close(); }, store, engine, triage, feed, server };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) start();

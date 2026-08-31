@@ -31,6 +31,8 @@ export function serve(store, {
   delays = TIER_DELAY_S,
   nonces = new NonceStore(),
   feed = null,
+  triage = null,
+  cfg = null,
   log = console.log,
 } = {}) {
   if (!secret) {
@@ -92,6 +94,21 @@ export function serve(store, {
       return json(res, 200, rows.sort((a, b) => Date.parse(b.firedAt) - Date.parse(a.firedAt)).slice(0, limit));
     }
     if (p === "/api/stats") return json(res, 200, stats(rows));
+
+    // What the screener refused, and the thresholds it refused against. Public:
+    // a filter nobody can inspect is a claim, not a filter.
+    if (p === "/api/triage") {
+      if (!triage) return json(res, 503, { error: "triage is not wired on this instance" });
+      const s = triage.snapshot();
+      return json(res, 200, cfg ? { ...s, gateConfig: {
+        minLiquidityUsd: cfg.minLiquidityUsd, minAgeMinutes: cfg.minAgeMinutes,
+        maxAgeHours: cfg.maxAgeHours, minMarketCap: cfg.minMarketCap,
+        maxMarketCap: cfg.maxMarketCap, minLiqToMcRatio: cfg.minLiqToMcRatio,
+        maxSellPressure: cfg.maxSellPressure, maxRecentPumpPct: cfg.maxRecentPumpPct,
+        minAvgTradeUsd: cfg.minAvgTradeUsd, quoteWhitelist: cfg.quoteWhitelist,
+        scoreToFire: cfg.scoreToFire,
+      } } : s);
+    }
     if (p === "/api/analytics/reasons") return json(res, 200, reasonPerformance(rows));
     if (p === "/api/analytics/bands") return json(res, 200, scoreBands(rows));
     if (p === "/api/analytics/chains") return json(res, 200, chainPerformance(rows));

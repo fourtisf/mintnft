@@ -366,16 +366,17 @@ export function evaluate(pair, cfg = CONFIG, seen = new Map()) {
   const key = `${pair.chainId}:${pair.baseToken?.address}`;
   const last = seen.get(key);
   if (last && Date.now() - last < cfg.cooldownHours * 3600000) {
-    return { fire: false, score: 0, reasons: [], vetoes: ["Already signalled in the last 24h"], key };
+    return { fire: false, score: 0, reasons: [], vetoes: ["Already signalled in the last 24h"],
+             vetoIds: ["cooldown"], key };
   }
 
-  const vetoes = [];
+  const vetoes = [], vetoIds = [];
   for (const g of GATES) {
     let ok = false;
     try { ok = g.check(pair, cfg); } catch { ok = false; }
-    if (!ok) vetoes.push(g.fail(pair, cfg));
+    if (!ok) { vetoes.push(g.fail(pair, cfg)); vetoIds.push(g.id); }
   }
-  if (vetoes.length) return { fire: false, score: 0, reasons: [], vetoes, key };
+  if (vetoes.length) return { fire: false, score: 0, reasons: [], vetoes, vetoIds, key };
 
   let score = 0;
   const reasons = [];

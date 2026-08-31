@@ -16,7 +16,7 @@ import { evaluate, toSignal, CONFIG } from "./rules.js";
 import { ProfileSource } from "./sources.js";
 
 export class Engine {
-  constructor({ client, cfg = CONFIG, onSignal, onReject, source, callerId = 1,
+  constructor({ client, cfg = CONFIG, onSignal, onReject, onScan, source, callerId = 1,
                 sourceKind = "screener", log = console.log } = {}) {
     this.api = client ?? new Dexscreener({ log });
     this.source = source ?? new ProfileSource(this.api);
@@ -24,6 +24,7 @@ export class Engine {
     this.attribution = { callerId, sourceKind };
     this.onSignal = onSignal ?? (s => log("SIGNAL", s));
     this.onReject = onReject ?? (() => {});
+    this.onScan = onScan ?? (() => {});
     this.seen = new Map();
     this.log = log;
     this.stats = { scanned: 0, vetoed: 0, scoredLow: 0, fired: 0 };
@@ -33,6 +34,10 @@ export class Engine {
 
   async tick() {
     const pairs = await this.candidates();
+    // Reported once per tick rather than per candidate: the count is what the
+    // pass rate needs, and a denominator nobody publishes is the thing this
+    // whole page exists to avoid.
+    this.onScan(pairs.length);
     for (const pair of pairs) {
       this.stats.scanned++;
       const ev = evaluate(pair, this.cfg, this.seen);

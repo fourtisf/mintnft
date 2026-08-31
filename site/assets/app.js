@@ -929,24 +929,63 @@ const GATES=[["Liquidity floor","$15K"],["Age window","20m – 72h"],["Cap windo
   ["Liquidity / cap","≥ 4%"],["Sell pressure","≤ 2.2× buys"],["Not vertical","5m ≤ +60%"],
   ["Has identity","socials or site"],["Sane quote","SOL / ETH / BNB / USDC"]];
 
+/* Triage reads the engine. Before it did, this page printed 412 scanned and
+   325 killed from the prototype's seed next to a real count of signals fired —
+   invented telemetry on the one page whose job is to prove the filter is
+   strict. Numbers here now come from /api/triage or they do not appear. */
+let triage=null;
+async function pullTriage(){
+  if(DEMO)return;
+  try{
+    const r=await fetch(API+"/triage",{cache:"no-store"});
+    if(r.ok){triage=await r.json();renderOps()}
+  }catch(e){}
+}
+const GATE_LABEL={priceable:"Unmeasurable",liquidity_floor:"Liquidity",age_window:"Age",
+  cap_window:"Cap",liquidity_ratio:"Depth",sell_pressure:"Sell pressure",not_vertical:"Vertical",
+  has_identity:"Identity",sane_quote:"Quote",dust_flow:"Dust",wash_pattern:"Wash",
+  fading_bid:"Fading bid",cooldown:"Cooldown",score:"Score"};
+const usdShort=n=>n>=1e6?"$"+(n/1e6).toFixed(0)+"M":n>=1e3?"$"+(n/1e3).toFixed(0)+"K":"$"+n;
+
 function renderOps(){
   document.getElementById("oJobs").innerHTML=JOBS.map(([n,d,iv,ago])=>
     `<div class="job"><span class="dot"></span>
       <span><span class="nm">${n}</span><div class="de">${d}</div></span>
       <span class="iv">${iv}</span><span class="ago">${ago<60?ago+"s ago":ago<3600?Math.round(ago/60)+"m ago":Math.round(ago/3600)+"h ago"}</span></div>`).join("");
 
-  const fired=calls.length;
-  document.getElementById("oCounts").innerHTML=[
-    ["Candidates scanned",412],["Killed at the gates",Math.round(412*0.79)],
-    ["Cleared gates, scored low",Math.round(412*0.18)],["Signals fired",fired],
-    ["Pass rate",(fired/412*100).toFixed(1)+"%"]
-  ].map(([l,v])=>`<div class="stat"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("");
+  const t=DEMO?null:triage;
+  const counts=DEMO
+    ? [["Candidates scanned",412],["Killed at the gates",Math.round(412*0.79)],
+       ["Cleared gates, scored low",Math.round(412*0.18)],["Signals fired",calls.length],
+       ["Pass rate",(calls.length/412*100).toFixed(1)+"%"]]
+    : t
+    ? [["Candidates scanned",t.scanned],["Killed at the gates",t.killed],
+       ["Cleared gates, scored low",t.scoredLow],["Signals fired",t.fired],
+       // A rate over nothing scanned is unanswerable, not zero.
+       ["Pass rate",t.passRate===null?"—":(t.passRate*100).toFixed(1)+"%"]]
+    : null;
 
-  document.getElementById("oRejects").innerHTML=REJECTS.map(([t,r,g])=>
-    `<div class="rej"><span class="tk">${t}</span><span class="rs">${r}</span><span class="tag">${g}</span></div>`).join("");
+  document.getElementById("oCounts").innerHTML = counts
+    ? counts.map(([l,v])=>`<div class="stat"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("")
+    : `<p class="sub" style="margin:0">Waiting for the screener to report its first pass.</p>`;
 
-  document.getElementById("oGates").innerHTML=GATES.map(([g,t])=>
-    `<div class="gate"><span class="g">${g}</span><span class="t">${t}</span></div>`).join("");
+  const rejects=DEMO?REJECTS:(t?.rejects??[]).map(r=>["$"+r.symbol,r.why,GATE_LABEL[r.gate]??r.gate]);
+  document.getElementById("oRejects").innerHTML = rejects.length
+    ? rejects.map(([tk,r,g])=>`<div class="rej"><span class="tk">${tk}</span><span class="rs">${r}</span><span class="tag">${g}</span></div>`).join("")
+    : `<p class="sub" style="margin:0">Nothing refused yet in this window.</p>`;
+
+  const g=t?.gateConfig;
+  const gates=DEMO||!g?GATES:[
+    ["Liquidity floor",usdShort(g.minLiquidityUsd)],
+    ["Age window",g.minAgeMinutes+"m – "+g.maxAgeHours+"h"],
+    ["Cap window",usdShort(g.minMarketCap)+" – "+usdShort(g.maxMarketCap)],
+    ["Liquidity / cap","≥ "+(g.minLiqToMcRatio*100).toFixed(0)+"%"],
+    ["Sell pressure","≤ "+g.maxSellPressure+"× buys"],
+    ["Not vertical","5m ≤ +"+g.maxRecentPumpPct+"%"],
+    ["Has identity","socials or site"],
+    ["Sane quote",g.quoteWhitelist.slice(0,4).join(" / ")]];
+  document.getElementById("oGates").innerHTML=gates.map(([n,v])=>
+    `<div class="gate"><span class="g">${n}</span><span class="t">${v}</span></div>`).join("");
 }
 
 /* ── Vault: a real hash chain, computed in the browser ── */
@@ -1133,6 +1172,7 @@ async function pullLive(){
   }catch{ if(liveMode){liveMode=false} }
 }
 pullLive(); setInterval(pullLive,20000);
+pullTriage(); setInterval(pullTriage,20000);
 
 renderFeed();renderPreview();renderStats();renderCallers();renderChains();renderTicker();
 drawKey(preview);renderMarquee();syncMint();renderColl(true);reveal();
