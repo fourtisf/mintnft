@@ -46,7 +46,8 @@ function mkPath(e,p,w,n){const a=[],pk=Math.floor(n*(.28+Math.random()*.4));
 const calls=SEED.map((s,i)=>({id:"r"+i,reasons:REASONS[i%REASONS.length],
   rids:ridsOf(REASONS[i%REASONS.length]),
   score:[66,61,100,72,68,84,63,96,60,88,64,79][i%12],name:s.n,tick:s.t,chain:s.c,by:s.by,src:s.s,ca:s.ca,
-  entry:s.e,peak:s.p,nowMc:s.w,twoIn:s.two,at:T0-s.ago*MIN,live:s.ago<1440,path:mkPath(s.e,s.p,s.w,48),flash:false}));
+  entry:s.e,peak:s.p,nowMc:s.w,liq:Math.round(s.e*.28),vol:Math.round(s.e*.45),
+  twoIn:s.two,at:T0-s.ago*MIN,live:s.ago<1440,path:mkPath(s.e,s.p,s.w,48),flash:false}));
 
 const fmt=v=>v>=1e9?(v/1e9).toFixed(2)+"B":v>=1e6?(v/1e6).toFixed(2)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":Math.round(v);
 const mult=c=>c.peak/c.entry, nx=c=>c.nowMc/c.entry;
@@ -470,7 +471,7 @@ function renderMarquee(){
 }
 
 /* ═══════ render ═══════ */
-const S={f:"all",sort:"recent",chain:null,q:""};
+const S={f:"all",sort:"recent",chain:null,q:"",minMc:0,minVol:0};
 function vis(){
   let a=calls.filter(c=>{
     if(S.chain&&c.chain!==S.chain)return false;
@@ -480,6 +481,11 @@ function vis(){
       // ever kept "6d2ttx…Hs2XB", which no one has to hand.
       const hay=[c.name,c.tick,c.ca,c.addr??""].join(" ").toLowerCase();
       if(!hay.includes(q))return false}
+    // Both are the figures at the moment it fired, not now: filtering the
+    // register by what a token became would answer a different question than
+    // the one a reader is asking, which is what we were looking at.
+    if(S.minMc&&!(c.entry>=S.minMc))return false;
+    if(S.minVol&&!(c.vol>=S.minVol))return false;
     // A call can be in both Wins and Dead. That is the record, not a bug.
     return S.f==="live"?c.live:S.f==="win"?vrd(c)==="win":S.f==="dead"?deadOf(c):true});
   if(S.sort==="peak")a.sort((x,y)=>mult(y)-mult(x));
@@ -495,6 +501,10 @@ function emptyLine(){
   if(!DEMO&&CONN.state==="boot")return "Reading the register…";
   if(!DEMO&&CONN.state==="offline")
     return "The engine is not answering, so nothing is shown. Rather that than something invented.";
+  // A call written before the engine recorded volume cannot answer a volume
+  // filter. Saying "no match" would blame the market for our own missing field.
+  if(calls.length&&S.minVol&&calls.some(c=>c.vol==null))
+    return "No calls match this filter. Calls fired before the engine began recording volume cannot answer it.";
   if(calls.length)return "No calls match this filter.";
   // "nothing has fired" and "nothing has reached you yet" are different
   // sentences, and only the engine knows which one is true for this reader.
@@ -718,6 +728,8 @@ document.getElementById("seg").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;S.f=b.dataset.f;
   [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderFeed()});
 document.getElementById("sortSel").addEventListener("change",e=>{S.sort=e.target.value;renderFeed()});
+document.getElementById("mcSel").addEventListener("change",e=>{S.minMc=+e.target.value;renderFeed()});
+document.getElementById("volSel").addEventListener("change",e=>{S.minVol=+e.target.value;renderFeed()});
 document.getElementById("q").addEventListener("input",e=>{S.q=e.target.value.trim();renderFeed()});
 
 const drw=document.getElementById("drw"),scrim=document.getElementById("scrim");
@@ -1271,6 +1283,7 @@ function rowToCall(d){
     addr:d.tokenAddress||"",          // the card shows the short form; search needs the whole one
 
     entry:d.entryMc,peak:d.peakMc??d.entryMc,nowMc:d.nowMc??d.entryMc,
+    liq:d.liquidityUsd??0,vol:d.entryVolumeH1??null,   // null = fired before we recorded it
     verdict:d.verdict,isDead:d.isDead??false,
     twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state!=="settled",
     reasons:d.reasons||[],score:d.score,path:seedPath(d),flash:false};

@@ -433,6 +433,13 @@ export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sour
     entryMc: d.price * d.supply,
     entrySupplySource: d.source,
     liquidityUsd: pair.liquidity?.usd ?? 0,
+    // Volume at the moment it fired, so the register can be read by size
+    // afterwards. Descriptive, not hashed: adding a field to IMMUTABLE changes
+    // the canonical form of every row and canonical() has no per-version field
+    // list, so it would break verification of every call already written. Same
+    // footing as name, dex and the reason prose.
+    entryVolumeH1: pair.volume?.h1 ?? 0,
+    entryVolumeM5: pair.volume?.m5 ?? 0,
     score: ev.score,
     reasons: ev.reasons.map(r => r.why),
     reasonIds: ev.reasons.map(r => r.id),

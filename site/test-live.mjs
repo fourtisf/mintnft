@@ -104,7 +104,8 @@ const call = store.insertCall({
   callerId: 1, chain: "solana", tokenAddress: "So1111111111111111111111111111111111111111",
   pairAddress: "P1", symbol: "LIVE", name: "Live Wire", dex: "pump.fun",
   firedAt: new Date().toISOString(), entryMc: 240_000, entryPrice: 0.00024, entrySupply: 1e9,
-  entryLiquidityUsd: 40_000, score: 88, reasons: ["Volume running 3.4× the hourly pace"],
+  liquidityUsd: 40_000, entryVolumeH1: 52_000, entryVolumeM5: 9_000,
+  score: 88, reasons: ["Volume running 3.4× the hourly pace"],
 });
 feed.publish({ ...call, ...store.mark(call.seq) });
 
@@ -156,6 +157,20 @@ ok(cards().length === 1, "and so does part of the name");
 type("nothinglikethis");
 ok(cards().length === 0, "and something that matches nothing finds nothing");
 type("");
+
+// Size filters, over the figures the engine recorded when it fired.
+const pickSel = (id, v) => { const s = doc.getElementById(id); s.value = String(v);
+  s.dispatchEvent(new win.Event("change", { bubbles: true })); };
+pickSel("mcSel", 100000);                        // the call entered at $240K
+ok(cards().length === 1, "MC ≥ $100K keeps a call that entered at $240K");
+pickSel("mcSel", 500000);
+ok(cards().length === 0, "MC ≥ $500K drops it");
+pickSel("mcSel", 0);
+pickSel("volSel", 10000);                        // it fired with $52K on the hour
+ok(cards().length === 1, "Vol ≥ $10K keeps a call that fired on $52K of hourly volume");
+pickSel("volSel", 100000);
+ok(cards().length === 0, "Vol ≥ $100K drops it");
+pickSel("volSel", 0);
 
 const seg = doc.getElementById("seg");
 const pick = f => seg.querySelector(`[data-f="${f}"]`)

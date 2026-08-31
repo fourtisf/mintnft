@@ -213,6 +213,13 @@
   <div class="rail">
     <div class="seg" id="seg"><button data-f="all" class="on">All</button><button data-f="live">Live</button><button data-f="win">Wins</button><button data-f="dead">Dead</button></div>
     <select class="sel" id="sortSel"><option value="recent">Newest first</option><option value="peak">Highest peak</option><option value="now">Highest now</option></select>
+    <select class="sel" id="mcSel" aria-label="Minimum market cap at entry">
+      <option value="0">Any MC</option><option value="20000">MC ≥ $20K</option>
+      <option value="50000">MC ≥ $50K</option><option value="100000">MC ≥ $100K</option>
+      <option value="500000">MC ≥ $500K</option></select>
+    <select class="sel" id="volSel" aria-label="Minimum hourly volume at entry">
+      <option value="0">Any volume</option><option value="10000">Vol ≥ $10K</option>
+      <option value="25000">Vol ≥ $25K</option><option value="100000">Vol ≥ $100K</option></select>
     <button class="chip hide" id="chipChain"></button>
     <span class="cnt" id="cnt"></span>
   </div>
