@@ -12,6 +12,7 @@
  * no card — the preview is a leak of the same kind as an early feed row.
  */
 import { rmSync } from "node:fs";
+import { podiumCard } from "./og.js";
 import { FileStore } from "./store.js";
 import { start } from "./index.js";
 
@@ -130,6 +131,13 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
     "and the hit rate is over every call in the window, not over the ones shown");
   ok(/the other 1 are on the register too/.test(txt),
     "naming what was left out rather than leaving the reader to assume");
+  // A win that later went to nothing is still a win under the published rule —
+  // and a winners card that says nothing about it is the complaint that started
+  // all of this: "it died, why is it filed as a win".
+  const died = podiumCard([{ symbol: "X", chain: "solana", entryMc: 1e5, peakMc: 3e5, nowMc: 4e3,
+    peakX: 3, nowX: 0.04, verdict: "win", isDead: true, state: "settled", score: 80,
+    spark: [1e5, 3e5, 4e3] }], { calls: 1, hitRate: 1, dead: 1 }, { days: 7 });
+  ok(/DIED AFTER/.test(died), "a win that later died carries that on the card, not only in the header");
   const raster = await fetch(`${B}/og/wins.png?days=7`);
   ok(raster.status === 200 && png(Buffer.from(await raster.arrayBuffer())), "and rasterises");
 }

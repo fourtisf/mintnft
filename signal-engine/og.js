@@ -243,92 +243,117 @@ export function podiumCard(wins, s, { days = 7, max = 5 } = {}) {
   const hero = shown[0];
   const rest = shown.slice(1, 5);
   const pct = n => (n == null ? "\u2014" : (n >= 0 ? "+" : "\u2212") + Math.abs(n * 100).toFixed(0) + "%");
-  const PAD = 52;
+  const dur = sec => !sec ? null
+    : sec < 3600 ? Math.round(sec / 60) + "m" : (sec / 3600).toFixed(1) + "h";
+  const PAD = 56;
 
   if (!hero) return digestCard([], s, { days });
 
-  const chip = (label, value, x, y, w) => `
-    <text x="${x}" y="${y}" font-family="monospace" font-size="11" letter-spacing="1.8" fill="#585E68">${label}</text>
-    <text x="${x}" y="${y + 26}" font-family="monospace" font-size="21" font-weight="600" fill="#F3F4F6">${value}</text>`;
+  const HX = PAD, HY = 176, HW = 578, HH = 396;
+  const hs = series(hero, { x: HX, y: HY + 186, w: HW, h: 128 });
 
-  // Hero: the best call of the window, its own series behind it. The chart
-  // stops above the figures rather than running through them.
-  const HX = PAD, HY = 168, HW = 566, HH = 400;
-  const hs = series(hero, { x: HX, y: HY + 152, w: HW, h: HH - 236 });
-
-  /* The runners-up fill the hero's height exactly, however many there are.
-     A fixed row height left a hole under them on a window with four winners
-     and would have overflowed on one with six. */
-  const RX = PAD + HW + 22, RW = 1200 - PAD - RX, RG = 12;
+  const RX = HX + HW + 22, RW = 1200 - PAD - RX, RG = 14;
   const n = Math.max(1, rest.length);
   const RH = (HH - RG * (n - 1)) / n;
+
+  /* A card the surfaces sit on rather than float over: a gradient fill, a
+     hairline border, and the top-edge highlight the tokens call for. Elevation
+     from light along an edge, never from a coloured glow behind the box. */
+  const surface = (x, y, w, h, r = 14) => `
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="url(#surf)" stroke="rgba(255,255,255,.085)"/>
+    <path d="M${x + r} ${y + 0.5}H${x + w - r}" stroke="rgba(255,255,255,.10)" stroke-width="1"/>`;
+
   const row = (r, i) => {
     const y = HY + i * (RH + RG);
-    // Across the whole row, under the text, rather than a floating chart the
-    // multiple then sits on top of.
-    const rs = series(r, { x: RX, y: y + RH * 0.42, w: RW, h: RH * 0.58 });
-    const took = r.secondsTo2x
-      ? (r.secondsTo2x < 3600 ? Math.round(r.secondsTo2x / 60) + "m" : (r.secondsTo2x / 3600).toFixed(1) + "h")
-      : null;
+    const rs = series(r, { x: RX, y: y + RH * 0.46, w: RW, h: RH * 0.54 });
+    const took = dur(r.secondsTo2x);
     return `
   <g>
-    <rect x="${RX}" y="${y}" width="${RW}" height="${RH}" rx="11" fill="#101216" stroke="rgba(255,255,255,.07)"/>
-    <clipPath id="rc${i}"><rect x="${RX}" y="${y}" width="${RW}" height="${RH}" rx="11"/></clipPath>
+    ${surface(RX, y, RW, RH, 13)}
+    <clipPath id="rc${i}"><rect x="${RX}" y="${y}" width="${RW}" height="${RH}" rx="13"/></clipPath>
     <g clip-path="url(#rc${i})">
-      <path d="${rs.area}" fill="url(#gv)" opacity=".16"/>
-      <path d="${rs.line}" fill="none" stroke="url(#g)" stroke-width="2.2" stroke-linejoin="round" opacity=".9"/>
+      <path d="${rs.area}" fill="url(#gv)" opacity=".22"/>
+      <path d="${rs.line}" fill="none" stroke="url(#g)" stroke-width="3" filter="url(#glow)" opacity=".8"/>
+      <path d="${rs.line}" fill="none" stroke="url(#g)" stroke-width="2.2" stroke-linejoin="round"/>
     </g>
-    <text x="${RX + 20}" y="${y + 36}" font-family="monospace" font-size="13" fill="#3E444C">${i + 2}</text>
-    <text x="${RX + 44}" y="${y + 38}" font-family="sans-serif" font-size="24" font-weight="700" fill="#F3F4F6">${esc(ticker(r.symbol))}</text>
-    <text x="${RX + 44}" y="${y + 60}" font-family="monospace" font-size="12.5" fill="#8C929C">${usd(r.entryMc)} \u2192 ${usd(r.peakMc)}${took ? "  \u00b7  2\u00d7 in " + took : ""}</text>
-    <text x="${RX + RW - 20}" y="${y + 42}" text-anchor="end" font-family="sans-serif" font-size="31" font-weight="700" fill="url(#g)">${(r.peakX ?? 1).toFixed(2)}\u00d7</text>
+    <circle cx="${RX + 32}" cy="${y + 32}" r="15" fill="none" stroke="rgba(255,255,255,.16)"/>
+    <text x="${RX + 32}" y="${y + 37}" text-anchor="middle" font-family="monospace" font-size="13" font-weight="600" fill="#8C929C">${i + 2}</text>
+    <text x="${RX + 60}" y="${y + 38}" font-family="sans-serif" font-size="25" font-weight="700" letter-spacing="-.6" fill="#F3F4F6">${esc(ticker(r.symbol))}</text>
+    <text x="${RX + 60}" y="${y + 60}" font-family="monospace" font-size="12.5" fill="#8C929C">${usd(r.entryMc)} \u2192 ${usd(r.peakMc)}${took ? "  \u00b7  2\u00d7 in " + took : ""}</text>
+    ${r.isDead ? `<text x="${RX + RW - 22}" y="${y + 62}" text-anchor="end" font-family="monospace" font-size="11" letter-spacing="1.6" fill="#E5606B">DIED AFTER</text>` : ""}
+    <text x="${RX + RW - 22}" y="${y + 44}" text-anchor="end" font-family="sans-serif" font-size="34" font-weight="700" letter-spacing="-1.2" fill="url(#g)">${(r.peakX ?? 1).toFixed(2)}\u00d7</text>
   </g>`;
   };
+
+  const stat = (k, v, col, i, total) => {
+    const x = 1144 - (total - 1 - i) * 136;
+    return `
+  <text x="${x}" y="${72}" text-anchor="end" font-family="sans-serif" font-size="35" font-weight="700" letter-spacing="-1" fill="${col}">${v}</text>
+  <text x="${x}" y="${94}" text-anchor="end" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">${k}</text>`;
+  };
+  const stats3 = [["HIT \u2265 2\u00d7", Math.round((s?.hitRate ?? 0) * 100) + "%", "#F3F4F6"],
+                  ["ALL CALLS", String(s?.calls ?? 0), "#F3F4F6"],
+                  ["DEAD", String(s?.dead ?? 0), (s?.dead ?? 0) > 0 ? "#E5606B" : "#F3F4F6"]];
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient>
     <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#5B7CFA" stop-opacity=".9"/><stop offset="1" stop-color="#5B7CFA" stop-opacity="0"/>
+      <stop offset="0" stop-color="#6E7BFF" stop-opacity=".85"/><stop offset="1" stop-color="#6E7BFF" stop-opacity="0"/>
     </linearGradient>
-    <radialGradient id="glow" cx="26%" cy="76%"><stop offset="0" stop-color="#5B7CFA" stop-opacity=".20"/><stop offset="1" stop-color="#5B7CFA" stop-opacity="0"/></radialGradient>
-    <linearGradient id="herobg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#14171C"/><stop offset="1" stop-color="#0D0F13"/>
+    <linearGradient id="surf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15181E"/><stop offset="1" stop-color="#0C0E12"/>
     </linearGradient>
+    <radialGradient id="aura" cx="84%" cy="-6%" r="72%">
+      <stop offset="0" stop-color="#9B6DFF" stop-opacity=".26"/><stop offset="1" stop-color="#9B6DFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="aura2" cx="6%" cy="106%" r="60%">
+      <stop offset="0" stop-color="#5B7CFA" stop-opacity=".18"/><stop offset="1" stop-color="#5B7CFA" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="glowbig" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="11"/></filter>
   </defs>
+
   <rect width="1200" height="630" fill="#08090B"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#aura)"/>
+  <rect width="1200" height="630" fill="url(#aura2)"/>
 
-  <text x="${PAD}" y="62" font-family="monospace" font-size="17" letter-spacing="6" fill="#585E68">NEKARA</text>
-  <text x="${PAD}" y="118" font-family="sans-serif" font-size="43" font-weight="700" letter-spacing="-1.4" fill="#F3F4F6">The ones that paid, last ${days} days</text>
-  <text x="${PAD}" y="148" font-family="monospace" font-size="14.5" fill="#8C929C">${shown.length} of ${s?.calls ?? shown.length} calls \u00b7 the other ${Math.max(0, (s?.calls ?? 0) - shown.length)} are on the register too, and ${s?.dead ?? 0} of them died</text>
+  <text x="${PAD}" y="60" font-family="monospace" font-size="16" letter-spacing="7" fill="#8C929C">NEKARA</text>
+  <rect x="${PAD}" y="74" width="42" height="2" rx="1" fill="url(#g)"/>
+  <text x="${PAD}" y="128" font-family="sans-serif" font-size="47" font-weight="700" letter-spacing="-1.9" fill="#F3F4F6">The ones that paid</text>
+  <text x="${PAD}" y="157" font-family="monospace" font-size="14" fill="#8C929C">Last ${days} days \u00b7 ${shown.length} of ${s?.calls ?? shown.length} calls \u00b7 the other ${Math.max(0, (s?.calls ?? 0) - shown.length)} are on the register too${(s?.dead ?? 0) ? ", and " + s.dead + " calls died" : ""}</text>
 
-  ${[["HIT \u2265 2\u00d7", Math.round((s?.hitRate ?? 0) * 100) + "%", "#F3F4F6"],
-     ["ALL CALLS", String(s?.calls ?? 0), "#F3F4F6"],
-     ["DEAD", String(s?.dead ?? 0), (s?.dead ?? 0) > 0 ? "#E5606B" : "#F3F4F6"]]
-    .map(([k, v, col], i) => `
-  <text x="${1148 - (2 - i) * 128}" y="70" text-anchor="end" font-family="sans-serif" font-size="33" font-weight="700" fill="${col}">${v}</text>
-  <text x="${1148 - (2 - i) * 128}" y="92" text-anchor="end" font-family="monospace" font-size="11" letter-spacing="1.6" fill="#585E68">${k}</text>`).join("")}
+  ${stats3.map(([k, v, c], i) => stat(k, v, c, i, stats3.length)).join("")}
+  <line x1="${1144 - 2 * 136 - 68}" y1="46" x2="${1144 - 2 * 136 - 68}" y2="98" stroke="rgba(255,255,255,.10)"/>
 
-  <rect x="${HX}" y="${HY}" width="${HW}" height="${HH}" rx="14" fill="url(#herobg)" stroke="rgba(255,255,255,.09)"/>
+  ${surface(HX, HY, HW, HH)}
   <clipPath id="hc"><rect x="${HX}" y="${HY}" width="${HW}" height="${HH}" rx="14"/></clipPath>
   <g clip-path="url(#hc)">
-    <path d="${hs.area}" fill="url(#gv)" opacity=".20"/>
-    <path d="${hs.line}" fill="none" stroke="url(#g)" stroke-width="3.4" stroke-linejoin="round"/>
+    <path d="${hs.area}" fill="url(#gv)" opacity=".26"/>
+    <path d="${hs.line}" fill="none" stroke="url(#g)" stroke-width="5" filter="url(#glowbig)" opacity=".85"/>
+    <path d="${hs.line}" fill="none" stroke="url(#g)" stroke-width="3.2" stroke-linejoin="round"/>
   </g>
-  <text x="${HX + 30}" y="${HY + 44}" font-family="monospace" font-size="12" letter-spacing="2.4" fill="#9B6DFF">BEST OF THE WINDOW</text>
-  <text x="${HX + 30}" y="${HY + 104}" font-family="sans-serif" font-size="52" font-weight="700" letter-spacing="-1.6" fill="#F3F4F6">${esc(ticker(hero.symbol))}</text>
-  <text x="${HX + HW - 30}" y="${HY + 104}" text-anchor="end" font-family="sans-serif" font-size="66" font-weight="700" letter-spacing="-2" fill="url(#g)">${(hero.peakX ?? 1).toFixed(2)}\u00d7</text>
-  <text x="${HX + 30}" y="${HY + 132}" font-family="monospace" font-size="14" fill="#8C929C">${esc(hero.chain)} \u00b7 ${esc(hero.dex ?? "")}${hero.secondsTo2x ? " \u00b7 2\u00d7 in " + Math.round(hero.secondsTo2x / 60) + "m" : ""}</text>
 
+  <rect x="${HX + 30}" y="${HY + 28}" width="34" height="24" rx="7" fill="url(#g)"/>
+  <text x="${HX + 47}" y="${HY + 45}" text-anchor="middle" font-family="monospace" font-size="13" font-weight="700" fill="#08090B">01</text>
+  <text x="${HX + 76}" y="${HY + 45}" font-family="monospace" font-size="11.5" letter-spacing="2.6" fill="#9B6DFF">BEST OF THE WINDOW</text>
+
+  <text x="${HX + 30}" y="${HY + 122}" font-family="sans-serif" font-size="56" font-weight="700" letter-spacing="-2.2" fill="#F3F4F6">${esc(ticker(hero.symbol))}</text>
+  <text x="${HX + HW - 30}" y="${HY + 124}" text-anchor="end" font-family="sans-serif" font-size="76" font-weight="700" letter-spacing="-3" fill="url(#g)">${(hero.peakX ?? 1).toFixed(2)}\u00d7</text>
+  <text x="${HX + 30}" y="${HY + 152}" font-family="monospace" font-size="13.5" fill="#8C929C">${esc(hero.chain)} \u00b7 ${esc(hero.dex ?? "")}${dur(hero.secondsTo2x) ? " \u00b7 2\u00d7 in " + dur(hero.secondsTo2x) : ""}</text>
+  ${hero.isDead ? `<text x="${HX + HW - 30}" y="${HY + 152}" text-anchor="end" font-family="monospace" font-size="12" letter-spacing="2" fill="#E5606B">DIED AFTER \u00b7 NOW ${(hero.nowX ?? 0).toFixed(2)}\u00d7</text>` : ""}
+
+  <line x1="${HX + 30}" y1="${HY + HH - 82}" x2="${HX + HW - 30}" y2="${HY + HH - 82}" stroke="rgba(255,255,255,.09)"/>
   ${[["ENTRY MC", usd(hero.entryMc)], ["PEAK MC", usd(hero.peakMc)],
      ["SOLD AT 2\u00d7", pct(hero.realised2x)], ["SCORE", `${hero.score ?? 0}/100`]]
-    .map(([k, v], i) => chip(k, v, HX + 30 + i * 134, HY + HH - 52)).join("")}
+    .map(([k, v], i) => `
+  <text x="${HX + 30 + i * 136}" y="${HY + HH - 54}" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">${k}</text>
+  <text x="${HX + 30 + i * 136}" y="${HY + HH - 26}" font-family="monospace" font-size="22" font-weight="600" fill="${k.startsWith("SOLD") ? "#3ECF8E" : "#F3F4F6"}">${v}</text>`).join("")}
 
   ${rest.map(row).join("")}
 
-  <text x="${PAD}" y="612" font-family="monospace" font-size="13.5" fill="#585E68">Sold at 2× is the published rule, after 5% round-trip costs. Every failed call stays on the register.</text>
-  <text x="1148" y="612" text-anchor="end" font-family="monospace" font-size="15" fill="#8C929C">nekara.xyz</text>
+  <text x="${PAD}" y="608" font-family="monospace" font-size="13" fill="#4A5058">Sold at 2× is the published rule, after 5% round-trip costs \u00b7 every failed call stays on the register</text>
+  <text x="1144" y="608" text-anchor="end" font-family="monospace" font-size="15" fill="#8C929C">nekara.xyz</text>
 </svg>`;
 }
 
