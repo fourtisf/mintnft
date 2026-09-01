@@ -426,6 +426,16 @@ export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sour
     symbol: pair.baseToken.symbol,
     name: pair.baseToken.name,
     imageUrl: pair.info?.imageUrl ?? null,
+    // Where the token says it lives. has_identity already refuses anything
+    // without one of these, so recording them costs nothing and lets a reader
+    // check the project without leaving the call. Only entries carrying a real
+    // http(s) URL: a bare handle would mean guessing the site, and anything
+    // else would be a third party choosing what this page links to.
+    links: [
+      ...(pair.info?.websites ?? []).map(w => ({ kind: "site", url: w?.url })),
+      ...(pair.info?.socials ?? []).map(s => ({
+        kind: String(s?.type ?? s?.platform ?? "link").toLowerCase(), url: s?.url })),
+    ].filter(l => typeof l.url === "string" && /^https?:\/\//i.test(l.url)).slice(0, 6),
     dex: pair.dexId,
     firedAt: new Date().toISOString(),
     entryPriceUsd: d.price,

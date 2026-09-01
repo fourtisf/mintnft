@@ -106,6 +106,7 @@ const call = store.insertCall({
   pairAddress: "P1", symbol: "LIVE", name: "Live Wire", dex: "pump.fun",
   firedAt: new Date().toISOString(), entryMc: 240_000, entryPrice: 0.00024, entrySupply: 1e9,
   liquidityUsd: 40_000, entryVolumeH1: 52_000, entryVolumeM5: 9_000,
+  links: [{ kind: "twitter", url: "https://x.com/livewire" }, { kind: "site", url: "https://livewire.example" }],
   score: 88, reasons: ["Volume running 3.4× the hourly pace"],
 });
 feed.publish({ ...call, ...store.mark(call.seq) });
@@ -201,6 +202,13 @@ ok(doc.querySelectorAll(".cd-chart .ax:not(.bot)").length === 3,
   "the chart labels the three lines it draws, so the scale is readable");
 ok(win.location.pathname === `/call/${call.seq}`,
   "the call has its own address — the one every share post points at");
+const keys = doc.querySelector(".cd-keys")?.textContent ?? "";
+ok(/First call MC/.test(keys) && /Now MC/.test(keys) && /× from entry/.test(keys),
+  "the header carries first-call MC, now MC and the multiple between them");
+ok(doc.querySelector('.cd-links a[href="https://x.com/livewire"]')?.textContent === "X",
+  "and the token's own links, as the provider gave them");
+ok(doc.querySelector(".cd-links .ca")?.dataset.ca === call.tokenAddress,
+  "the copy button carries the whole address, not the shortened one");
 await waitFor("the full series arrives", () => doc.querySelectorAll(".cd-chart .ax.bot").length === 2);
 ok(doc.querySelectorAll(".cd-chart .ax.bot").length === 2,
   "and the chart names both ends of the time it covers");
@@ -224,20 +232,24 @@ pick("all");
 
 /* ── 7. more than one page of register, filtered where it should be ─────── */
 console.log("\nLEBIH DARI SATU HALAMAN");
-// "$BIG" carries its own dollar, the way pump.fun listings often do.
-const extra = [["SMALL", 50_000], ["$BIG", 500_000], ["HUGE", 1_000_000]];
-for (const [symbol, mc] of extra)
+// "$BIG" carries its own dollar, the way pump.fun listings often do, and the
+// last one is named the way someone eventually will name one.
+const extra = [["SMALL", 50_000, "Small Coin"], ["$BIG", 500_000, "Big Coin"],
+               ["HUGE", 1_000_000, "Huge Coin"], ["XSS", 60_000, '<img src=x onerror=alert(1)>']];
+for (const [symbol, mc, name] of extra)
   store.insertCall({
     callerId: 1, chain: "solana", tokenAddress: "TOK" + symbol, pairAddress: "P" + symbol,
-    symbol, name: symbol + " Coin", dex: "raydium", firedAt: new Date().toISOString(),
+    symbol, name, dex: "raydium", firedAt: new Date().toISOString(),
     entryMc: mc, entryPriceUsd: mc / 1e9, entrySupply: 1e9, liquidityUsd: 30_000,
     entryVolumeH1: 20_000, score: 80, reasons: ["Volume running 2.0× the hourly pace"],
   });
 
 pickSel("timeSel", 0);                      // any change re-asks the engine
-await waitFor("the new calls arrive", () => cards().length === 4);
-ok(cards().length === 4, "all four calls are on the page");
-ok(/4 of 4/.test(text("cnt")), `the count says what the register holds: "${text("cnt")}"`);
+await waitFor("the new calls arrive", () => cards().length === 5);
+ok(cards().length === 5, "all five calls are on the page");
+ok(doc.querySelectorAll("#feed img").length === 0,
+  "a token named after an <img> tag is text on the page, not an element in it");
+ok(/5 of 5/.test(text("cnt")), `the count says what the register holds: "${text("cnt")}"`);
 
 pickSel("mcSel", 500000);
 // The local predicate narrows the list first; the count only settles once the
@@ -252,11 +264,11 @@ ok(/\$BIG/.test(bigCard) && !/\$\$BIG/.test(bigCard),
 
 // Paging, asked of the API directly: sixty rows is a page, not the register.
 const page = await fetch(`${BASE}/api/register?limit=2&offset=2`);
-ok(page.headers.get("x-total-count") === "4", "the register reports its true total in the header");
+ok(page.headers.get("x-total-count") === "5", "the register reports its true total in the header");
 ok((await page.json()).length === 2, "and an offset returns the next page rather than the first");
 
 pickSel("mcSel", 0);
-await waitFor("clearing the filter restores the list", () => cards().length === 4);
+await waitFor("clearing the filter restores the list", () => cards().length === 5);
 ok(!/mc=/.test(win.location.search), "clearing it takes it back out of the URL");
 
 /* ── 8. and it survives the engine going away again ──────────────────────── */
@@ -264,7 +276,7 @@ console.log("\nENGINE MATI LAGI");
 feed.close(); srv.close();
 await waitFor("the page notices the engine went away", () => text("syncTxt").startsWith("engine offline"), 30000);
 ok(text("syncTxt").startsWith("engine offline"), `header reads "${text("syncTxt")}"`);
-ok(cards().length === 4, "the calls stay on the page — they are the record, not a cache");
+ok(cards().length === 5, "the calls stay on the page — they are the record, not a cache");
 ok(text("rCalls") === "—", "the statistics do not: those we no longer know");
 
 win.close();

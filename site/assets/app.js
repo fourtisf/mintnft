@@ -49,6 +49,17 @@ const calls=SEED.map((s,i)=>({id:"r"+i,reasons:REASONS[i%REASONS.length],
   entry:s.e,peak:s.p,nowMc:s.w,liq:Math.round(s.e*.28),vol:Math.round(s.e*.45),
   twoIn:s.two,at:T0-s.ago*MIN,live:s.ago<1440,path:mkPath(s.e,s.p,s.w,48),flash:false}));
 
+/* Names, symbols, dex ids and links come from a price API and end up inside
+   innerHTML. A token called <img onerror=...> is a memecoin away, and this
+   page renders whatever the provider says. Escape at the point of use. */
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const LINK_LABEL={site:"website",twitter:"X",x:"X",telegram:"Telegram",discord:"Discord",link:"link"};
+const linkRow=c=>[
+  c.pair?`<a class="lnk" href="${esc(DEX+c.chainId+"/"+c.pair)}" target="_blank" rel="noopener noreferrer">chart</a>`:"",
+  ...(c.links??[]).map(l=>
+    `<a class="lnk" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(LINK_LABEL[l.kind]??l.kind)}</a>`),
+].join("");
+
 const fmt=v=>v>=1e9?(v/1e9).toFixed(2)+"B":v>=1e6?(v/1e6).toFixed(2)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":Math.round(v);
 const mult=c=>c.peak/c.entry, nx=c=>c.nowMc/c.entry;
 /* The engine decides the verdict, and it records death separately on purpose:
@@ -107,22 +118,21 @@ function card(c,i,mini){
   const head=(c.live||deadOf(c)?n:mult(c)).toFixed(2)+"×";
   const bg=deadOf(c)?"d":v==="win"?"w":v==="open"?"":"m";
   return `<article class="rec ${deadOf(c)?"dead":""}" data-id="${c.id}" style="animation-delay:${Math.min(i*34,300)}ms">
-    <div class="rh"><div class="tok">${c.tick[0]}</div>
-      <div class="rh-id"><h3>${c.name}</h3>
-        <div class="rh-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}<span class="dotsep"></span>${c.src}<span class="dotsep"></span>${c.by==="desk"?"house desk":"@"+c.by}</div></div>
+    <div class="rh"><div class="tok">${esc(c.tick[0])}</div>
+      <div class="rh-id"><h3>${esc(c.name)}</h3>
+        <div class="rh-meta"><span class="tk">$${esc(c.tick)}</span><span class="dotsep"></span>${esc(c.chain)}<span class="dotsep"></span>${esc(c.src)}<span class="dotsep"></span>${c.by==="desk"?"house desk":"@"+esc(c.by)}</div></div>
       <div class="mx"><div class="big ${bg}" data-mx="${c.id}">${head}</div><span class="badge ${v}">${LBL[v]}</span></div></div>
     <div class="spark">${sp.html}<span class="thresh-lbl" style="top:${sp.yT/54*100}%">2×</span></div>
     ${mini?"":`<div class="why"><span class="why-h">Why it fired<b>${c.score}</b></span>
-      ${c.reasons.map(r=>`<span class="wchip">${r}</span>`).join("")}</div>`}
+      ${c.reasons.map(r=>`<span class="wchip">${esc(r)}</span>`).join("")}</div>`}
     <div class="rf">
       <div><div class="k">Entry MC</div><div class="v mut">${fmt(c.entry)}</div></div>
       <div><div class="k">Peak MC</div><div class="v">${fmt(c.peak)}</div></div>
       <div><div class="k">Now MC</div><div class="v ${n>=1?"up":"dn"}" data-now="${c.id}">${fmt(c.nowMc)}</div></div>
       <div><div class="k" data-xk="${c.id}">${k4}</div><div class="v mut" data-x="${c.id}">${v4}</div></div></div>
     ${mini?"":`<div class="rft"><span>${utc(c.at)}</span>
-      <button class="ca" data-ca="${c.ca}">${c.ca}<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.6" y="3.6" width="7" height="7" rx="1.4"/><path d="M8.4 1.4h-7v7"/></svg></button>
-      ${c.pair?`<a class="lnk" href="${DEX}${c.chainId}/${c.pair}" target="_blank" rel="noopener noreferrer"
-        title="Open the pair this call was fired on">chart<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4.5 7.5L9 3M5.5 3H9v3.5"/></svg></a>`:""}
+      <button class="ca" data-ca="${esc(c.addr||c.ca)}">${esc(c.ca)}<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.6" y="3.6" width="7" height="7" rx="1.4"/><path d="M8.4 1.4h-7v7"/></svg></button>
+      ${linkRow(c)}
       <span class="live-tag">${deadOf(c)?'<span style="color:var(--dead)">Died</span>'
         :c.live?'<span class="pulse"></span>Live':'<span style="color:var(--tx-3)">Settled</span>'}</span>
       <button class="shbtn" data-share="${c.id}">
@@ -861,10 +871,19 @@ function openCall(id){
   document.getElementById("cdBody").innerHTML=`
     <div class="cd-top">
       <div class="tok" style="width:52px;height:52px;font-size:19px">${c.tick[0]}</div>
-      <div class="cd-id"><h1>${c.name}</h1>
-        <div class="cd-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}
-          <span class="dotsep"></span>${c.src}<span class="dotsep"></span>${utc(c.at)}
-          <span class="dotsep"></span>${ago(c.at)}</div></div>
+      <div class="cd-id"><h1>${esc(c.name)}</h1>
+        <div class="cd-meta"><span class="tk">$${esc(c.tick)}</span><span class="dotsep"></span>${esc(c.chain)}
+          <span class="dotsep"></span>${esc(c.src)}<span class="dotsep"></span>${utc(c.at)}
+          <span class="dotsep"></span>${ago(c.at)}</div>
+        <div class="cd-keys">
+          <span><b>First call MC</b>${fmt(c.entry)}</span>
+          <span><b>Now MC</b>${fmt(c.nowMc)}</span>
+          <span class="mx">${n.toFixed(2)}× from entry</span>
+        </div>
+        <div class="cd-links">
+          <button class="ca" data-ca="${esc(c.addr||c.ca)}">${esc(c.ca)}<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.6" y="3.6" width="7" height="7" rx="1.4"/><path d="M8.4 1.4h-7v7"/></svg></button>
+          ${linkRow(c)}
+        </div></div>
       <div class="cd-mx"><div class="big" style="${v==="win"&&!deadOf(c)?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(c.live||deadOf(c)?n:mult(c)).toFixed(2)}×</div>
         <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
     </div>
@@ -884,8 +903,7 @@ function openCall(id){
         </div>
         <div class="stat" style="margin-top:18px"><span class="l">Score at fire</span><span class="v">${c.score}</span></div>
         <div class="stat"><span class="l">State</span><span class="v">${c.live?"Live":"Settled"}</span></div>
-        <div class="stat"><span class="l">Contract</span><span class="v">${c.ca}</span></div>
-        ${c.pair?`<div class="stat"><span class="l">Pair</span><span class="v"><a class="lnk" style="display:inline-flex" href="${DEX}${c.chainId}/${c.pair}" target="_blank" rel="noopener noreferrer">open the chart</a></span></div>`:""}
+        <div class="stat"><span class="l">Liquidity at fire</span><span class="v">${c.liq?fmt(c.liq):"—"}</span></div>
         <button class="btn btn-s btn-full" style="margin-top:16px" data-share="${c.id}">Post templates</button>
       </div>
       <div class="box">
@@ -1436,6 +1454,7 @@ function rowToCall(d){
 
     entry:d.entryMc,peak:d.peakMc??d.entryMc,nowMc:d.nowMc??d.entryMc,
     liq:d.liquidityUsd??0,vol:d.entryVolumeH1??null,   // null = fired before we recorded it
+    links:Array.isArray(d.links)?d.links:[],
     chainId:d.chain,pair:d.pairAddress??"",             // the pair it fired on, for the chart link
     deadAt:d.deadAt?Date.parse(d.deadAt):null,
     raw:d,                              // the row as the engine wrote it, for verification

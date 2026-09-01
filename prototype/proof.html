@@ -456,6 +456,11 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .cd-id h1{font-size:clamp(28px,3.8vw,38px);letter-spacing:-.036em}
 .cd-meta{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:13px;color:var(--tx-3);flex-wrap:wrap}
 .cd-meta .tk{font-family:var(--mono);font-size:12.5px;color:var(--tx-2)}
+.cd-keys{display:flex;gap:20px;flex-wrap:wrap;margin-top:13px;
+  font-family:var(--mono);font-size:13px;color:var(--tx);font-variant-numeric:tabular-nums}
+.cd-keys b{color:var(--tx-3);font-weight:400;margin-right:7px;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+.cd-keys .mx{color:var(--accent)}
+.cd-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px;font-family:var(--mono);font-size:10.5px;color:var(--tx-3)}
 .cd-mx{text-align:right}
 .cd-mx .big{font-family:var(--display);font-size:clamp(38px,5vw,54px);font-weight:600;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
 .cd-chart{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);padding:20px;position:relative;
@@ -1789,7 +1794,16 @@ function openCall(id){
       <div class="tok" style="width:52px;height:52px;font-size:19px">${c.tick[0]}</div>
       <div class="cd-id"><h1>${c.name}</h1>
         <div class="cd-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}
-          <span class="dotsep"></span>${c.src}<span class="dotsep"></span>${utc(c.at)}</div></div>
+          <span class="dotsep"></span>${c.src}<span class="dotsep"></span>${utc(c.at)}
+          <span class="dotsep"></span>${ago(c.at)}</div>
+        <div class="cd-keys">
+          <span><b>First call MC</b>${fmt(c.entry)}</span>
+          <span><b>Now MC</b>${fmt(c.nowMc)}</span>
+          <span class="mx">${n.toFixed(2)}× from entry</span>
+        </div>
+        <div class="cd-links">
+          <button class="ca" data-ca="${c.ca}">${c.ca}<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.6" y="3.6" width="7" height="7" rx="1.4"/><path d="M8.4 1.4h-7v7"/></svg></button>
+        </div></div>
       <div class="cd-mx"><div class="big" style="${v==="win"?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(v==="open"?n:mult(c)).toFixed(2)}×</div>
         <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
     </div>

@@ -461,6 +461,13 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .cd-id h1{font-size:clamp(28px,3.8vw,38px);letter-spacing:-.036em}
 .cd-meta{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:13px;color:var(--tx-3);flex-wrap:wrap}
 .cd-meta .tk{font-family:var(--mono);font-size:12.5px;color:var(--tx-2)}
+/* Entry, now and the multiple between them, above the fold: the three numbers
+   a reader opens a call to see, and they were all below the chart. */
+.cd-keys{display:flex;gap:20px;flex-wrap:wrap;margin-top:13px;
+  font-family:var(--mono);font-size:13px;color:var(--tx);font-variant-numeric:tabular-nums}
+.cd-keys b{color:var(--tx-3);font-weight:400;margin-right:7px;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+.cd-keys .mx{color:var(--accent)}
+.cd-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px;font-family:var(--mono);font-size:10.5px;color:var(--tx-3)}
 .cd-mx{text-align:right}
 .cd-mx .big{font-family:var(--display);font-size:clamp(38px,5vw,54px);font-weight:600;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
 .cd-chart{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);padding:20px;position:relative;
