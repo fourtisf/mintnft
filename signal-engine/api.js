@@ -10,7 +10,8 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { stats } from "./scorer.js";
-import { reasonPerformance, scoreBands, chainPerformance, callerPerformance } from "./analytics.js";
+import { reasonPerformance, scoreBands, chainPerformance, callerPerformance,
+         exitSimulation, realised } from "./analytics.js";
 import { callCard, toCsv } from "./og.js";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
@@ -87,7 +88,10 @@ export function serve(store, {
 
     /* ── register, all tier-filtered ── */
     const tier = tierOf(req);
-    const rows = filterForTier(store.register(), tier, Date.now(), delays);
+    // What the default rule would have returned on this call, computed here so
+    // a card and the simulation on Hindsight can never disagree about it.
+    const rows = filterForTier(store.register(), tier, Date.now(), delays)
+      .map(r => ({ ...r, realised2x: realised(r, "2x") }));
 
     if (p === "/api/register") {
       // Filtering belongs here, not in the browser. A page holding the newest
@@ -167,7 +171,19 @@ export function serve(store, {
     if (p === "/api/analytics/reasons") return json(res, 200, reasonPerformance(windowed()));
     if (p === "/api/analytics/bands") return json(res, 200, scoreBands(windowed()));
     if (p === "/api/analytics/chains") return json(res, 200, chainPerformance(windowed()));
-    if (p === "/api/analytics/callers") return json(res, 200, callerPerformance(windowed()));
+    if (p === "/api/analytics/callers") {
+      const rule = ["2x", "1.5x", "hold", "trail"].includes(url.searchParams.get("exit"))
+        ? url.searchParams.get("exit") : "2x";
+      return json(res, 200, callerPerformance(windowed(), { rule }));
+    }
+    // The result, as opposed to the peak. Same rules the Hindsight page offers,
+    // computed here so the answer does not depend on which rows a browser holds.
+    if (p === "/api/analytics/simulate") {
+      const rule = ["2x", "1.5x", "hold", "trail"].includes(url.searchParams.get("exit"))
+        ? url.searchParams.get("exit") : "2x";
+      const size = Math.min(Math.max(Number(url.searchParams.get("size")) || 100, 1), 1e6);
+      return json(res, 200, exitSimulation(windowed(), { rule, size }));
+    }
 
     if (p === "/api/export.csv") {
       res.writeHead(200, { "content-type": "text/csv",

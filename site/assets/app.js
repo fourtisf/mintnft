@@ -595,7 +595,7 @@ function anim(id,to,dec,suf){
    would quietly answer a different question than the heading asks — and would
    drift the moment the page pages. Two windows, because the two headings ask
    two questions: home says "on record", the signals page says "7D". */
-let statsAll=null,stats7=null;
+let statsAll=null,stats7=null,sim7=null;
 const localStats=()=>{
   const ms=calls.map(mult).sort((a,b)=>a-b),n=ms.length;
   return{calls:n,hitRate:n?calls.filter(win).length/n:0,
@@ -612,6 +612,17 @@ function renderStats(){
   };
   put(["mCalls","mHit","mMed","mBest"],all);
   put(["rCalls","rHit","rMed","rBest"],wk);
+  // Peak is a ceiling nobody sold at; this is what the rule beside it returned.
+  // They sit next to each other because the gap between them is the point.
+  const re=document.getElementById("rReal");
+  if(re){
+    if(!sim7)animStop(re).textContent="—";
+    else{
+      const pct=sim7.returnPct*100;
+      animStop(re).innerHTML=(pct>=0?"+":"−")+Math.abs(pct).toFixed(0)+"<span>%</span>";
+      re.style.color=pct>=0?"var(--win)":"var(--dead)";
+    }
+  }
   document.getElementById("pillCount").textContent=all?all.calls+" calls":"—";
 }
 /* These two panels publish hit rates, so they may not be computed from the
@@ -776,7 +787,7 @@ function go(v,hash){
   document.getElementById("tkr").classList.toggle("hide",v!=="reg");
   document.body.style.paddingBottom=v==="reg"?"36px":"0";
   document.querySelectorAll("#navLinks a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
-  if(v==="quant"){renderQuant();renderSim();renderLeaders()} if(v==="ops")renderOps();
+  if(v==="quant"){renderQuant();renderSim();renderLeaders();pullQuant()} if(v==="ops")renderOps();
   // Opening Custody re-reads the chain rather than showing a minute-old answer
   // about integrity, which is the one thing nobody should read stale.
   if(v==="vault"){renderVault();pullVerify()}
@@ -944,6 +955,7 @@ function openCall(id){
         <div class="stat" style="margin-top:18px"><span class="l">Score at fire</span><span class="v">${c.score}</span></div>
         <div class="stat"><span class="l">State</span><span class="v">${c.live?"Live":"Settled"}</span></div>
         <div class="stat"><span class="l">Liquidity at fire</span><span class="v">${c.liq?fmt(c.liq):"—"}</span></div>
+        ${c.real==null?"":`<div class="stat"><span class="l">Sold at 2×, after 5% costs</span><span class="v" style="color:${c.real>=0?"var(--win)":"var(--dead)"}">${c.real>=0?"+":"−"}${Math.abs(c.real*100).toFixed(0)}%</span></div>`}
         <button class="btn btn-s btn-full" style="margin-top:16px" data-share="${c.id}">Post templates</button>
       </div>
       <div class="box">
@@ -1017,14 +1029,25 @@ function simulate(rule,size){
     if(eq>peak)peak=eq;
     if(peak-eq>dd)dd=peak-eq;
   }
-  return {curve,eq,dd,wins:pnl.filter(x=>x.net>0).length,n:pnl.length,invested:size*pnl.length};
+  const invested=size*pnl.length;
+  return {curve,result:eq,drawdown:dd,wins:pnl.filter(x=>x.net>0).length,n:pnl.length,
+          invested,returnPct:invested?eq/invested:0,
+          avgPeak:rows.length?rows.reduce((a,c)=>a+mult(c),0)/rows.length:0};
 }
 function renderSim(){
-  const r=simulate(simX,simSize),W=1000,H=190;
+  const r=DEMO?simulate(simX,simSize):simNow;
+  if(!r||!r.n){
+    document.getElementById("simEq").innerHTML="";
+    document.getElementById("simStat").innerHTML=
+      `<div class="k" style="color:var(--tx-3)">${CONN.state==="offline"?"Engine not answering.":"No settled calls to run a rule over yet."}</div>`;
+    document.getElementById("simGap").textContent="";
+    return;
+  }
+  const W=1000,H=190;
   const mn=Math.min(...r.curve,0),mx=Math.max(...r.curve,0),sp=(mx-mn)||1;
   const X=i=>i/(r.curve.length-1)*W, Y=v=>H-((v-mn)/sp)*(H-20)-10;
   const d=r.curve.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join("");
-  const pos=r.eq>=0,col=pos?"#3ECF8E":"#E5606B";
+  const pos=r.result>=0,col=pos?"#3ECF8E":"#E5606B";
   document.getElementById("simEq").innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     <defs><linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${col}" stop-opacity=".22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
@@ -1033,16 +1056,16 @@ function renderSim(){
     <path d="${d}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
   const money=v=>(v<0?"−$":"$")+Math.abs(Math.round(v)).toLocaleString();
   document.getElementById("simStat").innerHTML=[
-    ["Result",money(r.eq),r.eq>=0?"up":"dn"],
-    ["Return",((r.eq/r.invested)*100).toFixed(1)+"%",r.eq>=0?"up":"dn"],
+    ["Result",money(r.result),r.result>=0?"up":"dn"],
+    ["Return",(r.returnPct*100).toFixed(1)+"%",r.result>=0?"up":"dn"],
     ["Profitable calls",r.wins+" / "+r.n,""],
-    ["Worst drawdown",money(-r.dd),"dn"]].map(([k,v,c])=>
+    ["Worst drawdown",money(-r.drawdown),"dn"]].map(([k,v,c])=>
     `<div><div class="k">${k}</div><div class="v ${c}">${v}</div></div>`).join("");
-  const avgPeak=calls.reduce((a,c)=>a+mult(c),0)/calls.length;
+  const avgPeak=r.avgPeak;
   document.getElementById("simGap").innerHTML=
     `Average peak across the register is <b style="color:var(--tx)">${avgPeak.toFixed(2)}×</b>, which reads like a
      ${((avgPeak-1)*100).toFixed(0)}% return. Under this exit rule it actually returned
-     <b style="color:${pos?"var(--win)":"var(--dead)"}">${((r.eq/r.invested)*100).toFixed(1)}%</b>.
+     <b style="color:${pos?"var(--win)":"var(--dead)"}">${(r.returnPct*100).toFixed(1)}%</b>.
      That gap is why peak and now are always shown together — nobody sells the top, and 5% round-trip
      cost across ${r.n} calls is real money.`;
 }
@@ -1053,32 +1076,38 @@ function renderSim(){
 let lbMin=1, lbWin=0;
 function renderLeaders(){
   const now=Date.now(), cut=lbWin?now-lbWin*24*60*MIN:0;
-  const pool=calls.filter(c=>c.at>=cut);
-  const g={}; pool.forEach(c=>{(g[c.by]=g[c.by]||[]).push(c)});
-  const rows=Object.entries(g).map(([by,v])=>{
-    const ms=v.map(mult).sort((a,b)=>a-b), ns=v.map(nx).sort((a,b)=>a-b);
-    const mid=a=>a[Math.floor(a.length/2)];
-    const chains={}; v.forEach(c=>chains[c.chain]=(chains[c.chain]||0)+1);
-    const last=[...v].sort((a,b)=>b.at-a.at).slice(0,5);
-    return {by, n:v.length,
-      d7:v.filter(c=>c.at>=now-7*24*60*MIN).length,
-      d30:v.filter(c=>c.at>=now-30*24*60*MIN).length,
-      rate:v.filter(win).length/v.length,
-      medPk:mid(ms), medNow:mid(ns),
-      ret:v.reduce((a,c)=>a+(exitMultiple(c,simX)*(1-FEE)-1),0)/v.length,
-      chain:Object.entries(chains).sort((a,b)=>b[1]-a[1])[0][0],
-      last};
-  }).filter(r=>r.n>=lbMin).sort((a,b)=>b.rate-a.rate||b.ret-a.ret);
+  const rows=(DEMO
+    ?Object.entries(calls.filter(c=>c.at>=cut).reduce((g,c)=>((g[c.by]??=[]).push(c),g),{}))
+      .map(([by,v])=>{
+        const mid=a=>a.slice().sort((x,y)=>x-y)[Math.floor(a.length/2)];
+        const chains={};v.forEach(c=>chains[c.chain]=(chains[c.chain]||0)+1);
+        return {who:by==="desk"?"House desk":"@"+by,n:v.length,
+          d7:v.filter(c=>c.at>=now-7*24*60*MIN).length,
+          d30:v.filter(c=>c.at>=now-30*24*60*MIN).length,
+          rate:v.filter(win).length/v.length,
+          medPk:mid(v.map(mult)),medNow:mid(v.map(nx)),
+          ret:v.reduce((a,c)=>a+(exitMultiple(c,simX)*(1-FEE)-1),0)/v.length,
+          chain:Object.entries(chains).sort((a,b)=>b[1]-a[1])[0][0],
+          last:[...v].sort((a,b)=>b.at-a.at).slice(0,5).map(c=>badgeOf(c))};
+      })
+    :(anaLeaders??[]).map(r=>({
+        who:CALLER_NAME(r.callerId),n:r.n,d7:r.d7,d30:r.d30,rate:r.hitRate,
+        medPk:r.medianPeak,medNow:r.medianNow,ret:r.returnPct,
+        chain:CHAIN[r.topChain]??r.topChain??"—",
+        // The engine sends the verdict and the death; the badge rule is the same
+        // one the cards use, so a form line cannot disagree with a card.
+        last:(r.last??[]).map(m=>m.verdict==="win"?"win":m.isDead?"dead":m.verdict)})))
+    .filter(r=>r.n>=lbMin).sort((a,b)=>b.rate-a.rate||b.ret-a.ret);
 
   document.getElementById("qCallers").innerHTML = rows.length ? rows.map((r,i)=>
     `<tr><td class="n" style="text-align:left;color:var(--tx-3)">${i+1}</td>
-      <td class="k">${r.by==="desk"?"House desk":"@"+r.by}</td>
+      <td class="k">${esc(r.who)}</td>
       <td class="n">${r.d7} / ${r.d30} / ${r.n}</td>
       <td class="n" style="color:var(--tx)">${Math.round(r.rate*100)}%</td>
       <td class="n">${r.medPk.toFixed(2)}×</td>
       <td class="n" style="color:${r.medNow>=1?"var(--tx-2)":"var(--dead)"}">${r.medNow.toFixed(2)}×</td>
       <td class="n" style="color:${r.ret>=0?"var(--win)":"var(--dead)"}">${r.ret>=0?"+":"−"}${Math.abs(r.ret*100).toFixed(0)}%</td>
-      <td><span class="vdots">${r.last.map(c=>`<i class="${badgeOf(c)}"></i>`).join("")}${
+      <td><span class="vdots">${r.last.map(v=>`<i class="${esc(v)}"></i>`).join("")}${
         Array.from({length:Math.max(0,5-r.last.length)},()=>"<i></i>").join("")}</span></td>
       <td>${r.chain}</td></tr>`).join("")
     : `<tr><td colspan="9" style="color:var(--tx-3);padding:16px 0">No caller has that many calls in this window yet.</td></tr>`;
@@ -1086,14 +1115,17 @@ function renderLeaders(){
 document.getElementById("lbMin").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;lbMin=+b.dataset.m;
   [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderLeaders();});
-document.getElementById("lbWin").addEventListener("change",e=>{lbWin=+e.target.value;renderLeaders()});
+document.getElementById("lbWin").addEventListener("change",e=>{lbWin=+e.target.value;renderLeaders();pullQuant()});
 document.getElementById("simExit").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;simX=b.dataset.x;
-  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderSim();renderLeaders();});
-document.getElementById("simSize").addEventListener("change",e=>{simSize=+e.target.value;renderSim()});
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));renderSim();renderLeaders();pullQuant();});
+document.getElementById("simSize").addEventListener("change",e=>{simSize=+e.target.value;renderSim();pullQuant()});
 
 /* ═══════ Hindsight · Triage · Vault ═══════
-   Everything below is computed from the register in this page, not typed in.
+   Every number below comes from the engine's analytics over the whole window,
+   not from the rows this page is holding — those are whatever the Signals
+   filter last asked for, and a hit rate computed over them answers a different
+   question than the heading above it.
    Same functions as analytics.js on the server. */
 
 const settledRows=()=>calls.filter(c=>!c.live);
@@ -1118,14 +1150,30 @@ function bands(w=20){
     const e=g[lo]||(g[lo]={lo,hi:lo+w,n:0,w:0});e.n++;if(win(r))e.w++});
   return Object.values(g).sort((a,b)=>a.lo-b.lo).map(e=>({...e,hit:e.n?e.w/e.n:0}));
 }
+/* Every number on this page was computed in the browser over `calls` — which,
+   since the register filters on the server, is whatever the Signals page was
+   last asked for. Open it under ?f=win and Hindsight quietly answered "of the
+   wins, how many won". The engine has had these endpoints all along. */
+let anaBands=null,anaReasons=null,anaLeaders=null,simNow=null;
+async function pullQuant(){
+  if(DEMO)return;
+  [anaBands,anaReasons,anaLeaders,simNow]=await Promise.all([
+    readJson("/analytics/bands"),
+    readJson("/analytics/reasons"),
+    readJson(`/analytics/callers?exit=${simX}${lbWin?`&days=${lbWin}`:""}`),
+    readJson(`/analytics/simulate?exit=${simX}&size=${simSize}`)]);
+  renderQuant();renderSim();renderLeaders();
+}
 function renderQuant(){
-  const bs=bands(),mx=Math.max(...bs.map(b=>b.hit),0.01);
+  const bs=DEMO?bands():(anaBands??[]).map(b=>({lo:b.lo,hi:b.hi,n:b.n,hit:b.hitRate}));
+  const mx=Math.max(...bs.map(b=>b.hit),0.01);
   document.getElementById("qBands").innerHTML=bs.map(b=>
     `<div><b>${(b.hit*100).toFixed(0)}%</b><i style="height:${Math.max(4,b.hit/mx*100)}%"></i>
       <span>${b.lo}-${b.hi}</span><span style="opacity:.6">n=${b.n}</span></div>`).join("")
     ||`<div style="color:var(--tx-3);font-size:12.5px">No settled calls yet.</div>`;
 
-  const rp=reasonPerf();
+  const rp=DEMO?reasonPerf()
+    :{list:(anaReasons?.reasons??[]).map(r=>({id:r.id,n:r.n,hit:r.hitRate,lift:r.lift}))};
   document.getElementById("qReasons").innerHTML=rp.list.map(r=>
     `<tr><td class="k">${r.id.replace(/_/g," ")}</td><td class="n">${r.n}</td>
       <td class="n">${(r.hit*100).toFixed(0)}%</td>
@@ -1133,10 +1181,13 @@ function renderQuant(){
         <span class="mono" style="font-size:11.5px;color:${r.lift>=1?"var(--accent)":"var(--tx-3)"}">${r.lift.toFixed(2)}</span></span></td></tr>`).join("")
     ||`<tr><td colspan="4" style="color:var(--tx-3)">Not enough settled calls.</td></tr>`;
 
-  const g={};calls.forEach(c=>{const e=g[c.chain]||(g[c.chain]={n:0,w:0,p:[]});
-    e.n++;if(win(c))e.w++;e.p.push(mult(c))});
-  document.getElementById("qChains").innerHTML=Object.entries(g)
-    .map(([k,e])=>({k,n:e.n,hit:e.w/e.n,avg:e.p.reduce((a,b)=>a+b,0)/e.p.length}))
+  const cg=DEMO
+    ?Object.entries(calls.reduce((g,c)=>{const e=g[c.chain]||(g[c.chain]={n:0,w:0,p:[]});
+        e.n++;if(win(c))e.w++;e.p.push(mult(c));return g},{}))
+       .map(([k,e])=>({k,n:e.n,hit:e.w/e.n,avg:e.p.reduce((a,b)=>a+b,0)/e.p.length}))
+    :(anaChains??[]).map(r=>({k:CHAIN[r.chain]??String(r.chain).toUpperCase(),
+        n:r.n,hit:r.hitRate,avg:r.avgPeak}));
+  document.getElementById("qChains").innerHTML=cg
     .sort((a,b)=>b.hit-a.hit).map(r=>
     `<tr><td class="k">${r.k}</td><td class="n">${r.n}</td>
       <td class="n" style="color:${r.hit>=.5?"var(--win)":"var(--tx-2)"}">${(r.hit*100).toFixed(0)}%</td>
@@ -1467,6 +1518,10 @@ const CHAIN={solana:"SOL",base:"BASE",bsc:"BSC",ethereum:"ETH"};
    Held in sessionStorage: a reload should not cost another signature, and a
    closed tab should not leave a token behind. */
 const SESSION={token:null,tier:0,address:null};
+const readJson=async path=>{
+  try{const r=await fetch(API+path,noStore());return r.ok?await r.json():null}
+  catch{return null}
+};
 const noStore=()=>({cache:"no-store",
   headers:SESSION.token?{authorization:"Bearer "+SESSION.token}:{}});
 const SHORT=a=>a?a.slice(0,6)+"…"+a.slice(-4):"";
@@ -1518,6 +1573,7 @@ function rowToCall(d){
 
     entry:d.entryMc,peak:d.peakMc??d.entryMc,nowMc:d.nowMc??d.entryMc,
     liq:d.liquidityUsd??0,vol:d.entryVolumeH1??null,   // null = fired before we recorded it
+    real:typeof d.realised2x==="number"?d.realised2x:null,  // the rule's answer, from the engine
     links:Array.isArray(d.links)?d.links:[],
     chainId:d.chain,pair:d.pairAddress??"",             // the pair it fired on, for the chart link
     deadAt:d.deadAt?Date.parse(d.deadAt):null,
@@ -1737,20 +1793,18 @@ async function pullLive(){
       try{const r=await fetch(API+"/stats"+q,noStore());return r.ok?await r.json():null}
       catch{return null}
     };
-    const readJson=async path=>{
-      try{const r=await fetch(API+path,noStore());return r.ok?await r.json():null}
-      catch{return null}
-    };
     [statsAll,stats7,anaCallers,anaChains]=await Promise.all([
       readStats("?days=all"),readStats(""),
       // The windows the two panels are labelled with, so the headings are true.
       readJson("/analytics/callers?days=30"),readJson("/analytics/chains?days=7")]);
+    // The same seven days the figures above it cover, under the default rule.
+    sim7=await readJson("/analytics/simulate?days=7&exit=2x&size=100");
     setConn(sock&&sock.readyState===1&&CONN.state==="live"?"live":"polling");
     renderAll();
   }catch(e){
     // Rows already read stay on the page — they are the record, and the header
     // says how stale they are. The statistics do not: those we no longer know.
-    statsAll=stats7=anaCallers=anaChains=null;
+    statsAll=stats7=anaCallers=anaChains=sim7=null;
     // A live socket outranks a failed poll: the feed is demonstrably up, so the
     // header keeps saying live and only the figures go blank.
     if(!(sock&&sock.readyState===1&&CONN.state==="live"))setConn("offline");

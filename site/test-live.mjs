@@ -221,6 +221,11 @@ ok(/never been published/.test(doc.getElementById("cdAnchor").textContent),
   "and it claims no anchor, because there is none");
 ok(doc.querySelectorAll(".cd-chart .ax:not(.bot)").length === 3,
   "the chart labels the three lines it draws, so the scale is readable");
+// It reached 2× and then went to nothing: the rule sold at 2×, the peak did not.
+ok(/Sold at 2×/.test(doc.getElementById("cdBody").textContent),
+  "the detail says what the exit rule actually returned");
+ok(/\+90%/.test(doc.getElementById("cdBody").textContent),
+  "and the number is the engine's: 2× less 5% round-trip");
 ok(win.location.pathname === `/call/${call.seq}`,
   "the call has its own address — the one every share post points at");
 const keys = doc.querySelector(".cd-keys")?.textContent ?? "";
@@ -271,6 +276,9 @@ ok(cards().length === 5, "all five calls are on the page");
 ok(doc.querySelectorAll("#feed img").length === 0,
   "a token named after an <img> tag is text on the page, not an element in it");
 ok(/5 of 5/.test(text("cnt")), `the count says what the register holds: "${text("cnt")}"`);
+await waitFor("the result arrives beside the peak", () => /%/.test(text("rReal")));
+ok(/^[+−]\d+%$/.test(text("rReal")),
+  `the header carries the result of the rule, not only the peak (reads "${text("rReal")}")`);
 
 pickSel("mcSel", 500000);
 // The local predicate narrows the list first; the count only settles once the
