@@ -19,6 +19,16 @@ const mk = (o = {}) => ({
 
 export const FIXTURES = {
   clean_signal: mk(),
+  // Clears the gates *and* the threshold. clean_signal scores 70 and the bar is
+  // 76, so it has not actually fired since the flow rules raised it — a test
+  // that needs a call on the register cannot use it and must not quietly lower
+  // the threshold to pretend otherwise.
+  fires: mk({
+    volume: { m5: 16000, h1: 52000, h6: 170000, h24: 330000 },
+    txns: { m5: { buys: 70, sells: 14 }, h1: { buys: 420, sells: 150 },
+            h6: { buys: 1600, sells: 800 }, h24: { buys: 3000, sells: 2400 } },
+    priceChange: { m5: 6, h1: 22, h6: 55, h24: 45 },
+  }),
   thin_liquidity: mk({ liquidity: { usd: 6000 }, marketCap: 180000 }),
   exit_trap:     mk({ liquidity: { usd: 20000 }, marketCap: 1500000 }),
   too_fresh:     mk({ pairCreatedAt: now - 6 * 60e3 }),

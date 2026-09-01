@@ -64,6 +64,15 @@ export const CONFIG = {
   minSustainedBuyShare: 0.55, // buying that holds across h1 and h6
   steadyHourCapPct: 30,       // past this an hour is a move, not a climb
   quoteWhitelist: ["SOL", "WETH", "ETH", "WBNB", "BNB", "USDC", "USDT"],
+
+  // ── on-chain, in chain.js ─────────────────────────────────────────────
+  // These veto on facts the chain states rather than on trading data, and
+  // they only run on a candidate the rules above already accepted — an RPC
+  // call is not spent on a token the free gates were going to refuse anyway.
+  // Every one of them abstains when the field did not arrive: see chain.js.
+  maxTopHolderPct: num("MAX_TOP_HOLDER_PCT", 0.15),  // one wallet is the whole exit
+  maxTop10Pct: num("MAX_TOP10_PCT", 0.40),
+  minLpBurnedPct: num("MIN_LP_BURNED_PCT", 0.90),    // v2 pairs only; v3 abstains
 };
 
 const pct = n => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
@@ -430,7 +439,8 @@ export function linksOf(pair) {
   ].filter(l => typeof l.url === "string" && /^https?:\/\//i.test(l.url)).slice(0, 6);
 }
 
-export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sourceRef = null } = {}) {
+export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sourceRef = null,
+                                     chainChecks = null } = {}) {
   const d = deriveSupply(pair);
   if (!d) throw new Error("toSignal called on a pair with no usable price or supply");
   return {
@@ -459,6 +469,11 @@ export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sour
     // footing as name, dex and the reason prose.
     entryVolumeH1: pair.volume?.h1 ?? 0,
     entryVolumeM5: pair.volume?.m5 ?? 0,
+    // What the chain said at the moment it fired, or null when nothing could
+    // be read. Null is published as "not checked" and never as clean — the
+    // whole point of the field is that the two are distinguishable afterwards.
+    // Descriptive, not hashed, for the reason entryVolumeH1 is not hashed.
+    chainChecks: chainChecks ? (chainChecks.toJSON?.() ?? chainChecks) : null,
     score: ev.score,
     reasons: ev.reasons.map(r => r.why),
     reasonIds: ev.reasons.map(r => r.id),

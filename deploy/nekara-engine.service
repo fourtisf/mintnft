@@ -60,6 +60,15 @@ Environment=CALLER_ID=1
 # Environment=KEYS_CONTRACT=
 # Environment=BASE_RPC=
 
+# On-chain gates: mint and freeze authority, holder concentration, LP burn.
+# Unset means they never run, the engine fires exactly as before, and every
+# call records chainChecks: null — published as "not checked", never as clean.
+# Set through a drop-in, for the reason above.
+#   printf '[Service]\nEnvironment=HELIUS_KEY=...\n' \
+#     > /etc/systemd/system/nekara-engine.service.d/chain.conf
+# Environment=HELIUS_KEY=
+# Environment=SOLANA_RPC=
+
 StandardOutput=journal
 StandardError=journal
 

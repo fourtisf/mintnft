@@ -126,6 +126,12 @@ const call = store.insertCall({
   firedAt: new Date().toISOString(), entryMc: 240_000, entryPrice: 0.00024, entrySupply: 1e9,
   liquidityUsd: 40_000, entryVolumeH1: 52_000, entryVolumeM5: 9_000,
   links: [{ kind: "twitter", url: "https://x.com/livewire" }, { kind: "site", url: "https://livewire.example" }],
+  // A partial reading on purpose: the node answered on the authorities and not
+  // on concentration. Both renderings have to appear on the same page, because
+  // the failure this panel exists to prevent is an unread line reading clean.
+  chainChecks: { source: "solana-rpc", checkedAt: new Date().toISOString(),
+                 have: ["freezeAuthority", "mintAuthority"],
+                 mintAuthority: null, freezeAuthority: null },
   score: 88, reasons: ["Volume running 3.4× the hourly pace"],
 });
 feed.publish({ ...call, ...store.mark(call.seq) });
@@ -233,6 +239,19 @@ ok(/First call MC/.test(keys) && /Now MC/.test(keys) && /× from entry/.test(key
   "the header carries first-call MC, now MC and the multiple between them");
 ok(doc.querySelector('.cd-links a[href="https://x.com/livewire"]')?.textContent === "X",
   "and the token's own links, as the provider gave them");
+
+const gates = [...doc.querySelectorAll("#cdBody .gate")]
+  .map(g => [g.querySelector(".g")?.textContent ?? "", g.querySelector(".t")?.textContent ?? "",
+             g.classList.contains("unread")]);
+const gate = label => gates.find(g => g[0] === label);
+ok(gate("Mint authority")?.[1] === "revoked" && gate("Mint authority")[2] === false,
+  "the on-chain panel prints what the node actually said: mint authority revoked");
+ok(gate("Freeze authority")?.[1] === "revoked", "and the freeze authority with it");
+ok(gate("Largest wallet")?.[1] === "not checked" && gate("Largest wallet")[2] === true,
+  "a field the node did not answer reads \"not checked\", not clean");
+ok(gate("LP burned")?.[1] === "not checked", "and so does a check that does not run on this chain");
+ok(doc.getElementById("cdCalc").textContent === "matches",
+  "and none of it moved the record hash — the reading is descriptive, not hashed");
 ok(doc.querySelector(".cd-links .ca")?.dataset.ca === call.tokenAddress,
   "the copy button carries the whole address, not the shortened one");
 await waitFor("the full series arrives", () => doc.querySelectorAll(".cd-chart .ax.bot").length === 2);
@@ -342,7 +361,12 @@ doc.querySelector('#navLinks a[data-v="reg"]').dispatchEvent(new win.MouseEvent(
 
 /* ── 10. and it survives the engine going away again ─────────────────────── */
 console.log("\nENGINE MATI LAGI");
-feed.close(); srv.close();
+// close() alone stops the server accepting new connections and leaves the
+// keep-alive sockets it already has wide open, so the page's next poll hangs
+// on a connection to a server that is gone. A process that actually dies takes
+// its sockets with it — this is what the test is meant to be simulating, and
+// without it the harness was measuring the poll timeout instead of the page.
+feed.close(); srv.closeAllConnections?.(); srv.close();
 await waitFor("the page notices the engine went away", () => text("syncTxt").startsWith("engine offline"), 30000);
 ok(text("syncTxt").startsWith("engine offline"), `header reads "${text("syncTxt")}"`);
 ok(cards().length === 5, "the calls stay on the page — they are the record, not a cache");

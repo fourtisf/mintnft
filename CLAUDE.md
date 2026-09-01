@@ -81,6 +81,12 @@ becomes the thing it was built to replace.
 6. **Re-run the parity test after any artwork change.** The site and the
    contract diverge the moment either moves. A buyer receiving different art
    from what was displayed is mis-selling, not a rough edge.
+7. **Never let a check that did not run read as a check that passed.** A dead
+   RPC, a missing key, a field the provider omitted — all of them mean *we do
+   not know*, and every one of them has to survive onto the page saying so.
+   `chain.js` records which fields it actually established for exactly this
+   reason. A panel that renders silence as a green tick is worse than no panel,
+   because a reader trusts it.
 
 ## Stack
 
@@ -106,11 +112,14 @@ node simulate.js     # full pipeline + integrity tamper test
 node backtest.js     # threshold sweep and reason attribution
 node test-marks.js   # marks come off the call's own pair
 node test-og.js      # shared links preview the call, not the site
+node test-chain.js   # on-chain gates, and that an unread check never reads clean
 
 cd ..
 node parity.js       # contracts vs prototype, must print 666 / 666
 node site/test-live.mjs   # the site against a real engine: offline, connected,
                           # a signal arriving on the socket, its marks moving
+node site/test-hang.mjs   # a host that accepts and never answers still reads
+                          # offline — 10s of wall clock, and worth it
 ```
 
 If `parity.js` prints anything other than 666/666, stop and fix it before
@@ -133,9 +142,14 @@ continuing. Everything else is recoverable; that one is not.
 
 1. **The engine has never seen real market data.** Everything is fixture-tested.
    This is the first thing to fix and it unblocks every other judgement.
-2. **Discovery is weak.** `/token-profiles` only surfaces tokens whose team
-   filled in a profile; the best signals come from pools too fresh to have one.
-   `sources.js` has Helius and EVM factory sources ready — they need keys.
+2. **Discovery is weak, and the on-chain gates are idle.** `/token-profiles`
+   only surfaces tokens whose team filled in a profile; the best signals come
+   from pools too fresh to have one. `sources.js` has Helius and EVM factory
+   sources ready and `chain.js` reads mint authority, freeze authority, holder
+   concentration and LP burn — all of it needs one key. Until there is one,
+   every call records `chainChecks: null` and the site prints "not checked".
+   That is honest but it is not protection: nothing is currently stopping a
+   token whose mint authority was never revoked.
 3. **Peak is observed, not candle-derived.** Dexscreener publishes no OHLCV, so
    peak is the highest value the poller actually saw. Recorded honestly as
    `peakSource:"observed"`. GeckoTerminal has free candles and would upgrade
@@ -151,8 +165,11 @@ continuing. Everything else is recoverable; that one is not.
 6. **Nothing is anchored.** The chain is internally consistent and has never
    been published, so it is not independently verifiable — `/api/verify` says
    exactly that and the site now repeats it rather than printing an anchor date
-   it invented. What is missing is a publisher with a funded key; `anchor.js`
-   and `test-anchor.js` are ready for one.
+   it invented. What is missing is a publisher with a funded key. `anchor.js`
+   is written and has no test of its own — this file used to claim a
+   `test-anchor.js` that has never existed in any commit, which is the exact
+   kind of quiet false claim the register is built to make impossible. Write
+   it before wiring a key to real funds.
 7. **Volume is recorded but not hashed.** `entryVolumeH1` sits outside
    `IMMUTABLE` because `canonical()` has no per-version field list, so adding a
    field there would change the canonical form of every row already written and

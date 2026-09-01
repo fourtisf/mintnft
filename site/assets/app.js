@@ -65,6 +65,34 @@ const linkRow=(c,all)=>[
     `<a class="lnk" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(LINK_LABEL[l.kind]??l.kind)}</a>`),
 ].join("");
 
+/* What the chain said when the call fired.
+   Every row here is either a fact the RPC stated or an admission that it did
+   not. There is deliberately no third rendering: a check the engine could not
+   run has to look different from one it ran and passed, or the panel is worth
+   less than showing nothing, because a reader would read silence as safety. */
+const ONCHAIN=[
+  ["mint_revoked","mintAuthority","Mint authority",r=>r.mintAuthority==null?"revoked":"LIVE"],
+  ["freeze_revoked","freezeAuthority","Freeze authority",r=>r.freezeAuthority==null?"revoked":"LIVE"],
+  ["holder_concentration","topHolderPct","Largest wallet",r=>(r.topHolderPct*100).toFixed(1)+"% of supply"],
+  ["holder_spread","top10Pct","Top 10 wallets",r=>(r.top10Pct*100).toFixed(1)+"% of supply"],
+  ["lp_burned","lpBurnedPct","LP burned",r=>(r.lpBurnedPct*100).toFixed(1)+"%"],
+];
+function chainPanel(c){
+  const r=c.onchain,have=Array.isArray(r?.have)?r.have:[];
+  const sub=!r
+    ?`Nothing was read on-chain for this call — no node was configured when it fired. Not checked is not the same as clean.`
+    :have.length===0
+      ?`The node answered nothing usable when this call fired. Every line below is unread, not passed.`
+      :`Read from the chain at the moment it fired, and kept on the call. A line reading “not checked” was never established, and is not a pass.`;
+  const rows=ONCHAIN.map(([,field,label,val])=>{
+    const read=have.includes(field);
+    return `<div class="gate${read?"":" unread"}"><span class="m">${read?"✓":"·"}</span>`
+      +`<span class="g" style="font-size:13px;line-height:1.5">${label}</span>`
+      +`<span class="t${read?"":" unread"}">${read?esc(val(r)):"not checked"}</span></div>`;
+  }).join("");
+  return `<h3 style="margin-top:24px">On-chain at fire</h3><p class="sub">${sub}</p>${rows}`;
+}
+
 const fmt=v=>v>=1e9?(v/1e9).toFixed(2)+"B":v>=1e6?(v/1e6).toFixed(2)+"M":v>=1e3?(v/1e3).toFixed(1)+"K":Math.round(v);
 const mult=c=>c.peak/c.entry, nx=c=>c.nowMc/c.entry;
 /* The engine decides the verdict, and it records death separately on purpose:
@@ -961,6 +989,7 @@ function openCall(id){
       <div class="box">
         <h3>Why it fired</h3><p class="sub">The exact conditions, recorded at the moment of the call and never edited.</p>
         ${(c.reasons||[]).map(r=>`<div class="gate"><span class="g" style="font-size:13px;line-height:1.5">${r}</span></div>`).join("")}
+        ${chainPanel(c)}
         <h3 style="margin-top:24px">Verification</h3>
         <p class="sub">The record hash as stored, and the same hash recomputed here from this call's own fields.</p>
         <div class="hash vfy" id="cdHash">—</div>
@@ -1235,7 +1264,10 @@ async function pullTriage(){
 const GATE_LABEL={priceable:"Unmeasurable",liquidity_floor:"Liquidity",age_window:"Age",
   cap_window:"Cap",liquidity_ratio:"Depth",sell_pressure:"Sell pressure",not_vertical:"Vertical",
   has_identity:"Identity",sane_quote:"Quote",dust_flow:"Dust",wash_pattern:"Wash",
-  fading_bid:"Fading bid",cooldown:"Cooldown",score:"Score"};
+  fading_bid:"Fading bid",cooldown:"Cooldown",score:"Score",
+  // chain.js — these refuse on what the chain states, not on the tape
+  mint_revoked:"Mint authority",freeze_revoked:"Freeze authority",
+  holder_concentration:"Concentration",holder_spread:"Top 10",lp_burned:"LP"};
 const usdShort=n=>n>=1e6?"$"+(n/1e6).toFixed(0)+"M":n>=1e3?"$"+(n/1e3).toFixed(0)+"K":"$"+n;
 
 function renderOps(){
@@ -1522,7 +1554,14 @@ const readJson=async path=>{
   try{const r=await fetch(API+path,noStore());return r.ok?await r.json():null}
   catch{return null}
 };
-const noStore=()=>({cache:"no-store",
+/* A request that hangs is worse than one that fails: the header keeps saying
+   "polling" and the page keeps showing figures nobody re-read. A machine whose
+   network path blackholes instead of refusing does exactly this, and it is the
+   same failure as an empty register reading like a quiet market — the page has
+   to be able to tell it is no longer being answered. Ten seconds is four times
+   the slowest honest response and half the poll interval, so a timed-out poll
+   is resolved before the next one starts. */
+const noStore=()=>({cache:"no-store",signal:AbortSignal.timeout(10000),
   headers:SESSION.token?{authorization:"Bearer "+SESSION.token}:{}});
 const SHORT=a=>a?a.slice(0,6)+"…"+a.slice(-4):"";
 const TIER_NAME=["Public","Tier I","Tier II","Tier III"];
@@ -1576,6 +1615,7 @@ function rowToCall(d){
     real:typeof d.realised2x==="number"?d.realised2x:null,  // the rule's answer, from the engine
     links:Array.isArray(d.links)?d.links:[],
     chainId:d.chain,pair:d.pairAddress??"",             // the pair it fired on, for the chart link
+    onchain:d.chainChecks??null,        // null = nothing was read, which is not the same as clean
     deadAt:d.deadAt?Date.parse(d.deadAt):null,
     raw:d,                              // the row as the engine wrote it, for verification
     verdict:d.verdict,isDead:d.isDead??false,
@@ -1875,7 +1915,7 @@ async function connect(){
       `Issued At: ${new Date().toISOString()}`,
     ].join("\n");
     const signature=await eth.request({method:"personal_sign",params:[message,address]});
-    const r=await fetch(AUTH+"/auth/verify",{method:"POST",
+    const r=await fetch(AUTH+"/auth/verify",{method:"POST",signal:AbortSignal.timeout(10000),
       headers:{"content-type":"application/json"},body:JSON.stringify({message,signature})});
     const body=await r.json().catch(()=>({}));
     if(!r.ok)return signInError(body.error??"Refused");

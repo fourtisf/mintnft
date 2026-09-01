@@ -15,10 +15,11 @@
 import { Dexscreener } from "./dexscreener.js";
 import { evaluate, toSignal, CONFIG } from "./rules.js";
 import { ProfileSource, BoostSource, MergedSource } from "./sources.js";
+import { ChainInspector, chainVerdict } from "./chain.js";
 
 export class Engine {
   constructor({ client, cfg = CONFIG, onSignal, onReject, onScan, source, callerId = 1,
-                sourceKind = "screener", log = console.log } = {}) {
+                sourceKind = "screener", inspector, log = console.log } = {}) {
     this.api = client ?? new Dexscreener({ log });
     // Profiles alone are close to a fixed list; boosts turn over. Both are the
     // free API and neither needs a key. Real coverage still wants a pool-
@@ -32,9 +33,15 @@ export class Engine {
     this.onSignal = onSignal ?? (s => log("SIGNAL", s));
     this.onReject = onReject ?? (() => {});
     this.onScan = onScan ?? (() => {});
+    // Reads mint and freeze authority, holder concentration and LP burn. With
+    // no RPC configured it returns null for every token and every chain gate
+    // abstains, so the engine behaves exactly as it did before this existed.
+    this.inspector = inspector ?? new ChainInspector({ log });
+    if (!this.inspector.configured)
+      log("[chain] no RPC configured — on-chain gates idle, calls will record chainChecks: null");
     this.seen = new Map();
     this.log = log;
-    this.stats = { scanned: 0, vetoed: 0, scoredLow: 0, fired: 0 };
+    this.stats = { scanned: 0, vetoed: 0, scoredLow: 0, chainVetoed: 0, fired: 0 };
   }
 
   candidates() { return this.source.candidates(); }
@@ -50,9 +57,23 @@ export class Engine {
       const ev = evaluate(pair, this.cfg, this.seen);
       if (ev.vetoes.length) { this.stats.vetoed++; this.onReject(pair, ev); continue; }
       if (!ev.fire) { this.stats.scoredLow++; this.onReject(pair, ev); continue; }
+
+      // Last, and only for a candidate that already cleared everything free.
+      // An RPC round trip per scanned token would burn the rate limit on the
+      // hundreds we were always going to refuse.
+      const report = await this.inspector.inspect(pair);
+      const chain = chainVerdict(report, this.cfg);
+      if (chain.vetoes.length) {
+        this.stats.chainVetoed++;
+        // Reported as a veto like any other so it lands in Triage with its
+        // sentence attached: "refused, and here is the fact that refused it".
+        this.onReject(pair, { ...ev, fire: false, vetoes: chain.vetoes, vetoIds: chain.vetoIds });
+        continue;
+      }
+
       this.seen.set(ev.key, Date.now());
       this.stats.fired++;
-      this.onSignal(toSignal(pair, ev, this.attribution));
+      this.onSignal(toSignal(pair, ev, { ...this.attribution, chainChecks: report }));
     }
     return this.stats;
   }
