@@ -603,24 +603,38 @@ function renderStats(){
   put(["rCalls","rHit","rMed","rBest"],wk);
   document.getElementById("pillCount").textContent=all?all.calls+" calls":"—";
 }
+/* These two panels publish hit rates, so they may not be computed from the
+   rows the page is holding: under the Wins filter that arithmetic reads 100%
+   for every desk and every chain, which is a statistic with the misses taken
+   out of it. They come from the engine's analytics over the whole window, and
+   go blank rather than answer from a filtered list. */
+let anaCallers=null,anaChains=null;
+const CALLER_NAME=id=>id===1?"House desk":"Caller "+id;
 function renderCallers(){
-  const g={};calls.forEach(c=>{(g[c.by]=g[c.by]||[]).push(c)});
-  document.getElementById("callers").innerHTML=Object.entries(g).map(([k,v])=>{
-    const w=v.filter(win).length,ms=v.map(mult).sort((a,b)=>a-b);
-    return{k,n:v.length,rate:w/v.length,med:ms[Math.floor(ms.length/2)]}})
-    .sort((a,b)=>b.rate-a.rate).map(r=>`<div class="lrow"><div><div class="who">${r.k==="desk"?"House desk":"@"+r.k}</div>
+  const rows=DEMO
+    ?Object.entries(calls.reduce((g,c)=>((g[c.by]??=[]).push(c),g),{})).map(([k,v])=>{
+        const ms=v.map(mult).sort((a,b)=>a-b);
+        return{label:k==="desk"?"House desk":"@"+k,n:v.length,rate:v.filter(win).length/v.length,
+               med:ms[Math.floor(ms.length/2)]}})
+    :(anaCallers??[]).map(r=>({label:CALLER_NAME(r.callerId),n:r.n,rate:r.hitRate,med:r.medianPeak}));
+  document.getElementById("callers").innerHTML=rows.length
+    ?rows.sort((a,b)=>b.rate-a.rate).map(r=>`<div class="lrow"><div><div class="who">${esc(r.label)}</div>
       <div class="sub">${r.n} calls · med ${r.med.toFixed(2)}×</div><div class="mini"><i style="width:${(r.rate*100).toFixed(0)}%"></i></div></div>
-      <span class="pct">${Math.round(r.rate*100)}%</span></div>`).join("");
+      <span class="pct">${Math.round(r.rate*100)}%</span></div>`).join("")
+    :`<p class="sub" style="margin:0">${CONN.state==="offline"?"Engine not answering.":"Nothing settled in this window yet."}</p>`;
 }
 function renderChains(){
-  const g={};calls.forEach(c=>{(g[c.chain]=g[c.chain]||[]).push(c)});
-  document.getElementById("chains").innerHTML=Object.entries(g).map(([k,v])=>{
-    const w=v.filter(win).length;
-    return{k,n:v.length,rate:w/v.length,avg:v.reduce((s,c)=>s+mult(c),0)/v.length}})
-    .sort((a,b)=>b.rate-a.rate).map(r=>`<button class="crow ${S.chain===r.k?"on":""}" data-chain="${r.k}">
+  const rows=DEMO
+    ?Object.entries(calls.reduce((g,c)=>((g[c.chain]??=[]).push(c),g),{})).map(([k,v])=>
+        ({k,n:v.length,rate:v.filter(win).length/v.length,
+          avg:v.reduce((s,c)=>s+mult(c),0)/v.length}))
+    :(anaChains??[]).map(r=>({k:CHAIN[r.chain]??String(r.chain).toUpperCase(),n:r.n,rate:r.hitRate,avg:r.avgPeak}));
+  document.getElementById("chains").innerHTML=rows.length
+    ?rows.sort((a,b)=>b.rate-a.rate).map(r=>`<button class="crow ${S.chain===r.k?"on":""}" data-chain="${esc(r.k)}">
       <span class="cdot" style="background:${CC[r.k]}"></span>
       <span><span class="cn">${r.k}</span><span class="cs">${r.n} calls · avg ${r.avg.toFixed(2)}×</span></span>
-      <span class="pc" style="color:${r.rate>=.5?"var(--win)":"var(--tx-2)"}">${Math.round(r.rate*100)}%</span></button>`).join("");
+      <span class="pc" style="color:${r.rate>=.5?"var(--win)":"var(--tx-2)"}">${Math.round(r.rate*100)}%</span></button>`).join("")
+    :`<p class="sub" style="margin:0">${CONN.state==="offline"?"Engine not answering.":"Nothing settled in this window yet."}</p>`;
 }
 /* Reference prices are invented and drift on a timer, so they run in the
    file:// demo and nowhere else. A made-up BTC print sitting next to a real
@@ -1671,13 +1685,20 @@ async function pullLive(){
       try{const r=await fetch(API+"/stats"+q,{cache:"no-store"});return r.ok?await r.json():null}
       catch{return null}
     };
-    [statsAll,stats7]=await Promise.all([readStats("?days=all"),readStats("")]);
+    const readJson=async path=>{
+      try{const r=await fetch(API+path,{cache:"no-store"});return r.ok?await r.json():null}
+      catch{return null}
+    };
+    [statsAll,stats7,anaCallers,anaChains]=await Promise.all([
+      readStats("?days=all"),readStats(""),
+      // The windows the two panels are labelled with, so the headings are true.
+      readJson("/analytics/callers?days=30"),readJson("/analytics/chains?days=7")]);
     setConn(sock&&sock.readyState===1&&CONN.state==="live"?"live":"polling");
     renderAll();
   }catch(e){
     // Rows already read stay on the page — they are the record, and the header
     // says how stale they are. The statistics do not: those we no longer know.
-    statsAll=stats7=null;
+    statsAll=stats7=anaCallers=anaChains=null;
     // A live socket outranks a failed poll: the feed is demonstrably up, so the
     // header keeps saying live and only the figures go blank.
     if(!(sock&&sock.readyState===1&&CONN.state==="live"))setConn("offline");

@@ -57,6 +57,26 @@ export function scoreBands(rows, width = 10) {
 }
 
 /** Per-chain breakdown. Misses stay in the denominator, as everywhere else. */
+/**
+ * Per desk. The register is multi-caller from day one and this is what ranks
+ * them; misses stay in the denominator here as everywhere else.
+ */
+export function callerPerformance(rows) {
+  const g = {};
+  for (const r of rows) {
+    const id = r.callerId ?? 1;
+    const b = (g[id] ??= { callerId: id, n: 0, wins: 0, peaks: [] });
+    b.n++; if (r.verdict === "win") b.wins++; b.peaks.push(r.peakX);
+  }
+  return Object.values(g).map(b => {
+    const s = b.peaks.slice().sort((x, y) => x - y);
+    return {
+      callerId: b.callerId, n: b.n, wins: b.wins, hitRate: b.wins / b.n,
+      medianPeak: s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2,
+    };
+  }).sort((a, b) => b.hitRate - a.hitRate);
+}
+
 export function chainPerformance(rows) {
   const g = {};
   for (const r of rows) {

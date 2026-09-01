@@ -259,6 +259,15 @@ pickSel("mcSel", 500000);
 await waitFor("the server filters by size", () => /2 of 2/.test(text("cnt")));
 ok(cards().length === 2, "MC ≥ $500K leaves the two that entered above it");
 ok(/2 of 2/.test(text("cnt")), "and the count follows the filter, not the page");
+// The side panels publish hit rates. Under a Wins filter, arithmetic over the
+// visible rows says 100% for every desk — a statistic with the misses removed.
+const winsOnly = [...doc.querySelectorAll("#feed .rec")].length;
+doc.querySelector('#seg [data-f="win"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+await waitFor("the Wins filter settles", () => doc.querySelectorAll("#feed .rec").length <= winsOnly);
+const pct = doc.querySelector("#callers .pct")?.textContent ?? "";
+ok(pct !== "100%",
+  `the caller panel keeps the misses under a Wins filter (reads "${pct}")`);
+doc.querySelector('#seg [data-f="all"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
 ok(/mc=500000/.test(win.location.search), "the filter is in the URL and can be sent to someone");
 const bigCard = cards().find(el => /BIG/.test(el.textContent))?.textContent ?? "";
 ok(/\$BIG/.test(bigCard) && !/\$\$BIG/.test(bigCard),

@@ -10,7 +10,7 @@
 import { createServer } from "node:http";
 import { randomBytes } from "node:crypto";
 import { stats } from "./scorer.js";
-import { reasonPerformance, scoreBands, chainPerformance } from "./analytics.js";
+import { reasonPerformance, scoreBands, chainPerformance, callerPerformance } from "./analytics.js";
 import { callCard, toCsv } from "./og.js";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
@@ -158,9 +158,16 @@ export function serve(store, {
         scoreToFire: cfg.scoreToFire,
       } } : s);
     }
-    if (p === "/api/analytics/reasons") return json(res, 200, reasonPerformance(rows));
-    if (p === "/api/analytics/bands") return json(res, 200, scoreBands(rows));
-    if (p === "/api/analytics/chains") return json(res, 200, chainPerformance(rows));
+    // A window, so a page can label these honestly. Same rule as /api/stats:
+    // whatever the window, every call inside it counts, misses included.
+    const windowed = () => {
+      const d = Math.min(Math.max(Math.floor(Number(url.searchParams.get("days")) || 0), 0), 36500);
+      return d ? rows.filter(r => Date.parse(r.firedAt) > Date.now() - d * 864e5) : rows;
+    };
+    if (p === "/api/analytics/reasons") return json(res, 200, reasonPerformance(windowed()));
+    if (p === "/api/analytics/bands") return json(res, 200, scoreBands(windowed()));
+    if (p === "/api/analytics/chains") return json(res, 200, chainPerformance(windowed()));
+    if (p === "/api/analytics/callers") return json(res, 200, callerPerformance(windowed()));
 
     if (p === "/api/export.csv") {
       res.writeHead(200, { "content-type": "text/csv",
