@@ -197,8 +197,13 @@ ok(doc.getElementById("cdCalc").textContent === "matches",
   "and recomputing it in the browser over the engine's own field list agrees");
 ok(/never been published/.test(doc.getElementById("cdAnchor").textContent),
   "and it claims no anchor, because there is none");
-ok(doc.querySelectorAll(".cd-chart .ax").length === 3,
+ok(doc.querySelectorAll(".cd-chart .ax:not(.bot)").length === 3,
   "the chart labels the three lines it draws, so the scale is readable");
+ok(win.location.pathname === `/call/${call.seq}`,
+  "the call has its own address — the one every share post points at");
+await waitFor("the full series arrives", () => doc.querySelectorAll(".cd-chart .ax.bot").length === 2);
+ok(doc.querySelectorAll(".cd-chart .ax.bot").length === 2,
+  "and the chart names both ends of the time it covers");
 
 doc.querySelector('#navLinks a[data-v="vault"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
 await waitFor("Custody re-reads the chain", () => text("vHead") === store.head());
@@ -206,6 +211,7 @@ ok(text("vHead") === store.head(), "Custody shows the head the engine reports, n
 ok(/unanchored/.test(doc.getElementById("vAnchors").textContent),
   "and the anchor table says nothing has been published");
 doc.querySelector('#navLinks a[data-v="reg"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+ok(win.location.pathname === "/", "and leaving it puts the list's own address back");
 
 const seg = doc.getElementById("seg");
 const pick = f => seg.querySelector(`[data-f="${f}"]`)

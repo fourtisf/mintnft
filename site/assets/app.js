@@ -66,6 +66,7 @@ const badgeOf=c=>{const v=vrd(c);return v==="win"?"win":deadOf(c)?"dead":v};
 const LBL={win:"WIN",miss:"MISS",open:"LIVE",dead:"DEAD"};
 function ago(ts){const m=Math.floor((Date.now()-ts)/MIN);if(m<1)return"just now";if(m<60)return m+"m ago";
   const h=Math.floor(m/60);return h<24?h+"h ago":Math.floor(h/24)+"d ago"}
+const clock=ts=>new Date(ts).toISOString().slice(11,16)+" UTC";
 const utc=ts=>{const d=new Date(ts);return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",timeZone:"UTC"})+" · "+d.toISOString().slice(11,19)+" UTC"};
 const secs=s=>s<60?s+"s":s<7200?Math.floor(s/60)+"m "+(s%60)+"s":(s/3600).toFixed(1)+"h";
 
@@ -720,6 +721,7 @@ document.getElementById("collSeg").addEventListener("click",e=>{
 
 /* ═══════ nav + interactions ═══════ */
 function go(v,hash){
+  if(v!=="call")pushUrl();
   ["home","reg","quant","ops","vault","mint","call"].forEach(k=>document.getElementById("v-"+k).classList.toggle("hide",k!==v));
   document.getElementById("tkr").classList.toggle("hide",v!=="reg");
   document.body.style.paddingBottom=v==="reg"?"36px":"0";
@@ -795,9 +797,16 @@ function reveal(){document.querySelectorAll(".rv:not(.in)").forEach(el=>io.obser
 
 /* ═══════ call detail ═══════ */
 function cdChart(c){
-  const W=1000,H=280,p=c.path,two=c.entry*2,dead=c.entry*.1;
+  const W=1000,H=280,two=c.entry*2,dead=c.entry*.1;
+  // Marks are not evenly spaced in time — the poll misses beats and the series
+  // is thinned as it grows — so spacing them evenly draws a gap as motion.
+  // With timestamps the x axis is time; without them it is index, and the
+  // labels below say which by naming the two ends.
+  const S=Array.isArray(c.series)&&c.series.length>1?c.series:null;
+  const p=S?S.map(([,mc])=>mc):c.path;
+  const t0=S?S[0][0]:0,span=S?(S[S.length-1][0]-t0)||1:1;
   const mn=Math.min(...p,dead*.9),mx=Math.max(...p,two*1.08),r=(mx-mn)||1;
-  const X=i=>i/(p.length-1)*W, Y=v=>H-((v-mn)/r)*(H-24)-12;
+  const X=S?i=>(S[i][0]-t0)/span*W:i=>i/(p.length-1)*W, Y=v=>H-((v-mn)/r)*(H-24)-12;
   const v=vrd(c);
   const col=deadOf(c)?"var(--dead)":v==="open"?"var(--win)":v==="win"?"#8E9AFF":"var(--tx-3)";
   const d=p.map((y,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)).join("");
@@ -806,7 +815,9 @@ function cdChart(c){
   // width with preserveAspectRatio="none", which would smear any text in it.
   const at=v=>(Y(v)/H*100).toFixed(2);
   const axis=[[c.entry,"entry"],[two,"2×"],[dead,"dead"]]
-    .map(([v,k])=>`<span class="ax" style="top:${at(v)}%">${k} ${fmt(v)}</span>`).join("");
+    .map(([v,k])=>`<span class="ax" style="top:${at(v)}%">${k} ${fmt(v)}</span>`).join("")
+    +(S?`<span class="ax bot" style="left:6px;right:auto">${clock(S[0][0]*1000)}</span>
+        <span class="ax bot">${clock(S[S.length-1][0]*1000)}</span>`:"");
   return axis+`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${col}" stop-opacity=".2"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient>
@@ -819,6 +830,27 @@ function cdChart(c){
     <path d="${d}" fill="none" stroke="#8E9AFF" stroke-width="2.4" clip-path="url(#cc)"/>
     <circle cx="${X(pk).toFixed(1)}" cy="${Y(Math.max(...p)).toFixed(1)}" r="4" fill="${col}"/>
     <circle cx="${W}" cy="${Y(c.nowMc).toFixed(1)}" r="4" fill="${col}" opacity=".8"/></svg>`;
+}
+/* Every share template ends with nekara.xyz/call/<seq>. The site had no such
+   route: one page at /, and that link 404ed for everyone who clicked it. The
+   call opens from the path now, and from ?call= where a path rewrite is not
+   in place. Opening one writes the address, so the link in the browser bar is
+   the link worth sending. */
+async function openCallBySeq(seq){
+  let c=calls.find(x=>x.seq===seq);
+  if(!c&&!DEMO){
+    try{
+      const r=await fetch(`${API}/call/${seq}`,{cache:"no-store"});
+      if(r.ok)c=upsert(await r.json());
+    }catch{}
+  }
+  // A call that is not ours to see yet answers exactly like one that does not
+  // exist, so there is nothing to say beyond going back to the list.
+  if(c)openCall(c.id); else go("reg");
+}
+function callFromUrl(){
+  const m=location.pathname.match(/^\/call\/(\d+)/)||location.search.match(/[?&]call=(\d+)/);
+  return m?+m[1]:null;
 }
 function openCall(id){
   const c=calls.find(x=>x.id===id); if(!c)return;
@@ -882,6 +914,7 @@ function openCall(id){
     hEl.textContent=sha(canon(c));
     cEl.textContent=DEMO?"demo data — no record behind it":"unavailable";
   }
+  if(!DEMO&&c.seq!=null&&history.replaceState)history.replaceState(null,"","/call/"+c.seq);
   // Anchoring is the one claim this page cannot make on its own.
   const a=verifyState?.latestAnchor;
   document.getElementById("cdAnchor").textContent=
@@ -898,6 +931,7 @@ function openCall(id){
       if(!d?.samples?.length||d.samples.length<2)return;
       if(document.getElementById("v-call").classList.contains("hide"))return;
       c.path=d.samples.map(([,mc])=>mc);
+      c.series=d.samples;
       const host=document.getElementById("cdChartSvg");
       if(host)host.innerHTML=cdChart(c);
     })
@@ -1558,7 +1592,9 @@ function pushUrl(){
   if(S.minVol)p.set("vol",S.minVol);
   if(S.hours)p.set("h",S.hours);
   const qs=p.toString();
-  history.replaceState(null,"",qs?"?"+qs:location.pathname);
+  // The list lives at the root. Writing location.pathname here kept /call/9
+  // in the address after leaving the call it belonged to.
+  history.replaceState(null,"",qs?"/?"+qs:"/");
 }
 function syncControls(){
   [...document.getElementById("seg").children].forEach(b=>b.classList.toggle("on",b.dataset.f===S.f));
@@ -1618,8 +1654,9 @@ async function pullLive(){
   }
 }
 
-// A link carrying filters opens on the page those filters belong to.
-if(readUrl())go("reg");
+// A link carrying filters, or a call, opens where it belongs.
+const deepCall=callFromUrl();
+if(readUrl()||deepCall)go("reg");
 /* The brand links, in one place. They pointed at "#" on a live site, which is
    worse than no icon: a reader who clicks one learns the page is unfinished.
    Fill these in and they work; leave one empty and it does not appear. */
@@ -1638,5 +1675,6 @@ if(!DEMO){
   pullLive();  setInterval(pullLive,20000);
   pullTriage();setInterval(pullTriage,20000);
   pullVerify();setInterval(pullVerify,60000);
+  if(deepCall)openCallBySeq(deepCall);
   setInterval(paintConn,1000);
 }

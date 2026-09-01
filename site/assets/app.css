@@ -470,6 +470,7 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .cd-chart .ax{position:absolute;right:6px;transform:translateY(-50%);pointer-events:none;
   font-family:var(--mono);font-size:10px;color:var(--tx-3);
   background:rgba(8,9,11,.72);padding:1px 6px;border-radius:5px}
+.cd-chart .ax.bot{top:auto;bottom:2px;transform:none}
 .cd-lg{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:10.5px;color:var(--tx-3)}
 .cd-lg span{display:flex;align-items:center;gap:6px}
 .cd-lg i{width:14px;height:2px;display:block;border-radius:2px}
