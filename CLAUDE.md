@@ -116,6 +116,7 @@ node test-marks.js   # marks come off the call's own pair
 node test-og.js      # shared links preview the call, not the site
 node test-chain.js   # on-chain gates, and that an unread check never reads clean
 node test-sources.js # which source found a call, and whether it earns its key
+node test-stall.js   # a provider that accepts and never answers does not stop the engine
 node check-chain.js  # not a test: points the gates at a real token with a real key,
                      # so wiring one is watched rather than assumed
 node test-hashversion.js  # rows written under an older hash scheme still verify

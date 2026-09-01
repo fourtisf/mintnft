@@ -36,10 +36,27 @@ class Bucket {
   }
 }
 
+/**
+ * No request may hang.
+ *
+ * A host that refuses a connection produces an error the loop can see. A host
+ * that accepts and never answers produces nothing at all — and with no timeout
+ * on the fetch, the discovery tick that made the request never returns. Every
+ * later tick then piles up behind it, the engine scans zero candidates for
+ * hours, and the log is silent because nothing failed. That is not a quiet
+ * market; it is an engine that has stopped, and it must not look the same.
+ *
+ * Ten seconds is far past any honest response from this API and well inside
+ * the 60s discovery interval, so a timed-out request is resolved before the
+ * next pass starts.
+ */
+const TIMEOUT_MS = 10_000;
+
 export class Dexscreener {
-  constructor({ fetchImpl = globalThis.fetch, log = () => {} } = {}) {
+  constructor({ fetchImpl = globalThis.fetch, log = () => {}, timeoutMs = TIMEOUT_MS } = {}) {
     this.fetch = fetchImpl;
     this.log = log;
+    this.timeoutMs = timeoutMs;
     this.slow = new Bucket(55, "profiles");   // 60/min, kept under
     this.fast = new Bucket(280, "pairs");     // 300/min, kept under
   }
@@ -47,20 +64,28 @@ export class Dexscreener {
   async #get(path, bucket) {
     await bucket.take();
     const url = BASE + path;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const ATTEMPTS = 3;
+    // Backing off after the final attempt delays the caller and retries
+    // nothing. On a provider that is timing out, that was two and a half
+    // seconds of pure waiting on top of every request already spent.
+    const backoff = (attempt, ms) => attempt < ATTEMPTS - 1
+      ? new Promise(r => setTimeout(r, ms)) : Promise.resolve();
+
+    for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
       let res;
       try {
-        res = await this.fetch(url, { headers: { accept: "application/json" } });
+        res = await this.fetch(url, { headers: { accept: "application/json" },
+                                      signal: AbortSignal.timeout(this.timeoutMs) });
       } catch (e) {
         this.log("network", { url, error: String(e) });
-        await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+        await backoff(attempt, 800 * (attempt + 1));
         continue;
       }
       if (res.status === 429) {
         // Back off hard. Being throttled costs more than waiting.
         const wait = Number(res.headers.get("retry-after") || 0) * 1000 || 4000 * (attempt + 1);
         this.log("throttled", { url, wait });
-        await new Promise(r => setTimeout(r, wait));
+        await backoff(attempt, wait);
         continue;
       }
       if (!res.ok) { this.log("http", { url, status: res.status }); return null; }

@@ -65,7 +65,24 @@ export class Engine {
   candidates() { return this.source.candidates(); }
 
   async tick() {
-    const pairs = await this.candidates();
+    // A pass that overran its interval must not have the next one stack behind
+    // it: a provider answering slowly would otherwise turn into an unbounded
+    // pile of in-flight passes, all of them scanning the same candidates.
+    if (this.ticking) { this.log("[discovery] previous pass still running, skipping this one"); return this.stats; }
+    this.ticking = true;
+    try { return await this.#tick(); } finally { this.ticking = false; }
+  }
+
+  async #tick() {
+    let pairs;
+    // A discovery pass that throws still has to report that it ran. Reporting
+    // nothing leaves the source absent from Triage, which reads as a quiet
+    // market rather than as a source that failed.
+    try { pairs = await this.candidates(); }
+    catch (e) {
+      this.onScan(0, [], [{ name: this.source.name ?? "source", got: 0, error: String(e?.message ?? e) }]);
+      throw e;
+    }
     // Reported once per tick rather than per candidate: the count is what the
     // pass rate needs, and a denominator nobody publishes is the thing this
     // whole page exists to avoid.
