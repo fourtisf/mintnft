@@ -146,6 +146,8 @@ const rec = () => doc.querySelector(`#feed .rec[data-id="r${call.seq}"]`);
 await waitFor("the death reaches the card", () => rec()?.classList.contains("dead"));
 ok(rec().querySelector(".badge").textContent.trim() === "WIN",
   "the page agrees: it stays a win, because /api/stats counts it as one");
+ok([...rec().querySelectorAll(".badge")].map(b => b.textContent.trim()).join(" ") === "WIN DEAD",
+  "and wears both marks at once — a win at 8% of entry may not read as just a win");
 ok(rec().classList.contains("dead"), "and the card carries the death");
 ok(/Died/.test(rec().textContent), "which the footer says in words");
 ok((doc.querySelector(`#feed [data-mx="r${call.seq}"]`)?.textContent ?? "").startsWith("0.01"),

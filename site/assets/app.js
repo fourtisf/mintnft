@@ -79,6 +79,12 @@ const vrd=c=>c.verdict??(deadOf(c)?"dead":win(c)?"win":c.live?"open":"miss");
 /* One badge has to carry both marks: a win stays a win however it ended, and
    anything else that died reads DEAD. The card dims and the footer says which. */
 const badgeOf=c=>{const v=vrd(c);return v==="win"?"win":deadOf(c)?"dead":v};
+/* A call that reached 2× and later went to zero carries both marks, and both
+   have to be visible at once. WIN alone over a token at 8% of entry reads as
+   the register flattering itself, and the death was a scroll away — the engine
+   keeps the two facts side by side and so should the badge. Anything that died
+   without winning already badges DEAD on its own. */
+const alsoDead=c=>deadOf(c)&&vrd(c)==="win"?'<span class="badge dead">DEAD</span>':"";
 const LBL={win:"WIN",miss:"MISS",open:"LIVE",dead:"DEAD"};
 function ago(ts){const m=Math.floor((Date.now()-ts)/MIN);if(m<1)return"just now";if(m<60)return m+"m ago";
   const h=Math.floor(m/60);return h<24?h+"h ago":Math.floor(h/24)+"d ago"}
@@ -126,7 +132,7 @@ function card(c,i,mini){
     <div class="rh"><div class="tok">${esc(c.tick[0])}</div>
       <div class="rh-id"><h3>${esc(c.name)}</h3>
         <div class="rh-meta"><span class="tk">$${esc(c.tick)}</span><span class="dotsep"></span>${esc(c.chain)}<span class="dotsep"></span>${esc(c.src)}<span class="dotsep"></span>${c.by==="desk"?"house desk":"@"+esc(c.by)}</div></div>
-      <div class="mx"><div class="big ${bg}" data-mx="${c.id}">${head}</div><span class="badge ${v}">${LBL[v]}</span></div></div>
+      <div class="mx"><div class="big ${bg}" data-mx="${c.id}">${head}</div><span class="badge ${v}">${LBL[v]}</span>${alsoDead(c)}</div></div>
     <div class="spark">${sp.html}<span class="thresh-lbl" style="top:${sp.yT/54*100}%">2×</span></div>
     ${mini?"":`<div class="why"><span class="why-h">Why it fired<b>${c.score}</b></span>
       ${c.reasons.map(r=>`<span class="wchip">${esc(r)}</span>`).join("")}</div>`}
@@ -890,7 +896,7 @@ function openCall(id){
           ${linkRow(c,true)}
         </div></div>
       <div class="cd-mx"><div class="big" style="${v==="win"&&!deadOf(c)?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(c.live||deadOf(c)?n:mult(c)).toFixed(2)}×</div>
-        <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
+        <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span>${alsoDead(c)}</div></div>
     </div>
     <div class="cd-chart"><div id="cdChartSvg">${cdChart(c)}</div>
       <div class="cd-lg">
