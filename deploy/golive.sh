@@ -132,6 +132,25 @@ systemctl is-active --quiet nekara-engine || { journalctl -u nekara-engine -n 40
 curl -fsS -m 5 http://127.0.0.1:8787/api/register >/dev/null || { journalctl -u nekara-engine -n 40 --no-pager; die "api is not answering on :8787"; }
 echo "engine up, api answering on :8787"
 
+# The engine going quiet was found by opening the site and seeing it empty. A
+# gap in an append-only register cannot be backfilled afterwards, so ten minutes
+# of silence is worth a restart and a message. And the register is the product:
+# keeping a copy of it should not depend on anyone remembering to.
+install -m 755 "$SRC/deploy/watchdog.sh" /usr/local/bin/nekara-watchdog
+install -d "$APP/backup"
+cat > /etc/cron.d/nekara <<CRON
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# is it answering? restart once if not, and say so on Telegram if configured
+*/10 * * * * root /usr/local/bin/nekara-watchdog >/dev/null 2>&1
+# the register, daily. It is the one thing here that cannot be rebuilt.
+0 3 * * * root cp $ENGINE/data/register.json $APP/backup/register-\$(date +\%F).json 2>/dev/null
+# and do not let ninety days of copies fill the disk quietly
+17 4 1 * * root find $APP/backup -name 'register-*.json' -mtime +90 -delete 2>/dev/null
+CRON
+chmod 644 /etc/cron.d/nekara
+echo "watchdog every 10m · register copied daily into $APP/backup"
+
 # 5 ──────────────────────────────────────────────────────────────────────────
 say "5/7  nginx"
 mkdir -p "$(dirname "$SNIP")"
@@ -257,9 +276,13 @@ Look for:   [FIRED]  a call went on record
             [WIN]    one reached 2x
             [DEAD]   one fell to a tenth of entry
 
-Back the register up. It is the product.
-   0 3 * * * cp /opt/nekara/signal-engine/data/register.json \
-     /opt/nekara/backup/register-$(date +\%F).json
+Two crons are installed for you, in /etc/cron.d/nekara:
+  - every 10 minutes the watchdog checks the api, restarts the engine once if
+    it is not answering, and says so on Telegram when a token is configured
+  - the register is copied into /opt/nekara/backup every night at 03:00, and
+    copies older than 90 days are dropped monthly
+
+Test the watchdog now if you like:  /usr/local/bin/nekara-watchdog
 
 Still not true, and not faked:
   - discovery only sees tokens whose team filed a Dexscreener profile
