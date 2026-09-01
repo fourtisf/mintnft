@@ -53,7 +53,9 @@ const calls=SEED.map((s,i)=>({id:"r"+i,reasons:REASONS[i%REASONS.length],
    innerHTML. A token called <img onerror=...> is a memecoin away, and this
    page renders whatever the provider says. Escape at the point of use. */
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-const LINK_LABEL={site:"website",twitter:"X",x:"X",telegram:"Telegram",discord:"Discord",link:"link"};
+const LINK_LABEL={site:"website",website:"website",twitter:"X",x:"X",telegram:"Telegram",
+  discord:"Discord",tiktok:"TikTok",youtube:"YouTube",instagram:"Instagram",
+  medium:"Medium",github:"GitHub",link:"link"};
 /* The card gets the chart and nothing else — its footer already carries the
    address, the state and the share button. The detail page gets everything the
    token publishes, which is where a reader goes to look into it. */
