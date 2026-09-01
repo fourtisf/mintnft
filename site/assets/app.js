@@ -1007,8 +1007,11 @@ function openCall(id){
   if(raw?.recordHash){
     const calc=recomputeHash(raw),same=calc===raw.recordHash;
     hEl.textContent=raw.recordHash;
-    cEl.textContent=same?"matches":"DOES NOT MATCH";
-    cEl.style.color=same?"var(--win)":"var(--dead)";
+    // A row from a newer engine cannot be checked here. Printing "does not
+    // match" would accuse the record of an edit that never happened.
+    cEl.textContent=calc==null?`hash version ${raw.hashVersion} — this page is older than the record`
+      :same?"matches":"DOES NOT MATCH";
+    cEl.style.color=calc==null?"var(--tx-3)":same?"var(--win)":"var(--dead)";
   }else{
     hEl.textContent=sha(canon(c));
     cEl.textContent=DEMO?"demo data — no record behind it":"unavailable";
@@ -1353,22 +1356,27 @@ function sha(str){
   }
   return H.map(x=>x.toString(16).padStart(8,"0")).join("");
 }
-/* integrity.js, field for field. The page used to hash six fields of its own
-   choosing and present the result as the record hash: a number that looks like
-   proof, computed over something the chain never hashed. If this list drifts
-   from IMMUTABLE the check below starts failing loudly, which is the point. */
-const IMMUTABLE=["hashVersion","callerId","chain","tokenAddress","pairAddress","symbol",
+/* integrity.js, field for field, version for version. The page used to hash six
+   fields of its own choosing and present the result as the record hash: a
+   number that looks like proof, computed over something the chain never
+   hashed. If these lists drift from SCHEMES the check below starts failing
+   loudly, which is the point — so they are copied, never derived, and a row is
+   rehashed under the scheme it was written with, exactly as the engine does. */
+const V2=["hashVersion","callerId","chain","tokenAddress","pairAddress","symbol",
   "firedAt","entryPriceUsd","entrySupply","entryMc","entrySupplySource",
   "liquidityUsd","score","reasonIds","sourceKind","sourceRef"];
+const SCHEMES={2:V2,3:[...V2,"entryVolumeH1","entryVolumeM5"]};
 function canonRecord(row){
+  const version=row.hashVersion??2, fields=SCHEMES[version];
+  if(!fields)return null;      // written by a newer engine: unverifiable here, not wrong
   const o={};
-  for(const k of [...IMMUTABLE].sort()){
-    const v=k==="hashVersion"?(row.hashVersion??2):row[k];
+  for(const k of [...fields].sort()){
+    const v=k==="hashVersion"?version:row[k];
     o[k]=Array.isArray(v)?v.map(String):typeof v==="number"?String(v):v==null?null:String(v);
   }
   return JSON.stringify(o);
 }
-const recomputeHash=row=>sha(canonRecord(row));
+const recomputeHash=row=>{const c=canonRecord(row);return c==null?null:sha(c)};
 
 function canon(c){
   return JSON.stringify({chain:c.chain,entryMc:String(c.entry),firedAt:new Date(c.at).toISOString(),

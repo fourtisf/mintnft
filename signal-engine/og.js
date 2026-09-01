@@ -129,6 +129,10 @@ export const CSV_COLUMNS = [
   "seq", "hashVersion", "callerId", "chain", "tokenAddress", "pairAddress", "symbol",
   "firedAt", "entryPriceUsd", "entrySupply", "entryMc", "entrySupplySource",
   "liquidityUsd", "score", "reasonIds", "sourceKind", "sourceRef",
+  // In the hash since version 3. A v2 row leaves them empty, which is what the
+  // v2 scheme hashed — the export has to reproduce the row's own scheme or the
+  // recomputation it exists to enable cannot agree.
+  "entryVolumeH1", "entryVolumeM5",
   "peakMc", "nowMc", "peakX", "nowX", "verdict", "isDead", "secondsTo2x",
   "recordHash", "chainHash",
 ];

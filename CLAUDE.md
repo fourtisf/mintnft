@@ -113,6 +113,7 @@ node backtest.js     # threshold sweep and reason attribution
 node test-marks.js   # marks come off the call's own pair
 node test-og.js      # shared links preview the call, not the site
 node test-chain.js   # on-chain gates, and that an unread check never reads clean
+node test-hashversion.js  # rows written under an older hash scheme still verify
 
 cd ..
 node parity.js       # contracts vs prototype, must print 666 / 666
@@ -170,13 +171,15 @@ continuing. Everything else is recoverable; that one is not.
    `test-anchor.js` that has never existed in any commit, which is the exact
    kind of quiet false claim the register is built to make impossible. Write
    it before wiring a key to real funds.
-7. **Volume is recorded but not hashed.** `entryVolumeH1` sits outside
-   `IMMUTABLE` because `canonical()` has no per-version field list, so adding a
-   field there would change the canonical form of every row already written and
-   break verification of the whole chain. The comment in `integrity.js` says to
-   bump `HASH_VERSION` when the list changes; doing that today fails every old
-   row. Fix the versioning first, with a migration test, then move the field
-   inside. It will never be cheaper than while the register is small.
+7. ~~**Volume is recorded but not hashed.**~~ Done. `canonical()` now carries a
+   field list per hash version, a row is re-hashed under the version it was
+   written with, and `entryVolumeH1`/`entryVolumeM5` are frozen from v3.
+   `test-hashversion.js` pins the v2 canonical form and digest as literals, so
+   a future change that would rewrite what an old row hashes to fails there
+   rather than in the register. **Adding a version:** copy the previous array
+   in `integrity.js`, append, bump `HASH_VERSION`, add a case to that test, and
+   update the copy of the scheme in `site/assets/app.js` — it is deliberately
+   copied rather than derived, so drift is loud.
 
 ## Things that are decided, do not relitigate
 

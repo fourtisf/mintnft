@@ -463,10 +463,10 @@ export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sour
     entrySupplySource: d.source,
     liquidityUsd: pair.liquidity?.usd ?? 0,
     // Volume at the moment it fired, so the register can be read by size
-    // afterwards. Descriptive, not hashed: adding a field to IMMUTABLE changes
-    // the canonical form of every row and canonical() has no per-version field
-    // list, so it would break verification of every call already written. Same
-    // footing as name, dex and the reason prose.
+    // afterwards. Frozen at insert since hash version 3: size is half of what a
+    // reader judges a call by, and until canonical() could carry a per-version
+    // field list this was a published number anyone with write access could
+    // change afterwards with every hash still checking out.
     entryVolumeH1: pair.volume?.h1 ?? 0,
     entryVolumeM5: pair.volume?.m5 ?? 0,
     // What the chain said at the moment it fired, or null when nothing could
