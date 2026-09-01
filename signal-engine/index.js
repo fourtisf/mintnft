@@ -148,10 +148,16 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
       if ((await store.mark(c.seq)).state === "settled") settled.push(c);
     return refresh(settled);
   };
+  /* Verifying is worth doing whether or not anything can be published, and
+     publishing is not. With no publisher wired, publishAnchor used to record an
+     anchor row carrying no transaction on every run — a row that proves nothing
+     and accumulates for ever. The register says it is unanchored; it does not
+     also need a pile of rows saying so. */
   const anchor = async () => {
     const v = await store.verify();
     if (!v.ok) return log("INTEGRITY BROKEN", v);
-    return publishAnchor(store, publishAnchorTx ?? (() => null), log);
+    if (!publishAnchorTx) return;
+    return publishAnchor(store, publishAnchorTx, log);
   };
 
   const timers = [
@@ -160,6 +166,13 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
     setInterval(() => warm().catch(e => log("warm failed", String(e))), WARM),
     setInterval(() => anchor().catch(e => log("anchor failed", String(e))), ANCHOR),
   ];
+
+  /* setInterval waits a whole period before its first run, so a restart cost a
+     blind minute of discovery — and golive.sh restarts twice, and the watchdog
+     restarts again on every stall. Nothing was scanned in that window, and on
+     an append-only register a gap cannot be filled in afterwards. The first
+     pass runs now instead of in sixty seconds. */
+  engine.tick().catch(e => log("discovery failed", String(e)));
 
   const server = serve(store, { port, secret, domain, tierSource, delays, triage, cfg: engine.cfg, log });
   const feed = attachFeed(server, {
