@@ -24,6 +24,40 @@ const THEME = {
   dead: { a: "#E5606B", b: "#B5715A", label: "DEAD" },
 };
 
+/**
+ * The card for the site itself, so a link to the front page has a preview too.
+ *
+ * Four numbers, and the fourth is the one that matters: peak is a ceiling
+ * nobody sold at, and a card that showed only the hit rate would be selling
+ * the same misunderstanding this register exists to remove.
+ */
+export function siteCard(s, returnPct) {
+  const pct = n => (n >= 0 ? "+" : "\u2212") + Math.abs(n * 100).toFixed(0) + "%";
+  const figs = [
+    ["CALLS, 7 DAYS", String(s.calls ?? 0)],
+    ["HIT \u2265 2\u00d7", Math.round((s.hitRate ?? 0) * 100) + "%"],
+    ["MEDIAN PEAK", (s.medianPeak ?? 0).toFixed(2) + "\u00d7"],
+    ["SOLD AT 2\u00d7", returnPct == null ? "\u2014" : pct(returnPct)],
+  ];
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient>
+    <radialGradient id="glow" cx="78%" cy="10%"><stop offset="0" stop-color="#5B7CFA" stop-opacity=".24"/><stop offset="1" stop-color="#5B7CFA" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#08090B"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <text x="64" y="86" font-family="monospace" font-size="19" letter-spacing="5" fill="#585E68">NEKARA \u00b7 THE REGISTER</text>
+  <text x="64" y="238" font-family="sans-serif" font-size="72" font-weight="700" fill="#F3F4F6">Signals with their</text>
+  <text x="64" y="322" font-family="sans-serif" font-size="72" font-weight="700" fill="url(#g)">reasons attached.</text>
+  <text x="64" y="386" font-family="monospace" font-size="24" fill="#8C929C">Every call is published with the conditions that fired it, then tracked</text>
+  <text x="64" y="422" font-family="monospace" font-size="24" fill="#8C929C">to win, miss or dead. Failed calls are never removed.</text>
+  ${figs.map(([k, v], i) => `
+  <text x="${64 + i * 272}" y="530" font-family="sans-serif" font-size="52" font-weight="700" fill="#F3F4F6">${esc(v)}</text>
+  <text x="${64 + i * 272}" y="566" font-family="monospace" font-size="16" letter-spacing="2" fill="#585E68">${esc(k)}</text>`).join("")}
+  <text x="1136" y="566" text-anchor="end" font-family="monospace" font-size="18" fill="#585E68">nekara.xyz</text>
+</svg>`;
+}
+
 export function callCard(row) {
   const key = row.isDead ? "dead" : row.verdict;
   const t = THEME[key] ?? THEME.miss;

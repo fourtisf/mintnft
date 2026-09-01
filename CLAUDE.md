@@ -105,6 +105,7 @@ node test.js         # rules against fixtures
 node simulate.js     # full pipeline + integrity tamper test
 node backtest.js     # threshold sweep and reason attribution
 node test-marks.js   # marks come off the call's own pair
+node test-og.js      # shared links preview the call, not the site
 
 cd ..
 node parity.js       # contracts vs prototype, must print 666 / 666

@@ -40,6 +40,13 @@ NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
 command -v npm >/dev/null || die "npm is missing. the engine has a dependency and cannot install it."
 echo "node $(node -v), npm $(npm -v)"
 
+# resvg draws the social cards with whatever fonts the box has. With none, the
+# cards render with every glyph missing and nobody notices until a post looks empty.
+if ! command -v fc-list >/dev/null 2>&1 || [ "$(fc-list 2>/dev/null | wc -l)" -eq 0 ]; then
+  printf '\033[33m%s\033[0m\n' "no fonts installed — social cards will render with empty text"
+  echo "  fix with: apt-get install -y fonts-dejavu-core"
+fi
+
 # 2 ──────────────────────────────────────────────────────────────────────────
 say "2/7  source"
 if [ -d "$SRC/.git" ]; then
@@ -69,10 +76,12 @@ else
 fi
 echo "engine at $ENGINE"
 
-# auth.js needs ethereumjs-util for signature recovery, and index.js imports it
-# at boot, so a missing node_modules is not a degraded engine — it is no engine.
+# auth.js needs ethereumjs-util for signature recovery and index.js imports it at
+# boot, so a missing node_modules is not a degraded engine — it is no engine.
+# resvg is the softer of the two: without it the PNG route answers 503 and links
+# unfurl bare, which is a worse launch than a broken one is a dead one.
 ( cd "$ENGINE" && npm install --omit=dev --no-audit --no-fund ) \
-  || die "npm install failed — the engine cannot boot without ethereumjs-util"
+  || die "npm install failed — the engine cannot boot without its dependencies"
 
 if [ -f "$ENGINE/data/register.json" ]; then
   N=$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(process.argv[1])).calls.length)}catch(e){console.log("?")}' "$ENGINE/data/register.json")
@@ -229,6 +238,14 @@ if [ -n "$WEBROOT" ] && [ -d "$WEBROOT" ]; then
   install -m 644 "$SRC/site/index.html" "$SRC/site/favicon.svg" "$WEBROOT/"
   install -m 644 "$SRC/site/assets/"* "$WEBROOT/assets/"
   echo "site published to $WEBROOT  (index.html, favicon.svg, assets/)"
+  # The engine serves /call/<seq> out of this same file, rewriting its preview
+  # tags per call. A drop-in, so the next deploy does not overwrite it.
+  mkdir -p /etc/systemd/system/nekara-engine.service.d
+  printf '[Service]\nEnvironment=SITE_INDEX=%s/index.html\n' "$WEBROOT" \
+    > /etc/systemd/system/nekara-engine.service.d/site-index.conf
+  systemctl daemon-reload
+  systemctl restart nekara-engine
+  echo "engine reads $WEBROOT/index.html for per-call preview tags"
 else
   echo "no web root found — copy site/index.html, site/favicon.svg and site/assets/ up by hand"
 fi

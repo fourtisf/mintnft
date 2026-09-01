@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Screener, scorer, integrity chain and gated API for the Proof register.",
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "ethereumjs-util": "^7.1.5"
   }
 }

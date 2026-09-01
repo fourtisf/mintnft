@@ -12,7 +12,8 @@ import { randomBytes } from "node:crypto";
 import { stats } from "./scorer.js";
 import { reasonPerformance, scoreBands, chainPerformance, callerPerformance,
          exitSimulation, realised } from "./analytics.js";
-import { callCard, toCsv } from "./og.js";
+import { callCard, siteCard, toCsv, ticker } from "./og.js";
+import { readFileSync, statSync } from "node:fs";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
 import { NonceStore, issueSession, readSession, verifySiwe, StaticTierSource } from "./auth.js";
@@ -53,6 +54,57 @@ export function serve(store, {
   const tierOf = req => {
     const raw = (req.headers.authorization ?? "").replace(/^Bearer /i, "");
     return readSession(raw, secret)?.tier ?? 0;
+  };
+
+  /* Social platforms do not render SVG previews, so the card that exists to be
+     seen in a timeline has to leave here as a raster. The dependency loads once
+     and never again if it is missing: an engine without it still serves the
+     register, it just cannot draw. */
+  let Resvg = null, resvgTried = false;
+  const png = async svg => {
+    if (!resvgTried) {
+      resvgTried = true;
+      try { ({ Resvg } = await import("@resvg/resvg-js")); }
+      catch { Resvg = null; log("resvg is not installed — /og/*.png will answer 503"); }
+    }
+    if (!Resvg) return null;
+    try { return new Resvg(svg, { fitTo: { mode: "width", value: 1200 } }).render().asPng(); }
+    catch (e) { log("png render failed", String(e)); return null; }
+  };
+
+  /* One page, served per call with that call's own preview tags. A static file
+     cannot vary them, so every shared link carried the site's card and none of
+     the call's: the numbers in the post and the numbers in the preview were
+     different by construction. */
+  const indexPath = process.env.SITE_INDEX ?? "/var/www/nekara/index.html";
+  let indexCache = { at: 0, html: null };
+  const siteIndex = () => {
+    try {
+      const m = statSync(indexPath).mtimeMs;
+      if (indexCache.at !== m) indexCache = { at: m, html: readFileSync(indexPath, "utf8") };
+      return indexCache.html;
+    } catch { return null; }
+  };
+  const esc = s => String(s ?? "").replace(/[&<>"]/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const callMeta = (row, origin) => {
+    const state = (row.peakX ?? 1) >= 2 ? `WIN ${(row.peakX ?? 1).toFixed(2)}x`
+      : row.isDead ? `DEAD, peaked ${(row.peakX ?? 1).toFixed(2)}x`
+      : row.state === "settled" ? `MISS, peaked ${(row.peakX ?? 1).toFixed(2)}x`
+      : `LIVE ${(row.nowX ?? 1).toFixed(2)}x`;
+    const title = `${ticker(row.symbol)} - ${state} - Nekara`;
+    const desc = `Called at $${Math.round(row.entryMc ?? 0).toLocaleString("en-US")} on ${row.chain}. `
+      + (row.reasons?.[0] ?? "Published with the conditions that fired it.")
+      + ". Wins, misses and the ones that died all stay on the register.";
+    return [
+      `<meta name="description" content="${esc(desc)}">`,
+      `<meta property="og:type" content="article">`,
+      `<meta property="og:url" content="${esc(origin)}/call/${row.seq}">`,
+      `<meta property="og:title" content="${esc(title)}">`,
+      `<meta property="og:description" content="${esc(desc)}">`,
+      `<meta property="og:image" content="${esc(origin)}/og/call/${row.seq}.png">`,
+      `<meta name="twitter:card" content="summary_large_image">`,
+    ].join("\n");
   };
 
   const srv = createServer(async (req, res) => {
@@ -192,14 +244,64 @@ export function serve(store, {
       return res.end(toCsv(rows));
     }
 
+    // The front page's own card, over the same seven days the site's figures
+    // cover, and carrying the result beside the hit rate.
+    if (p === "/og/site.png" || p === "/og/site.svg") {
+      const svg = siteCard(stats(rows), exitSimulation(rows.filter(
+        r => Date.parse(r.firedAt) > Date.now() - 7 * 864e5)).returnPct);
+      const cache = "public, max-age=300";
+      if (p.endsWith(".png")) {
+        const buf = await png(svg);
+        if (!buf) return json(res, 503, { error: "png rendering is not available on this instance" });
+        res.writeHead(200, { "content-type": "image/png", "cache-control": cache,
+          "access-control-allow-origin": "*", "content-length": buf.length });
+        return res.end(buf);
+      }
+      res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": cache,
+        "access-control-allow-origin": "*" });
+      return res.end(svg);
+    }
+
     if (p.startsWith("/og/call/")) {
-      const seq = Number(p.split("/").pop().replace(".svg", ""));
+      const file = p.split("/").pop();
+      const seq = Number(file.replace(/\.(svg|png)$/, ""));
       const row = rows.find(r => r.seq === seq);
       if (!row) return notFound(res);
-      res.writeHead(200, { "content-type": "image/svg+xml",
-        "cache-control": row.state === "settled" ? "public, max-age=31536000" : "public, max-age=300",
+      const svg = callCard(row);
+      // A settled call's card can never change again; a live one is five minutes
+      // stale at worst, the same bound its marks carry.
+      const cache = row.state === "settled" ? "public, max-age=31536000" : "public, max-age=300";
+      if (file.endsWith(".png")) {
+        const buf = await png(svg);
+        if (!buf) return json(res, 503, { error: "png rendering is not available on this instance" });
+        res.writeHead(200, { "content-type": "image/png", "cache-control": cache,
+          "access-control-allow-origin": "*", "content-length": buf.length });
+        return res.end(buf);
+      }
+      res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": cache,
         "access-control-allow-origin": "*" });
-      return res.end(callCard(row));
+      return res.end(svg);
+    }
+
+    /* The page for one call, carrying that call's preview tags. A call this
+       reader may not see yet gets the page unchanged — not due is answered the
+       same way as not there, here as everywhere else. */
+    if (p.startsWith("/call/")) {
+      const seq = Number(p.split("/")[2]);
+      const html = siteIndex();
+      if (!html) {
+        res.writeHead(302, { location: `/?call=${Number.isFinite(seq) ? seq : ""}` });
+        return res.end();
+      }
+      const row = rows.find(r => r.seq === seq);
+      const proto = String(req.headers["x-forwarded-proto"] ?? "https").split(",")[0].trim();
+      const origin = `${proto}://${req.headers.host ?? domain}`;
+      const body = row
+        ? html.replace(/<!-- og:start -->[\s\S]*?<!-- og:end -->/,
+            `<!-- og:start -->\n${callMeta(row, origin)}\n<!-- og:end -->`)
+        : html;
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" });
+      return res.end(body);
     }
 
     /* ── integrity ── */
