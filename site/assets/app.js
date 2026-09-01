@@ -54,9 +54,12 @@ const calls=SEED.map((s,i)=>({id:"r"+i,reasons:REASONS[i%REASONS.length],
    page renders whatever the provider says. Escape at the point of use. */
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const LINK_LABEL={site:"website",twitter:"X",x:"X",telegram:"Telegram",discord:"Discord",link:"link"};
-const linkRow=c=>[
+/* The card gets the chart and nothing else — its footer already carries the
+   address, the state and the share button. The detail page gets everything the
+   token publishes, which is where a reader goes to look into it. */
+const linkRow=(c,all)=>[
   c.pair?`<a class="lnk" href="${esc(DEX+c.chainId+"/"+c.pair)}" target="_blank" rel="noopener noreferrer">chart</a>`:"",
-  ...(c.links??[]).map(l=>
+  ...(all?(c.links??[]):[]).map(l=>
     `<a class="lnk" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(LINK_LABEL[l.kind]??l.kind)}</a>`),
 ].join("");
 
@@ -882,7 +885,7 @@ function openCall(id){
         </div>
         <div class="cd-links">
           <button class="ca" data-ca="${esc(c.addr||c.ca)}">${esc(c.ca)}<svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.6" y="3.6" width="7" height="7" rx="1.4"/><path d="M8.4 1.4h-7v7"/></svg></button>
-          ${linkRow(c)}
+          ${linkRow(c,true)}
         </div></div>
       <div class="cd-mx"><div class="big" style="${v==="win"&&!deadOf(c)?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(c.live||deadOf(c)?n:mult(c)).toFixed(2)}×</div>
         <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
@@ -1487,6 +1490,7 @@ function applyMark(seq,m){
   if(m.verdict)c.verdict=m.verdict;
   if(m.isDead!=null)c.isDead=m.isDead;
   if(m.deadAt&&!c.deadAt)c.deadAt=Date.parse(m.deadAt);
+  if(Array.isArray(m.links)&&m.links.length)c.links=m.links;
   if(m.state)c.live=m.state!=="settled";
   c.path.push(c.nowMc);if(c.path.length>48)c.path.shift();
   // Flash is for reaching 2×. A call turning dead redraws without celebrating.

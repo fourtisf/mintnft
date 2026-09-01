@@ -21,10 +21,11 @@ const PORT = 8796;
 let failures = 0;
 const ok = (cond, msg) => { console.log(`  ${cond ? "ok   " : "GAGAL"}  ${msg}`); if (!cond) failures++; };
 
-const pair = (pairAddress, priceUsd, liquidityUsd) => ({
+const pair = (pairAddress, priceUsd, liquidityUsd, info) => ({
   chainId: "solana", dexId: "meteora", pairAddress,
   baseToken: { address: "TOK", symbol: "APEC", name: "Ape & Closed AI" },
   priceUsd: String(priceUsd), liquidity: { usd: liquidityUsd },
+  ...(info ? { info } : {}),
 });
 
 // Shaped after call #9 on the live register: entry $0.0004335 on a $55K pool,
@@ -70,6 +71,27 @@ pairs = [pair("FIRED", ENTRY_PRICE / 20, 40_000), pair("DEEPER", ENTRY_PRICE, 90
 await engine.refresh(store.liveCalls());
 ok(mark().isDead, "a real collapse on the call's own pair still reads as dead");
 ok(mark().peakX >= 2, "and the peak it reached stays on the record");
+
+console.log("\nSOCIALS MENYUSUL");
+// The call was written before the engine recorded any links. They belong to the
+// token, not to the moment it fired, so a later mark can carry them.
+pairs = [pair("FIRED", ENTRY_PRICE, 55_000, {
+  socials: [{ type: "twitter", url: "https://x.com/apec" },
+            { type: "telegram", url: "javascript:alert(1)" }],
+  websites: [{ label: "Website", url: "https://apec.example" }],
+})];
+await engine.refresh(store.liveCalls());
+const links = store.mark(call.seq).links ?? [];
+ok(links.length === 2, `a call fired without links picks them up on a later mark (${links.length})`);
+ok(links.some(l => l.url === "https://x.com/apec") && links.some(l => l.kind === "site"),
+  "the token's own site and socials, as the provider gave them");
+ok(!links.some(l => /^javascript:/i.test(l.url)),
+  "and nothing that is not an http link — a provider does not choose what we link to");
+
+pairs = [pair("FIRED", ENTRY_PRICE, 55_000)];   // provider stops sending info
+await engine.refresh(store.liveCalls());
+ok((store.mark(call.seq).links ?? []).length === 2,
+  "a missing field is not a project deleting its Twitter — they are kept");
 
 engine.stop();
 rmSync(DATA, { force: true });

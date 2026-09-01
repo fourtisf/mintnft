@@ -13,6 +13,7 @@ import { Engine } from "./engine.js";
 import { Triage } from "./triage.js";
 import { FileStore } from "./store.js";
 import { applyObservation } from "./scorer.js";
+import { linksOf } from "./rules.js";
 import { serve } from "./api.js";
 import { attachFeed } from "./ws.js";
 import { publishAnchor } from "./anchor.js";
@@ -95,7 +96,12 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
         const mc = price * c.entrySupply;
         const before = store.mark(c.seq);
         const after = applyObservation(c, before, mc);
-        store.setMark(c.seq, after);
+        // A token's socials are a property of the token now, not of the call as
+        // it was fired, so they ride on the mark — the mutable half — and reach
+        // calls written before we recorded any. Kept when the provider stops
+        // sending them: a missing field is not a project deleting its Twitter.
+        const links = linksOf(p);
+        store.setMark(c.seq, links.length ? { ...after, links } : after);
         feed.publishMark(c, after);
         if (before.verdict !== "win" && after.verdict === "win")
           log(`[WIN] #${c.seq} $${c.symbol} hit ${after.peakX.toFixed(2)}x in ${after.secondsTo2x}s`);

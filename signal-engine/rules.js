@@ -414,6 +414,22 @@ export function evaluate(pair, cfg = CONFIG, seen = new Map()) {
  * day one — the house desk is just caller 1 — and a call with no author on it
  * is a call that can be reattributed later.
  */
+/**
+ * Where a token says it lives, as the provider reports it.
+ *
+ * Only entries carrying a real http(s) URL: a bare handle would mean guessing
+ * which site it belongs to, and a third party must not get to choose what our
+ * pages link to. Six at most — a token with thirty "socials" is not offering
+ * information.
+ */
+export function linksOf(pair) {
+  return [
+    ...(pair?.info?.websites ?? []).map(w => ({ kind: "site", url: w?.url })),
+    ...(pair?.info?.socials ?? []).map(s => ({
+      kind: String(s?.type ?? s?.platform ?? "link").toLowerCase(), url: s?.url })),
+  ].filter(l => typeof l.url === "string" && /^https?:\/\//i.test(l.url)).slice(0, 6);
+}
+
 export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sourceRef = null } = {}) {
   const d = deriveSupply(pair);
   if (!d) throw new Error("toSignal called on a pair with no usable price or supply");
@@ -426,16 +442,9 @@ export function toSignal(pair, ev, { callerId = 1, sourceKind = "screener", sour
     symbol: pair.baseToken.symbol,
     name: pair.baseToken.name,
     imageUrl: pair.info?.imageUrl ?? null,
-    // Where the token says it lives. has_identity already refuses anything
-    // without one of these, so recording them costs nothing and lets a reader
-    // check the project without leaving the call. Only entries carrying a real
-    // http(s) URL: a bare handle would mean guessing the site, and anything
-    // else would be a third party choosing what this page links to.
-    links: [
-      ...(pair.info?.websites ?? []).map(w => ({ kind: "site", url: w?.url })),
-      ...(pair.info?.socials ?? []).map(s => ({
-        kind: String(s?.type ?? s?.platform ?? "link").toLowerCase(), url: s?.url })),
-    ].filter(l => typeof l.url === "string" && /^https?:\/\//i.test(l.url)).slice(0, 6),
+    // Where the token said it lived when we fired. has_identity already refuses
+    // anything without one of these, so recording them costs nothing.
+    links: linksOf(pair),
     dex: pair.dexId,
     firedAt: new Date().toISOString(),
     entryPriceUsd: d.price,
