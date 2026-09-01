@@ -572,12 +572,23 @@ function renderPreview(){
     ?a.map((c,i)=>card(c,i,true)).join("")
     :`<div class="empty">${emptyLine()}</div>`;
 }
+/* Each figure counts up over 850ms. A render that lands mid-count has to be
+   able to stop the one in flight, or an engine going away is followed by the
+   old number animating back over the "—" that replaced it. */
+const animSeq=new WeakMap();
+const animStop=el=>{animSeq.set(el,(animSeq.get(el)??0)+1);return el};
 function anim(id,to,dec,suf){
   const el=document.getElementById(id);if(!el)return;
-  if(matchMedia("(prefers-reduced-motion:reduce)").matches){el.innerHTML=to.toFixed(dec)+(suf?`<span>${suf}</span>`:"");return}
+  const my=(animSeq.get(el)??0)+1;animSeq.set(el,my);
+  const paint=k=>{el.innerHTML=(to*k).toFixed(dec)+(suf?`<span>${suf}</span>`:"")};
+  if(matchMedia("(prefers-reduced-motion:reduce)").matches)return paint(1);
   const t0=performance.now();
-  (function s(t){const k=Math.min((t-t0)/850,1),e=1-Math.pow(1-k,3);
-    el.innerHTML=(to*e).toFixed(dec)+(suf?`<span>${suf}</span>`:"");if(k<1)requestAnimationFrame(s)})(t0);
+  (function s(t){
+    if(animSeq.get(el)!==my)return;          // a newer render owns this cell
+    const k=Math.min((t-t0)/850,1);
+    paint(1-Math.pow(1-k,3));
+    if(k<1)requestAnimationFrame(s);
+  })(t0);
 }
 /* Every published number comes from the engine's stats(), which counts misses
    in every denominator. Recomputing them here from the 60 rows this page holds
@@ -595,7 +606,7 @@ function renderStats(){
   const all=DEMO?localStats():statsAll, wk=DEMO?localStats():stats7;
   // No answer is not zero. Zero is a claim, and we would not have the numbers.
   const put=(ids,s)=>{
-    if(!s)return ids.forEach(id=>{const el=document.getElementById(id);if(el)el.textContent="—"});
+    if(!s)return ids.forEach(id=>{const el=document.getElementById(id);if(el)animStop(el).textContent="—"});
     const v=[[s.calls,0,""],[Math.round(s.hitRate*100),0,"%"],[s.medianPeak,2,"×"],[s.bestPeak,1,"×"]];
     ids.forEach((id,i)=>anim(id,v[i][0],v[i][1],v[i][2]));
   };
@@ -879,7 +890,7 @@ async function openCallBySeq(seq){
   let c=calls.find(x=>x.seq===seq);
   if(!c&&!DEMO){
     try{
-      const r=await fetch(`${API}/call/${seq}`,{cache:"no-store"});
+      const r=await fetch(`${API}/call/${seq}`,noStore());
       if(r.ok)c=upsert(await r.json());
     }catch{}
   }
@@ -972,7 +983,7 @@ function openCall(id){
   go("call");
   // The whole observed series for the big chart. The list route sends a thinned
   // one; here is where someone looks to see that the peak was a mark we saw.
-  if(!DEMO&&c.seq!=null)fetch(`${API}/call/${c.seq}`,{cache:"no-store"})
+  if(!DEMO&&c.seq!=null)fetch(`${API}/call/${c.seq}`,noStore())
     .then(r=>r.ok?r.json():null)
     .then(d=>{
       if(!d?.samples?.length||d.samples.length<2)return;
@@ -1166,7 +1177,7 @@ let triage=null;
 async function pullTriage(){
   if(DEMO)return;
   try{
-    const r=await fetch(API+"/triage",{cache:"no-store"});
+    const r=await fetch(API+"/triage",noStore());
     if(r.ok){triage=await r.json();renderOps()}
   }catch(e){}
 }
@@ -1433,9 +1444,33 @@ document.addEventListener("click",e=>{
    header counted seconds since a timer last ran and called it "synced", which
    read identically whether the engine was answering, refusing or gone. */
 const API=(location.protocol==="file:"?"http://localhost:8787":"")+"/api";
+// The auth routes are at the root, not under /api. Asking for them under
+// /api/auth/nonce reaches a static file server, which answers 404 to a
+// sign-in and looks exactly like a wallet refusing.
+const AUTH=API.replace(/\/api$/,"");
 const FEED=(location.protocol==="file:"?"ws://localhost:8787"
   :(location.protocol==="https:"?"wss://":"ws://")+location.host)+"/feed";
 const CHAIN={solana:"SOL",base:"BASE",bsc:"BSC",ethereum:"ETH"};
+
+/* ── the session ──────────────────────────────────────────────────────────
+   The engine has had SIWE, four gated websocket rooms and a tier read from the
+   key contract since the first commit. The site had a Connect button with no
+   handler behind it, so every reader was public tier forever and the paid half
+   of the product had no door at all.
+
+   Nothing here decides a tier. The wallet proves an address to the engine, the
+   engine reads that address against the key contract, and the token it returns
+   is the only thing that changes what arrives — exactly as it must be, or the
+   latency is a suggestion. Sessions last five minutes and are refreshed while
+   the page is open, so selling a key ends its access on the next refresh.
+
+   Held in sessionStorage: a reload should not cost another signature, and a
+   closed tab should not leave a token behind. */
+const SESSION={token:null,tier:0,address:null};
+const noStore=()=>({cache:"no-store",
+  headers:SESSION.token?{authorization:"Bearer "+SESSION.token}:{}});
+const SHORT=a=>a?a.slice(0,6)+"…"+a.slice(-4):"";
+const TIER_NAME=["Public","Tier I","Tier II","Tier III"];
 
 const CONN={state:DEMO?"demo":"boot",read:0,delay:null};   // delay: this reader's own latency, learned from the socket
 const CONN_TX={live:"live",polling:"polling",offline:"engine offline",boot:"connecting…",demo:"demo data"};
@@ -1550,11 +1585,24 @@ function paintMarks(){
 /* ── the socket ───────────────────────────────────────────────────────────
    "live" waits for the engine's own joined frame rather than for the upgrade,
    so a proxy answering in front of a dead engine cannot pass for a feed. */
-let sock=null,wait=1000;
+let sock=null,wait=1000,gen=0;
+/* Deliberately dropping the socket to rejoin on another tier cannot wait for
+   the close event: a close is a round trip, and the reader has already changed
+   what they are allowed to see. Bumping the generation orphans the old
+   attempt so its late close cannot schedule a second socket behind this one. */
+function reconnect(){
+  gen++;
+  const s=sock;sock=null;
+  try{s?.close()}catch{}
+  wait=1000;
+  connectFeed();
+}
 function connectFeed(){
   if(DEMO||typeof WebSocket==="undefined")return;
+  const my=++gen;
   let s;
-  try{s=new WebSocket(FEED)}catch{return retryFeed()}
+  try{s=new WebSocket(SESSION.token?`${FEED}?token=${encodeURIComponent(SESSION.token)}`:FEED)}
+  catch{return retryFeed()}
   sock=s;
   s.onmessage=e=>{
     let m;try{m=JSON.parse(e.data)}catch{return}
@@ -1569,7 +1617,7 @@ function connectFeed(){
   // only errors, and the page then sits on a socket that will never come back.
   let done=false;
   const gone=()=>{
-    if(done)return;
+    if(done||my!==gen)return;         // an orphaned attempt retries nothing
     done=true;
     if(sock===s)sock=null;
     try{s.close()}catch{}
@@ -1591,7 +1639,7 @@ let verifyState=null;
 async function pullVerify(){
   if(DEMO)return;
   try{
-    const r=await fetch(API+"/verify",{cache:"no-store"});
+    const r=await fetch(API+"/verify",noStore());
     // 409 is a real answer: the chain is broken and says so.
     verifyState=(r.ok||r.status===409)?await r.json():null;
   }catch{ verifyState=null }
@@ -1618,7 +1666,7 @@ function registerQuery(offset){
   return p.toString();
 }
 async function loadRegister(append){
-  const r=await fetch(`${API}/register?${registerQuery(append?calls.length:0)}`,{cache:"no-store"});
+  const r=await fetch(`${API}/register?${registerQuery(append?calls.length:0)}`,noStore());
   if(!r.ok)throw new Error("register answered "+r.status);
   const rows=await r.json();
   if(!Array.isArray(rows))throw new Error("register did not answer with a list");
@@ -1686,11 +1734,11 @@ async function pullLive(){
     // serves rows but not this route is behind, not down, and the figures go
     // blank on their own without taking the feed with them.
     const readStats=async q=>{
-      try{const r=await fetch(API+"/stats"+q,{cache:"no-store"});return r.ok?await r.json():null}
+      try{const r=await fetch(API+"/stats"+q,noStore());return r.ok?await r.json():null}
       catch{return null}
     };
     const readJson=async path=>{
-      try{const r=await fetch(API+path,{cache:"no-store"});return r.ok?await r.json():null}
+      try{const r=await fetch(API+path,noStore());return r.ok?await r.json():null}
       catch{return null}
     };
     [statsAll,stats7,anaCallers,anaChains]=await Promise.all([
@@ -1722,6 +1770,94 @@ document.querySelectorAll("[data-social]").forEach(a=>{
   if(url){a.href=url;a.target="_blank";a.rel="noopener noreferrer"}
   else a.classList.add("hide");
 });
+
+/* ── sign in ─────────────────────────────────────────────────────────────── */
+function paintSession(){
+  const b=document.getElementById("connectBtn");
+  if(!b)return;
+  b.textContent=SESSION.token?`${TIER_NAME[SESSION.tier]} · ${SHORT(SESSION.address)}`:"Connect";
+  b.title=SESSION.token?"Signed in. Click to sign out.":"Sign in with the wallet holding your key";
+  b.classList.toggle("on",!!SESSION.token);
+}
+function saveSession(){
+  try{
+    if(SESSION.token)sessionStorage.setItem("nekara.session",JSON.stringify(SESSION));
+    else sessionStorage.removeItem("nekara.session");
+  }catch{}
+}
+function signOut(){
+  SESSION.token=null;SESSION.tier=0;SESSION.address=null;
+  saveSession();paintSession();
+  // Drop the socket so it rejoins as public: keeping a Tier III room open after
+  // signing out would hand the reader latency they no longer hold.
+  reconnect();
+  pullLive();
+}
+function signInError(msg){
+  const b=document.getElementById("connectBtn");
+  if(!b)return;
+  b.textContent=msg;
+  setTimeout(paintSession,3200);
+}
+async function connect(){
+  const eth=window.ethereum;
+  if(!eth)return signInError("No wallet found");
+  try{
+    const [address]=await eth.request({method:"eth_requestAccounts"});
+    if(!address)return signInError("No account");
+    const n=await (await fetch(AUTH+"/auth/nonce",noStore())).json();
+    // The domain has to be the engine's own, not this page's guess at it: a
+    // message signed for the wrong domain is refused, and should be.
+    const message=[
+      `${n.domain} wants you to sign in with your Ethereum account:`,
+      address,
+      "",
+      "Sign in to read the register at the latency your key holds.",
+      "This proves the address holds a key. It authorises no transaction and moves no funds.",
+      "",
+      `URI: ${location.origin}`,
+      "Chain ID: 8453",
+      `Nonce: ${n.nonce}`,
+      `Issued At: ${new Date().toISOString()}`,
+    ].join("\n");
+    const signature=await eth.request({method:"personal_sign",params:[message,address]});
+    const r=await fetch(AUTH+"/auth/verify",{method:"POST",
+      headers:{"content-type":"application/json"},body:JSON.stringify({message,signature})});
+    const body=await r.json().catch(()=>({}));
+    if(!r.ok)return signInError(body.error??"Refused");
+    SESSION.token=body.token;SESSION.tier=body.tier??0;SESSION.address=body.address??address;
+    saveSession();paintSession();
+    reconnect();          // rejoin on the room this token allows
+    pullLive();
+  }catch(e){
+    // A refused signature is the reader saying no, not an error to shout about.
+    signInError(/denied|reject/i.test(String(e?.message))?"Cancelled":"Sign-in failed");
+  }
+}
+/* The tier is re-read from the chain on every refresh, which is the only bound
+   on a session that outlives the key it was bought with. */
+async function refreshSession(){
+  if(!SESSION.token)return;
+  try{
+    const r=await fetch(AUTH+"/auth/refresh",noStore());
+    if(!r.ok)return signOut();
+    const s=await r.json();
+    const moved=s.tier!==SESSION.tier;
+    SESSION.token=s.token;SESSION.tier=s.tier;SESSION.address=s.address;
+    saveSession();paintSession();
+    if(moved){reconnect();pullLive();}
+  }catch{}
+}
+document.getElementById("connectBtn")?.addEventListener("click",()=>
+  SESSION.token?signOut():connect());
+if(!DEMO){
+  try{
+    const kept=JSON.parse(sessionStorage.getItem("nekara.session")||"null");
+    if(kept?.token){Object.assign(SESSION,kept);}
+  }catch{}
+  paintSession();
+  setInterval(refreshSession,240_000);   // the token lives 300s
+}
 
 paintConn();
 renderAll();

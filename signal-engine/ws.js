@@ -52,6 +52,17 @@ export function attachFeed(server, { resolveTier, delays = TIER_DELAY_S, path = 
     // empty register apart from one it is not allowed to see yet.
     socket.write(frame(JSON.stringify({ type: "joined", tier, delaySeconds: delays[tier] })));
 
+    // A client closing sends a close frame and waits for ours. We never read
+    // client frames — there is nothing a reader can say to this feed — but not
+    // answering a close leaves the socket open on both sides until something
+    // times out, so a reader changing tier appears not to have changed rooms.
+    socket.on("data", buf => {
+      if (buf.length && (buf[0] & 0x0f) === 0x8) {
+        try { socket.write(Buffer.from([0x88, 0x00])); } catch {}
+        socket.destroy();
+      }
+    });
+
     const drop = () => rooms[tier].delete(socket);
     socket.on("close", drop);
     socket.on("error", drop);

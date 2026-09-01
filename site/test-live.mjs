@@ -24,7 +24,8 @@ import { dirname, join } from "node:path";
 import { FileStore } from "../signal-engine/store.js";
 import { serve } from "../signal-engine/api.js";
 import { attachFeed } from "../signal-engine/ws.js";
-import { StaticTierSource } from "../signal-engine/auth.js";
+import { readSession } from "../signal-engine/auth.js";
+import { ecsign, hashPersonalMessage, privateToAddress, toRpcSig, bufferToHex } from "ethereumjs-util";
 import { applyObservation } from "../signal-engine/scorer.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -86,9 +87,27 @@ ok(!doc.getElementById("tkrIn").textContent.includes("BTC"),
 console.log("\nENGINE HIDUP, REGISTER KOSONG");
 rmSync(DATA, { force: true });
 const store = new FileStore(DATA);
+// A wallet that really signs, and a key contract that says this address holds
+// Tier III. Nothing else in the flow is stubbed.
+const PK = Buffer.alloc(32, 7);
+const ADDR = bufferToHex(privateToAddress(PK));
+win.ethereum = {
+  request: async ({ method, params }) => {
+    if (method === "eth_requestAccounts") return [ADDR];
+    if (method === "personal_sign") {
+      const { v, r, s } = ecsign(hashPersonalMessage(Buffer.from(params[0], "utf8")), PK);
+      return toRpcSig(v, r, s);
+    }
+    throw new Error("unexpected " + method);
+  },
+};
 const srv = serve(store, { port: PORT, secret: "site-live-test", domain: "test",
-  tierSource: new StaticTierSource(), delays: DELAYS, log: () => {} });
-const feed = attachFeed(srv, { delays: DELAYS, resolveTier: () => 0, log: () => {} });
+  tierSource: { bestTierOf: async a => a.toLowerCase() === ADDR.toLowerCase() ? 3 : 0 },
+  delays: DELAYS, log: () => {} });
+// The same resolver index.js uses: the room comes from the signed token and
+// from nothing the client says about itself.
+const feed = attachFeed(srv, { delays: DELAYS, log: () => {},
+  resolveTier: (req, url) => readSession(url.searchParams.get("token"), "site-live-test")?.tier ?? 0 });
 
 await waitFor("the socket connects", () => text("syncTxt") === "live");
 ok(text("syncTxt") === "live", "header reads live once the engine's own joined frame lands");
@@ -282,7 +301,29 @@ pickSel("mcSel", 0);
 await waitFor("clearing the filter restores the list", () => cards().length === 5);
 ok(!/mc=/.test(win.location.search), "clearing it takes it back out of the URL");
 
-/* ── 8. the keys page may not sell what does not exist ──────────────────── */
+/* ── 8. the door the paid product never had ─────────────────────────────── */
+console.log("\nMASUK DENGAN KUNCI");
+const btn = doc.getElementById("connectBtn");
+ok(btn.textContent === "Connect", "the header offers a way in");
+btn.dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+await waitFor("the engine issues a session", () => /Tier III/.test(btn.textContent));
+ok(/Tier III/.test(btn.textContent), `the header shows the tier the chain gave: "${btn.textContent}"`);
+
+const kept = JSON.parse(win.sessionStorage.getItem("nekara.session") ?? "null");
+const claims = readSession(kept?.token, "site-live-test");
+ok(claims?.tier === 3, "the token carries Tier III, signed by the engine");
+ok(claims?.addr === ADDR.toLowerCase(), "for the address that actually signed");
+
+await waitFor("the socket rejoins on the tier's room", () => feed.rooms[3].size >= 1);
+ok(feed.rooms[3].size >= 1 && feed.rooms[0].size === 0,
+  "it left the public room — a tier is a room, not a label");
+
+btn.dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+await waitFor("signing out drops back to public", () => feed.rooms[0].size >= 1);
+ok(feed.rooms[3].size === 0, "signing out gives the latency back");
+ok(btn.textContent === "Connect", "and offers the way in again");
+
+/* ── 9. the keys page may not sell what does not exist ──────────────────── */
 console.log("\nKEYS BELUM DIBUKA");
 doc.querySelector('#navLinks a[data-v="mint"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
 ok(text("supTxt") === "0 / 666 minted", `supply reads "${text("supTxt")}" — nothing is deployed`);
@@ -291,7 +332,7 @@ ok(doc.getElementById("mintBtn").disabled === true, "the claim button cannot be 
 ok(!/Claim key/.test(doc.getElementById("mintBtn").textContent), "and does not offer to sell one");
 doc.querySelector('#navLinks a[data-v="reg"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
 
-/* ── 9. and it survives the engine going away again ──────────────────────── */
+/* ── 10. and it survives the engine going away again ─────────────────────── */
 console.log("\nENGINE MATI LAGI");
 feed.close(); srv.close();
 await waitFor("the page notices the engine went away", () => text("syncTxt").startsWith("engine offline"), 30000);
