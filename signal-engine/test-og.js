@@ -116,6 +116,24 @@ console.log("\nRINGKASAN BEBERAPA SINYAL");
   ok(raster.status === 200 && png(Buffer.from(await raster.arrayBuffer())), "and rasterises");
 }
 
+console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
+{
+  const w = await fetch(`${B}/og/wins.svg?days=7`);
+  const txt = await w.text();
+  ok(w.status === 200, `the winners card is served (${w.status})`);
+  ok(!txt.includes("WAGMI"), "the call that never reached 2× is not drawn on it");
+  ok(txt.includes("$TAP"), "the one that did, is");
+  // The whole point: selecting what to draw is fine, hiding the base is not.
+  ok(/1 of 2 calls/.test(txt),
+    "it says how many of how many, in words, on the same image");
+  ok(/>50%<[\s\S]{0,220}HIT/.test(txt),
+    "and the hit rate is over every call in the window, not over the ones shown");
+  ok(/the other 1 are on the register too/.test(txt),
+    "naming what was left out rather than leaving the reader to assume");
+  const raster = await fetch(`${B}/og/wins.png?days=7`);
+  ok(raster.status === 200 && png(Buffer.from(await raster.arrayBuffer())), "and rasterises");
+}
+
 console.log("\nKARTU SITUS");
 const site = await fetch(`${B}/og/site.png`);
 const sbuf = Buffer.from(await site.arrayBuffer());

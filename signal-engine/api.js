@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import { stats } from "./scorer.js";
 import { reasonPerformance, scoreBands, chainPerformance, callerPerformance,
          exitSimulation, realised } from "./analytics.js";
-import { callCard, bannerCard, digestCard, siteCard, toCsv, ticker } from "./og.js";
+import { callCard, bannerCard, digestCard, podiumCard, siteCard, toCsv, ticker } from "./og.js";
 import { readFileSync, statSync } from "node:fs";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
@@ -242,6 +242,35 @@ export function serve(store, {
         "content-disposition": "attachment; filename=proof-register.csv",
         "access-control-allow-origin": "*" });
       return res.end(toCsv(rows));
+    }
+
+    /* The winners, with the denominator still on the card:
+         /og/wins.png?days=7&n=5
+       Selecting what to draw is allowed; hiding what it was selected from is
+       not. The rows are the calls that hit 2x, best first, and the headline
+       figures — hit rate, total, dead — are computed over every call in the
+       window, so the number cannot be improved by choosing the picture.
+       Non-negotiable 2 is about statistics that exclude misses, and none of
+       these do: the selection is what is drawn, never what is counted. */
+    if (p === "/og/wins.png" || p === "/og/wins.svg") {
+      const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days")) || 7));
+      const n = Math.min(5, Math.max(1, Number(url.searchParams.get("n")) || 5));
+      const cut = Date.now() - days * 864e5;
+      const inWindow = rows.filter(r => Date.parse(r.firedAt) > cut);
+      const wins = inWindow.filter(r => r.verdict === "win")
+        .sort((a, b) => (b.peakX ?? 0) - (a.peakX ?? 0));
+      const svg = podiumCard(wins, stats(inWindow, days), { days, max: n });
+      const cache = "public, max-age=300";
+      if (p.endsWith(".png")) {
+        const buf = await png(svg);
+        if (!buf) return json(res, 503, { error: "png rendering is not available on this instance" });
+        res.writeHead(200, { "content-type": "image/png", "cache-control": cache,
+          "access-control-allow-origin": "*", "content-length": buf.length });
+        return res.end(buf);
+      }
+      res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": cache,
+        "access-control-allow-origin": "*" });
+      return res.end(svg);
     }
 
     /* Several calls in one picture: /og/digest.png?days=7&n=6
