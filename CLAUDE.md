@@ -115,6 +115,8 @@ node backtest.js     # threshold sweep and reason attribution
 node test-marks.js   # marks come off the call's own pair
 node test-og.js      # shared links preview the call, not the site
 node test-chain.js   # on-chain gates, and that an unread check never reads clean
+node check-chain.js  # not a test: points the gates at a real token with a real key,
+                     # so wiring one is watched rather than assumed
 node test-hashversion.js  # rows written under an older hash scheme still verify
 node test-anchor.js  # what is built, published, refused, and provable to a third party
 node test-pg.js      # the Postgres driver, if TEST_DATABASE_URL is set; skips loudly otherwise
