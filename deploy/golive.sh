@@ -317,10 +317,20 @@ line() { [ -n "${PID:-}" ] && [ "$PID" != 0 ] &&
   journalctl -u nekara-engine _PID="$PID" --no-pager 2>/dev/null |
   grep -o "\[$1\].*" | tail -1 | sed "s/^\[$1\] *//" || true; }
 
+# The engine was restarted moments ago and its boot lines are not in the
+# journal yet. Reading straight away reported "not reported" about an engine
+# that was perfectly healthy — a wrong answer, which is worse than a slow one,
+# and exactly the failure this block was written to stop. Wait for the lines.
+for _ in $(seq 1 30); do
+  [ -n "$(line discovery)" ] && break
+  sleep 1
+  PID=$(systemctl show -p MainPID --value nekara-engine 2>/dev/null || true)
+done
+
 # An empty line is not an empty answer. Printing a blank beside "discovery"
 # would read as "nothing configured" when what happened is that the log was not
 # read — the same failure the engine's own panels are built to avoid.
-said() { local v; v=$(line "$1" || true); printf '%s' "${v:-not reported — the engine may still be starting; check journalctl}"; }
+said() { local v; v=$(line "$1" || true); printf '%s' "${v:-not reported — nothing in this boot log; check journalctl -u nekara-engine}"; }
 
 printf '\n== what this box is running, read back from the engine ==\n'
 printf '  discovery   %s\n' "$(said discovery)"
