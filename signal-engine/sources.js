@@ -159,7 +159,16 @@ export class BoostSource {
   }
 }
 
-/** Runs several sources and merges, dropping duplicate tokens. */
+/**
+ * Runs several sources and merges, dropping duplicate tokens.
+ *
+ * Each candidate is tagged with the source that produced it, and the first
+ * source to produce it wins the tag — so a token both the profile feed and a
+ * pool watcher see is credited to whichever saw it first, which is the only
+ * comparison worth making between them. Without this, adding a source is an
+ * act of faith: candidate counts go up, and nobody can say whether the extra
+ * ones ever cleared a gate.
+ */
 export class MergedSource {
   constructor(sources) { this.sources = sources; this.name = "merged"; }
   async candidates() {
@@ -169,7 +178,7 @@ export class MergedSource {
       try { got = await s.candidates(); } catch { got = []; }
       for (const p of got) {
         const k = `${p.chainId}:${p.baseToken?.address}`;
-        if (!seen.has(k)) { seen.add(k); out.push(p); }
+        if (!seen.has(k)) { seen.add(k); out.push({ ...p, discoveredBy: s.name }); }
       }
     }
     return out;

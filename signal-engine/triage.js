@@ -29,7 +29,7 @@ export class Triage {
     const h = hourOf(this.now());
     let b = this.buckets.get(h);
     if (!b) {
-      b = { scanned: 0, killed: 0, scoredLow: 0, fired: 0, gates: {} };
+      b = { scanned: 0, killed: 0, scoredLow: 0, fired: 0, gates: {}, sources: {} };
       this.buckets.set(h, b);
       // Drop anything that has aged out. Cheap: at most a handful per hour.
       for (const k of this.buckets.keys()) if (k <= h - HOURS) this.buckets.delete(k);
@@ -37,8 +37,27 @@ export class Triage {
     return b;
   }
 
-  scanned(n = 1) { this.#bucket().scanned += n; }
-  fired() { this.#bucket().fired += 1; }
+  /**
+   * Candidates seen, and where they came from.
+   *
+   * Per-source counts exist so that turning on a pool watcher is answerable
+   * rather than an act of faith: a source that doubles the candidates and
+   * never produces one that clears a gate is a source that is costing a key
+   * for nothing, and only these two numbers together can say so.
+   */
+  scanned(n = 1, pairs = null) {
+    const b = this.#bucket();
+    b.scanned += n;
+    for (const p of pairs ?? []) {
+      const k = p?.discoveredBy ?? "unattributed";
+      (b.sources[k] ??= { scanned: 0, fired: 0 }).scanned++;
+    }
+  }
+  fired(source = null) {
+    const b = this.#bucket();
+    b.fired += 1;
+    (b.sources[source ?? "unattributed"] ??= { scanned: 0, fired: 0 }).fired++;
+  }
 
   /** A candidate the screener refused, and the gate that refused it. */
   rejected(pair, ev) {
@@ -77,12 +96,16 @@ export class Triage {
   snapshot() {
     const cut = hourOf(this.now()) - HOURS;
     const t = { scanned: 0, killed: 0, scoredLow: 0, fired: 0 };
-    const gates = {};
+    const gates = {}, sources = {};
     for (const [h, b] of this.buckets) {
       if (h <= cut) continue;
       t.scanned += b.scanned; t.killed += b.killed;
       t.scoredLow += b.scoredLow; t.fired += b.fired;
       for (const [g, n] of Object.entries(b.gates)) gates[g] = (gates[g] ?? 0) + n;
+      for (const [src, c] of Object.entries(b.sources ?? {})) {
+        const to = (sources[src] ??= { scanned: 0, fired: 0 });
+        to.scanned += c.scanned; to.fired += c.fired;
+      }
     }
     const cutMs = this.now() - HOURS * 3600e3;
     const recent = this.scores.filter(s => s.at >= cutMs).map(s => s.score);
@@ -109,6 +132,11 @@ export class Triage {
       // it is unanswerable, and the page should say so rather than print 0.0%.
       passRate: t.scanned ? t.fired / t.scanned : null,
       gates: Object.entries(gates).sort((a, b) => b[1] - a[1]).map(([id, n]) => ({ id, n })),
+      // Which source is earning its keys. passRate is null rather than 0 for a
+      // source that produced nothing: no candidates is not a pass rate of zero.
+      sources: Object.entries(sources)
+        .sort((a, b) => b[1].scanned - a[1].scanned)
+        .map(([id, c]) => ({ id, ...c, passRate: c.scanned ? c.fired / c.scanned : null })),
       rejects: this.rejects,
       windowHours: HOURS,
       startedAt: this.startedAt,

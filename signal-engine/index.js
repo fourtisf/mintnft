@@ -71,7 +71,7 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
   const engine = new Engine({
     client: api,
     callerId,
-    onScan(n) { triage.scanned(n); },
+    onScan(n, pairs) { triage.scanned(n, pairs); },
     onReject(pair, ev) { triage.rejected(pair, ev); },
     async onSignal(sig) {
       if (await store.hasToken(sig.chain, sig.tokenAddress, 24 * 3600e3)) return;
@@ -80,7 +80,9 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
       // shape than /api/register is a second format to keep in step, and the
       // client would have to invent the mark fields it is missing.
       feed.publish({ ...call, ...await store.mark(call.seq) });
-      triage.fired();
+      // The call's own record of where it came from, so the count on the page
+      // and the value frozen on the row cannot drift apart.
+      triage.fired(sig.sourceRef);
       log(`[FIRED] #${call.seq} ${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
       telegram.send(formatSignal(sig, call.seq));
     },

@@ -14,7 +14,7 @@
  */
 import { Dexscreener } from "./dexscreener.js";
 import { evaluate, toSignal, CONFIG } from "./rules.js";
-import { ProfileSource, BoostSource, MergedSource } from "./sources.js";
+import { ProfileSource, BoostSource, HeliusSource, EvmFactorySource, MergedSource } from "./sources.js";
 import { ChainInspector, chainVerdict } from "./chain.js";
 
 export class Engine {
@@ -22,12 +22,26 @@ export class Engine {
                 sourceKind = "screener", inspector, log = console.log } = {}) {
     this.api = client ?? new Dexscreener({ log });
     // Profiles alone are close to a fixed list; boosts turn over. Both are the
-    // free API and neither needs a key. Real coverage still wants a pool-
-    // creation watcher — Helius on Solana, factory logs on EVM, both in
-    // sources.js waiting for keys.
+    // free API, and both only ever see tokens whose team filed a profile —
+    // which the best signals, in pools minutes old, have not.
+    //
+    // A pool watcher is added when its key is there, and only then: an idle
+    // source would log its own absence on every tick. It is additive, and that
+    // is the whole safety argument for turning it on without measuring first —
+    // the gates are untouched, so a wider net can only mean more candidates
+    // refused, never a looser filter. Whether the extra ones are worth the key
+    // is a question for /api/triage after a few hours, not for this comment.
+    const watchers = [];
+    if (process.env.HELIUS_KEY?.trim()) watchers.push(new HeliusSource(this.api, { log }));
+    for (const [chain, env] of [["base", "BASE_RPC"], ["ethereum", "ETH_RPC"], ["bsc", "BSC_RPC"]])
+      if (process.env[env]?.trim())
+        watchers.push(new EvmFactorySource(this.api, { chain, rpc: process.env[env].trim(), log }));
+
     this.source = source ?? new MergedSource([
-      new ProfileSource(this.api), new BoostSource(this.api),
+      new ProfileSource(this.api), new BoostSource(this.api), ...watchers,
     ]);
+    if (!source)
+      log(`[discovery] ${this.source.sources.map(s => s.name).join(", ")}`);
     this.cfg = cfg;
     this.attribution = { callerId, sourceKind };
     this.onSignal = onSignal ?? (s => log("SIGNAL", s));
@@ -55,7 +69,7 @@ export class Engine {
     // Reported once per tick rather than per candidate: the count is what the
     // pass rate needs, and a denominator nobody publishes is the thing this
     // whole page exists to avoid.
-    this.onScan(pairs.length);
+    this.onScan(pairs.length, pairs);
     for (const pair of pairs) {
       this.stats.scanned++;
       const ev = evaluate(pair, this.cfg, this.seen);
@@ -79,7 +93,13 @@ export class Engine {
       this.stats.fired++;
       // Awaited: the call has to be durably written before the next candidate
       // is judged, and before anything publishes it.
-      await this.onSignal(toSignal(pair, ev, { ...this.attribution, chainChecks: report }));
+      // sourceRef is inside the hash, so which source found a call cannot be
+      // reattributed later — a source cannot be credited afterwards with a
+      // winner it did not find.
+      await this.onSignal(toSignal(pair, ev, {
+        ...this.attribution, chainChecks: report,
+        sourceRef: pair.discoveredBy ?? this.attribution.sourceRef ?? null,
+      }));
     }
     return this.stats;
   }

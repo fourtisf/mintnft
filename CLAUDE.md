@@ -115,6 +115,7 @@ node backtest.js     # threshold sweep and reason attribution
 node test-marks.js   # marks come off the call's own pair
 node test-og.js      # shared links preview the call, not the site
 node test-chain.js   # on-chain gates, and that an unread check never reads clean
+node test-sources.js # which source found a call, and whether it earns its key
 node check-chain.js  # not a test: points the gates at a real token with a real key,
                      # so wiring one is watched rather than assumed
 node test-hashversion.js  # rows written under an older hash scheme still verify
@@ -150,14 +151,17 @@ continuing. Everything else is recoverable; that one is not.
 
 1. **The engine has never seen real market data.** Everything is fixture-tested.
    This is the first thing to fix and it unblocks every other judgement.
-2. **Discovery is weak, and the on-chain gates are idle.** `/token-profiles`
-   only surfaces tokens whose team filled in a profile; the best signals come
-   from pools too fresh to have one. `sources.js` has Helius and EVM factory
-   sources ready and `chain.js` reads mint authority, freeze authority, holder
-   concentration and LP burn — all of it needs one key. Until there is one,
-   every call records `chainChecks: null` and the site prints "not checked".
-   That is honest but it is not protection: nothing is currently stopping a
-   token whose mint authority was never revoked.
+2. **Discovery is wired but unmeasured.** `HeliusSource` and
+   `EvmFactorySource` now join the merged source whenever their key is set, so
+   the engine sees new pools rather than only tokens whose team filed a
+   profile. Whether that earns the key is not yet known: `/api/triage` reports
+   `scanned` and `fired` per source and the Triage page prints them, and
+   **that is the number to read after a few hours** — not a threshold. Every
+   call freezes its discovery source in `sourceRef`, which is inside the hash,
+   so a source cannot be credited later with a winner it did not find. With no
+   key at all a watcher is left out of the list entirely rather than added and
+   idle, and `chainChecks` stays `null`, which the site prints as "not
+   checked" — honest, and no protection.
 3. **Peak is observed, not candle-derived.** Dexscreener publishes no OHLCV, so
    peak is the highest value the poller actually saw. Recorded honestly as
    `peakSource:"observed"`. GeckoTerminal has free candles and would upgrade

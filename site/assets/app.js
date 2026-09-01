@@ -1271,6 +1271,10 @@ const GATE_LABEL={priceable:"Unmeasurable",liquidity_floor:"Liquidity",age_windo
   // chain.js — these refuse on what the chain states, not on the tape
   mint_revoked:"Mint authority",freeze_revoked:"Freeze authority",
   holder_concentration:"Concentration",holder_spread:"Top 10",lp_burned:"LP"};
+/* The engine's own source names. An id with no label here still renders — it is
+   printed as the engine gave it, rather than dropped for being unrecognised. */
+const SOURCE_LABEL={"dexscreener-profiles":"Dexscreener profiles","dexscreener-boosts":"Dexscreener boosts",
+  "helius-pools":"Helius, new Solana pools","unattributed":"Unattributed"};
 const usdShort=n=>n>=1e6?"$"+(n/1e6).toFixed(0)+"M":n>=1e3?"$"+(n/1e3).toFixed(0)+"K":"$"+n;
 
 function renderOps(){
@@ -1305,6 +1309,20 @@ function renderOps(){
   document.getElementById("oRejects").innerHTML = rejects.length
     ? rejects.map(([tk,r,g])=>`<div class="rej"><span class="tk">${tk}</span><span class="rs">${r}</span><span class="tag">${g}</span></div>`).join("")
     : `<p class="sub" style="margin:0">Nothing refused yet in this window.</p>`;
+
+  /* Where the candidates came from, and whether each source ever produced one
+     that cleared. Adding a source always raises the scanned count; only these
+     two numbers together say whether the extra ones were worth a key. */
+  const srcEl=document.getElementById("oSources");
+  if(srcEl){
+    const rows=DEMO?[]:(t?.sources??[]);
+    srcEl.innerHTML=rows.length
+      ?rows.map(r=>`<div class="gate"><span class="g">${esc(SOURCE_LABEL[r.id]??r.id)}</span>`
+        +`<span class="t">${r.scanned} scanned · ${r.fired} fired`
+        +`${r.passRate==null?"":" · "+(r.passRate*100).toFixed(1)+"%"}</span></div>`).join("")
+      :`<p class="sub" style="margin:0">${CONN.state==="offline"?"Engine not answering."
+        :"No candidates in this window yet."}</p>`;
+  }
 
   const g=t?.gateConfig;
   const gates=DEMO||!g?GATES:[
