@@ -1317,9 +1317,18 @@ function renderOps(){
   if(srcEl){
     const rows=DEMO?[]:(t?.sources??[]);
     srcEl.innerHTML=rows.length
-      ?rows.map(r=>`<div class="gate"><span class="g">${esc(SOURCE_LABEL[r.id]??r.id)}</span>`
-        +`<span class="t">${r.scanned} scanned · ${r.fired} fired`
-        +`${r.passRate==null?"":" · "+(r.passRate*100).toFixed(1)+"%"}</span></div>`).join("")
+      ?rows.map(r=>{
+        // A source that ran and failed every time is not a source with nothing
+        // to report, and the difference is the whole reason this panel exists.
+        const broken=r.errors>0&&r.errors>=(r.runs??0);
+        const state=broken
+          ?`failing — ${esc(String(r.lastError??"no reason given").slice(0,60))}`
+          :`${r.scanned} scanned · ${r.fired} fired`
+            +`${r.passRate==null?"":" · "+(r.passRate*100).toFixed(1)+"%"}`
+            +`${r.errors?" · "+r.errors+" of "+r.runs+" calls failed":""}`;
+        return `<div class="gate${broken?" unread":""}"><span class="g">${esc(SOURCE_LABEL[r.id]??r.id)}</span>`
+          +`<span class="t${broken?" unread":""}">${state}</span></div>`;
+      }).join("")
       :`<p class="sub" style="margin:0">${CONN.state==="offline"?"Engine not answering."
         :"No candidates in this window yet."}</p>`;
   }

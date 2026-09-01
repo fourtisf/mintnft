@@ -45,8 +45,14 @@ export async function openStore({ url = process.env.DATABASE_URL, log = console.
   return store;
 }
 
-export function start({ store = new FileStore(), api = new Dexscreener(), port = 8787,
+export function start({ store = new FileStore(), port = 8787,
                         log = console.log,
+                        // Built with the logger, not without one. `new Dexscreener()`
+                        // defaults its own log to a no-op, so every network failure,
+                        // every 429 and every non-200 this engine ever saw went
+                        // nowhere — and an engine scanning zero candidates for hours
+                        // looked exactly like a quiet market.
+                        api = new Dexscreener({ log }),
                         callerId = Number(process.env.CALLER_ID ?? 1),
                         secret = process.env.SESSION_SECRET,
                         domain = process.env.AUTH_DOMAIN ?? "localhost",
@@ -71,7 +77,7 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
   const engine = new Engine({
     client: api,
     callerId,
-    onScan(n, pairs) { triage.scanned(n, pairs); },
+    onScan(n, pairs, runs) { triage.scanned(n, pairs, runs); },
     onReject(pair, ev) { triage.rejected(pair, ev); },
     async onSignal(sig) {
       if (await store.hasToken(sig.chain, sig.tokenAddress, 24 * 3600e3)) return;

@@ -69,7 +69,7 @@ export class Engine {
     // Reported once per tick rather than per candidate: the count is what the
     // pass rate needs, and a denominator nobody publishes is the thing this
     // whole page exists to avoid.
-    this.onScan(pairs.length, pairs);
+    this.onScan(pairs.length, pairs, this.source.lastRun ?? null);
     for (const pair of pairs) {
       this.stats.scanned++;
       const ev = evaluate(pair, this.cfg, this.seen);

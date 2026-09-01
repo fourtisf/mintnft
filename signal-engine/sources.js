@@ -170,12 +170,20 @@ export class BoostSource {
  * ones ever cleared a gate.
  */
 export class MergedSource {
-  constructor(sources) { this.sources = sources; this.name = "merged"; }
+  constructor(sources) { this.sources = sources; this.name = "merged"; this.lastRun = []; }
   async candidates() {
     const seen = new Set(), out = [];
+    this.lastRun = [];
     for (const s of this.sources) {
-      let got = [];
-      try { got = await s.candidates(); } catch { got = []; }
+      let got = [], error = null;
+      // A source that throws must not take the others down with it — and must
+      // not vanish either. Swallowed into an empty array, a source failing on
+      // every single call was indistinguishable from one that legitimately
+      // found nothing, which is how an engine scans zero candidates for six
+      // hours and reads like a quiet market.
+      try { got = await s.candidates(); }
+      catch (e) { got = []; error = String(e?.message ?? e); }
+      this.lastRun.push({ name: s.name, got: got.length, error });
       for (const p of got) {
         const k = `${p.chainId}:${p.baseToken?.address}`;
         if (!seen.has(k)) { seen.add(k); out.push({ ...p, discoveredBy: s.name }); }

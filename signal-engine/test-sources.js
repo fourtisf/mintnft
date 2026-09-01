@@ -45,6 +45,36 @@ console.log("\nSIAPA YANG MENEMUKAN");
   ]);
   ok((await broken.candidates()).length === 1,
     "a source that throws does not take the others down with it");
+  const run = broken.lastRun.find(r => r.name === "throws");
+  ok(run && run.error === "rpc down",
+    "and does not vanish either — the failure is recorded against it by name");
+  ok(broken.lastRun.find(r => r.name === "helius-pools").error === null,
+    "while the one that worked is recorded as having worked");
+}
+
+console.log("\nSUMBER YANG RUSAK TIDAK TERBACA SEPERTI SUMBER YANG SEPI");
+{
+  // The failure this exists for: an engine that scanned zero candidates for six
+  // hours because every call to the provider was failing, and every one of
+  // those failures was swallowed into an empty array.
+  const t = new Triage();
+  const merged = new MergedSource([
+    { name: "dexscreener-profiles", candidates: async () => { throw new Error("ENOTFOUND"); } },
+    src("helius-pools", []),
+  ]);
+  for (let i = 0; i < 3; i++) {
+    const pairs = await merged.candidates();
+    t.scanned(pairs.length, pairs, merged.lastRun);
+  }
+  const s = t.snapshot();
+  const of = id => s.sources.find(x => x.id === id);
+  ok(s.scanned === 0, "nothing was scanned, which is true either way");
+  ok(of("dexscreener-profiles").errors === 3 && of("dexscreener-profiles").runs === 3,
+    "the failing source shows three runs and three failures — it is not absent");
+  ok(of("dexscreener-profiles").lastError === "ENOTFOUND",
+    `and carries the reason: "${of("dexscreener-profiles").lastError}"`);
+  ok(of("helius-pools").errors === 0 && of("helius-pools").runs === 3,
+    "the source that ran and honestly found nothing is told apart from it");
 }
 
 console.log("\nHITUNGAN PER SUMBER");

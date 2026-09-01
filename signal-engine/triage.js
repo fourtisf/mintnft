@@ -45,18 +45,26 @@ export class Triage {
    * never produces one that clears a gate is a source that is costing a key
    * for nothing, and only these two numbers together can say so.
    */
-  scanned(n = 1, pairs = null) {
+  scanned(n = 1, pairs = null, runs = null) {
     const b = this.#bucket();
     b.scanned += n;
     for (const p of pairs ?? []) {
       const k = p?.discoveredBy ?? "unattributed";
-      (b.sources[k] ??= { scanned: 0, fired: 0 }).scanned++;
+      (b.sources[k] ??= { scanned: 0, fired: 0, runs: 0, errors: 0 }).scanned++;
+    }
+    // Every source that ran, whether or not it produced anything. A source
+    // erroring on every call and a source with nothing to report are different
+    // facts, and only this tells them apart on the page.
+    for (const r of runs ?? []) {
+      const e = (b.sources[r.name] ??= { scanned: 0, fired: 0, runs: 0, errors: 0 });
+      e.runs++;
+      if (r.error) { e.errors++; e.lastError = r.error; }
     }
   }
   fired(source = null) {
     const b = this.#bucket();
     b.fired += 1;
-    (b.sources[source ?? "unattributed"] ??= { scanned: 0, fired: 0 }).fired++;
+    (b.sources[source ?? "unattributed"] ??= { scanned: 0, fired: 0, runs: 0, errors: 0 }).fired++;
   }
 
   /** A candidate the screener refused, and the gate that refused it. */
@@ -103,8 +111,10 @@ export class Triage {
       t.scoredLow += b.scoredLow; t.fired += b.fired;
       for (const [g, n] of Object.entries(b.gates)) gates[g] = (gates[g] ?? 0) + n;
       for (const [src, c] of Object.entries(b.sources ?? {})) {
-        const to = (sources[src] ??= { scanned: 0, fired: 0 });
+        const to = (sources[src] ??= { scanned: 0, fired: 0, runs: 0, errors: 0 });
         to.scanned += c.scanned; to.fired += c.fired;
+        to.runs += c.runs ?? 0; to.errors += c.errors ?? 0;
+        if (c.lastError) to.lastError = c.lastError;
       }
     }
     const cutMs = this.now() - HOURS * 3600e3;
