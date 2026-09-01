@@ -144,6 +144,82 @@ export function bannerCard(row) {
 </svg>`;
 }
 
+/**
+ * Several calls in one picture — the card that gets posted.
+ *
+ * One rule shapes the whole thing: the rows are the most recent calls in the
+ * window, in the order they fired, and never the best ones. A recap that picks
+ * its winners is exactly the artefact this register was built to replace, and
+ * it would take one line of sorting to become that. So the header carries the
+ * hit rate over every call in the window rather than over the six on show, and
+ * says how many of how many these are, so nobody has to take that on trust.
+ *
+ * Losers therefore appear here, in red, at whatever position they fired in.
+ * That is the point of the format, not a flaw in it.
+ */
+export function digestCard(rows, s, { days = 7, cols = 3, max = 6 } = {}) {
+  const shown = rows.slice(0, max);
+  const pct = n => (n == null ? "—" : (n >= 0 ? "+" : "\u2212") + Math.abs(n * 100).toFixed(0) + "%");
+  const figs = [
+    ["CALLS", String(s?.calls ?? 0)],
+    ["HIT \u2265 2\u00d7", Math.round((s?.hitRate ?? 0) * 100) + "%"],
+    ["MEDIAN PEAK", (s?.medianPeak ?? 0).toFixed(2) + "\u00d7"],
+    ["DEAD", String(s?.dead ?? 0)],
+  ];
+
+  const PAD = 56, GAP = 22, TW = Math.round((1200 - PAD * 2 - GAP * (cols - 1)) / cols), TH = 176;
+  const tile = (row, i) => {
+    const cx = PAD + (i % cols) * (TW + GAP);
+    const cy = 200 + Math.floor(i / cols) * (TH + GAP);
+    const live = row.state !== "settled";
+    const x = (live || row.isDead) ? (row.nowX ?? 1) : (row.peakX ?? 1);
+    // Coloured on the figure being shown, not on a different one. A settled
+    // miss headlined at its peak of 1.14x, painted red because it now sits
+    // below entry, is a tile arguing with itself — and the reader believes the
+    // colour before they read the number.
+    const c = x >= 1.02 ? "#5B7CFA" : x <= 0.98 ? "#E5606B" : "#8C929C";
+    const t = THEME[row.isDead ? "dead" : row.verdict] ?? THEME.miss;
+    // The chart owns the bottom half outright. Running it under the figures
+    // put the line through the text on every tile that went up.
+    const sp = series(row, { x: cx, y: cy + 86, w: TW, h: TH - 86 });
+    return `
+  <g>
+    <rect x="${cx}" y="${cy}" width="${TW}" height="${TH}" rx="12" fill="#101216" stroke="rgba(255,255,255,.07)"/>
+    <clipPath id="c${i}"><rect x="${cx}" y="${cy}" width="${TW}" height="${TH}" rx="12"/></clipPath>
+    <g clip-path="url(#c${i})">
+      <path d="${sp.area}" fill="${c}" opacity=".15"/>
+      <path d="${sp.line}" fill="none" stroke="${c}" stroke-width="2.6" stroke-linejoin="round" opacity=".95"/>
+    </g>
+    <text x="${cx + 18}" y="${cy + 40}" font-family="sans-serif" font-size="27" font-weight="700" fill="#F3F4F6">${esc(ticker(row.symbol))}</text>
+    <text x="${cx + 18}" y="${cy + 66}" font-family="monospace" font-size="13" fill="#8C929C">${usd(row.entryMc)} \u2192 ${usd(row.nowMc)}</text>
+    <text x="${cx + TW - 18}" y="${cy + 42}" text-anchor="end" font-family="sans-serif" font-size="34" font-weight="700" fill="${c}">${x.toFixed(2)}\u00d7</text>
+    <text x="${cx + TW - 18}" y="${cy + 66}" text-anchor="end" font-family="monospace" font-size="12" letter-spacing="2" fill="${t.a}">${t.label}</text>
+  </g>`;
+  };
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient>
+    <radialGradient id="glow" cx="80%" cy="0%"><stop offset="0" stop-color="#5B7CFA" stop-opacity=".18"/><stop offset="1" stop-color="#5B7CFA" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#08090B"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <text x="${PAD}" y="66" font-family="monospace" font-size="17" letter-spacing="6" fill="#585E68">NEKARA</text>
+  <text x="${PAD}" y="122" font-family="sans-serif" font-size="44" font-weight="700" letter-spacing="-1.4" fill="#F3F4F6">Last ${days} days on the register</text>
+  <text x="${PAD}" y="156" font-family="monospace" font-size="15" fill="#8C929C">${shown.length} most recent of ${s?.calls ?? shown.length} \u00b7 in the order they fired, not the order they finished</text>
+
+  ${figs.map(([k, v], i) => `
+  <text x="${1144 - (figs.length - 1 - i) * 132}" y="72" text-anchor="end" font-family="sans-serif" font-size="34" font-weight="700" fill="${i === 3 && (s?.dead ?? 0) > 0 ? "#E5606B" : "#F3F4F6"}">${v}</text>
+  <text x="${1144 - (figs.length - 1 - i) * 132}" y="94" text-anchor="end" font-family="monospace" font-size="11" letter-spacing="1.6" fill="#585E68">${k}</text>`).join("")}
+
+  ${shown.map(tile).join("")}
+
+  <text x="${PAD}" y="612" font-family="monospace" font-size="14" fill="#585E68">Every call is published with the conditions that fired it. Failed calls are never removed.</text>
+  <text x="1144" y="612" text-anchor="end" font-family="monospace" font-size="15" fill="#8C929C">nekara.xyz</text>
+</svg>`;
+}
+
 export function callCard(row) {
   const key = row.isDead ? "dead" : row.verdict;
   const t = THEME[key] ?? THEME.miss;

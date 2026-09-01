@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import { stats } from "./scorer.js";
 import { reasonPerformance, scoreBands, chainPerformance, callerPerformance,
          exitSimulation, realised } from "./analytics.js";
-import { callCard, bannerCard, siteCard, toCsv, ticker } from "./og.js";
+import { callCard, bannerCard, digestCard, siteCard, toCsv, ticker } from "./og.js";
 import { readFileSync, statSync } from "node:fs";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
@@ -242,6 +242,33 @@ export function serve(store, {
         "content-disposition": "attachment; filename=proof-register.csv",
         "access-control-allow-origin": "*" });
       return res.end(toCsv(rows));
+    }
+
+    /* Several calls in one picture: /og/digest.png?days=7&n=6
+       The rows are the most recent in the window and never the best ones —
+       sorting them by multiple is one line away and would turn the register's
+       own recap into the highlight reel it exists to replace. The headline
+       figures are computed over every call in the window, not over the six on
+       show, so the hit rate cannot be improved by choosing what to display. */
+    if (p === "/og/digest.png" || p === "/og/digest.svg") {
+      const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days")) || 7));
+      const n = Math.min(9, Math.max(1, Number(url.searchParams.get("n")) || 6));
+      const cut = Date.now() - days * 864e5;
+      const inWindow = rows.filter(r => Date.parse(r.firedAt) > cut);
+      const recent = inWindow.slice().sort((a, b) => b.seq - a.seq);
+      const svg = digestCard(recent, stats(inWindow, days),
+        { days, max: n, cols: n <= 4 ? 2 : 3 });
+      const cache = "public, max-age=300";
+      if (p.endsWith(".png")) {
+        const buf = await png(svg);
+        if (!buf) return json(res, 503, { error: "png rendering is not available on this instance" });
+        res.writeHead(200, { "content-type": "image/png", "cache-control": cache,
+          "access-control-allow-origin": "*", "content-length": buf.length });
+        return res.end(buf);
+      }
+      res.writeHead(200, { "content-type": "image/svg+xml", "cache-control": cache,
+        "access-control-allow-origin": "*" });
+      return res.end(svg);
     }
 
     // The front page's own card, over the same seven days the site's figures

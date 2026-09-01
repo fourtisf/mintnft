@@ -85,6 +85,37 @@ console.log("\nBANNER PREMIUM");
     "a call nobody can see has no banner either");
 }
 
+console.log("\nRINGKASAN BEBERAPA SINYAL");
+{
+  // A second call, deliberately the better one, fired after the first.
+  const two = store.insertCall({
+    callerId: 1, chain: "solana", tokenAddress: "TOK2", pairAddress: "PAIR2",
+    symbol: "WAGMI", name: "Wagmi", dex: "raydium",
+    firedAt: new Date(Date.now() - 3600e3).toISOString(),
+    entryPriceUsd: 0.001, entrySupply: 1e9, entryMc: 1e6, entrySupplySource: "derived",
+    entryLiquidityUsd: 90_000, score: 91, reasons: ["Buying has held for hours"],
+  });
+  pairs = [
+    { chainId: "solana", dexId: "raydium", pairAddress: "PAIR2",
+      baseToken: { address: "TOK2", symbol: "WAGMI", name: "Wagmi" },
+      priceUsd: "0.001", liquidity: { usd: 90_000 } },
+    ...pairs,
+  ];
+  await engine.refresh(store.liveCalls());
+
+  const d = await fetch(`${B}/og/digest.svg?days=7&n=6`);
+  const txt = await d.text();
+  ok(d.status === 200, `the digest is served (${d.status})`);
+  ok(txt.includes("$TAP") && txt.includes("$WAGMI"), "carrying more than one call");
+  ok(/most recent of 2/.test(txt),
+    "and saying how many of how many these are, so the selection is not taken on trust");
+  // The newer call is the weaker one here; if it came second the rows were sorted.
+  ok(txt.indexOf("$WAGMI") < txt.indexOf("$TAP"),
+    "newest first — the rows are not ordered by how well they did");
+  const raster = await fetch(`${B}/og/digest.png?days=7`);
+  ok(raster.status === 200 && png(Buffer.from(await raster.arrayBuffer())), "and rasterises");
+}
+
 console.log("\nKARTU SITUS");
 const site = await fetch(`${B}/og/site.png`);
 const sbuf = Buffer.from(await site.arrayBuffer());
