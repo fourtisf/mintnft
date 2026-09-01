@@ -300,8 +300,42 @@ Two crons are installed for you, in /etc/cron.d/nekara:
     copies older than 90 days are dropped monthly
 
 Test the watchdog now if you like:  /usr/local/bin/nekara-watchdog
-
-Still not true, and not faked:
-  - discovery only sees tokens whose team filed a Dexscreener profile
-  - anchoring is off, so /api/verify reports the register as unanchored
 NOTES
+
+# What this box is actually running, read back out of the engine rather than
+# asserted here. This block used to be a fixed list, and it went stale the day
+# a key was added: it kept printing "discovery only sees tokens whose team
+# filed a Dexscreener profile" at a box whose own log said otherwise. A deploy
+# script that states something about the system it just deployed has to read
+# it, for the same reason the site may not print a stat it did not compute.
+#
+# Scoped to the running PID, not the last N lines: the journal still holds the
+# lines from every earlier boot, and reading those is how "it says idle" gets
+# concluded about an engine that is armed.
+PID=$(systemctl show -p MainPID --value nekara-engine 2>/dev/null || true)
+line() { [ -n "${PID:-}" ] && [ "$PID" != 0 ] &&
+  journalctl -u nekara-engine _PID="$PID" --no-pager 2>/dev/null |
+  grep -o "\[$1\].*" | tail -1 | sed "s/^\[$1\] *//" || true; }
+
+# An empty line is not an empty answer. Printing a blank beside "discovery"
+# would read as "nothing configured" when what happened is that the log was not
+# read — the same failure the engine's own panels are built to avoid.
+said() { local v; v=$(line "$1" || true); printf '%s' "${v:-not reported — the engine may still be starting; check journalctl}"; }
+
+printf '\n== what this box is running, read back from the engine ==\n'
+printf '  discovery   %s\n' "$(said discovery)"
+printf '  on-chain    %s\n' "$(said chain)"
+printf '  storage     %s\n' "$(said store)"
+printf '  anchoring   off — no publisher is wired, so /api/verify reports the\n'
+printf '              register as unanchored, and it is\n'
+
+cat <<'NOTES2'
+
+Two of those are worth reading again in a few hours rather than now:
+  - a source only earns its key if what it finds clears the gates. curl
+    localhost:8787/api/triage and compare scanned against fired per source,
+    or open the Triage page. Scanned alone never says it.
+  - with the on-chain gates armed, calls carry what the chain said when they
+    fired. A line reading "not checked" on a call page was never established
+    and is not a pass.
+NOTES2
