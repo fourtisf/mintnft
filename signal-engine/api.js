@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import { stats } from "./scorer.js";
 import { reasonPerformance, scoreBands, chainPerformance, callerPerformance,
          exitSimulation, realised } from "./analytics.js";
-import { callCard, siteCard, toCsv, ticker } from "./og.js";
+import { callCard, bannerCard, siteCard, toCsv, ticker } from "./og.js";
 import { readFileSync, statSync } from "node:fs";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
@@ -262,12 +262,19 @@ export function serve(store, {
       return res.end(svg);
     }
 
-    if (p.startsWith("/og/call/")) {
+    /* Two cards per call, on purpose. /og/call is the record — every figure,
+       the reasons, and the line saying peak is not a realised return; it is
+       what a shared link unfurls into. /og/banner is the one that goes on a
+       timeline: the call's own observed series as the whole surface, with the
+       numbers over it. Same data, same honesty about which multiple is being
+       headlined, different amount of room. */
+    if (p.startsWith("/og/call/") || p.startsWith("/og/banner/")) {
+      const banner = p.startsWith("/og/banner/");
       const file = p.split("/").pop();
       const seq = Number(file.replace(/\.(svg|png)$/, ""));
       const row = rows.find(r => r.seq === seq);
       if (!row) return notFound(res);
-      const svg = callCard(row);
+      const svg = banner ? bannerCard(row) : callCard(row);
       // A settled call's card can never change again; a live one is five minutes
       // stale at worst, the same bound its marks carry.
       const cache = row.state === "settled" ? "public, max-age=31536000" : "public, max-age=300";

@@ -66,6 +66,25 @@ const rbuf = Buffer.from(await raster.arrayBuffer());
 ok(raster.status === 200 && png(rbuf),
   `a real PNG, because no platform unfurls an SVG (${(rbuf.length / 1024) | 0} KB)`);
 
+console.log("\nBANNER PREMIUM");
+{
+  const b = await fetch(`${B}/og/banner/${call.seq}.svg`);
+  const txt = await b.text();
+  ok(b.status === 200, `the banner is served (${b.status})`);
+  ok(txt.includes("$TAP") && !txt.includes("$$TAP"), "with one dollar on the ticker");
+  // The call is live and up 3x, so now is what gets headlined and the line
+  // reads in the brand gradient rather than in --dead.
+  ok(/font-size="128"[^>]*>3\.00×/.test(txt), "headlined on where it is now, not on a peak it left");
+  ok(txt.includes("#5B7CFA"), "and drawn in the gradient, because it is above entry");
+  ok(!txt.includes("#E5606B"), "not in the dead colour");
+
+  const raster = await fetch(`${B}/og/banner/${call.seq}.png`);
+  const rbuf = Buffer.from(await raster.arrayBuffer());
+  ok(raster.status === 200 && png(rbuf), `and rasterises (${(rbuf.length / 1024) | 0} KB)`);
+  ok((await fetch(`${B}/og/banner/9999.png`)).status === 404,
+    "a call nobody can see has no banner either");
+}
+
 console.log("\nKARTU SITUS");
 const site = await fetch(`${B}/og/site.png`);
 const sbuf = Buffer.from(await site.arrayBuffer());

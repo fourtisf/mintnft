@@ -58,6 +58,92 @@ export function siteCard(s, returnPct) {
 </svg>`;
 }
 
+/**
+ * The premium banner: one call, its own chart behind it.
+ *
+ * callCard is the record — every figure, the reasons, the caveat. This is the
+ * one that goes on a timeline, so the chart is the whole surface and the
+ * numbers sit on top of it. Same tokens, same restraint: the gradient is the
+ * only colour, elevation comes from the wash under the line rather than glow,
+ * and there is no serif anywhere.
+ *
+ * A losing call gets the same treatment and reads in --dead. Publishing the
+ * ones that died is the argument; a banner that only ever shows winners is
+ * the thing this register was built to replace.
+ */
+export function bannerCard(row) {
+  const key = row.isDead ? "dead" : row.verdict;
+  const t = THEME[key] ?? THEME.miss;
+  /* The badge says what the register calls it; the line says where the price
+     actually is. A live call sitting at 27% of entry drawn in the win gradient
+     is a picture that argues with its own number, and the number is the one
+     that is true. Above entry it reads in the brand gradient, below it in
+     --dead, and a win that later died keeps its badge either way. */
+  const nx = row.nowX ?? 1;
+  const line = nx >= 1.02 ? { a: "#5B7CFA", b: "#9B6DFF" }
+             : nx <= 0.98 ? { a: "#E5606B", b: "#B5715A" }
+             : { a: "#6E7BFF", b: "#8C929C" };
+  const s = series(row, { x: -40, y: 170, w: 1280, h: 400 });
+  // Where it is, unless it is settled and won. The site headlines a live or
+  // dead call at now for a reason: a token sitting at 27% of entry with 1.12×
+  // across the top is the misreading this register exists to remove, and it
+  // does not become acceptable because the picture is going on a timeline.
+  const live = row.state !== "settled";
+  const x = (live || row.isDead) ? (row.nowX ?? 1) : (row.peakX ?? 1);
+  const under = `${(live || row.isDead) ? "NOW" : "PEAK"} · ${(live || row.isDead) ? "PEAK " + (row.peakX ?? 1).toFixed(2) : "NOW " + (row.nowX ?? 1).toFixed(2)}×`;
+  const reasons = (row.reasons ?? []).slice(0, 2);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop stop-color="${line.a}"/><stop offset="1" stop-color="${line.b}"/></linearGradient>
+    <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${line.a}" stop-opacity=".40"/>
+      <stop offset="1" stop-color="${line.a}" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="veil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#08090B" stop-opacity=".88"/>
+      <stop offset=".5" stop-color="#08090B" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#08090B" stop-opacity=".90"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#08090B"/>
+  <path d="${s.area}" fill="url(#wash)"/>
+  <path d="${s.line}" fill="none" stroke="url(#g)" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  ${s.twoInFrame ? `<line x1="0" y1="${s.twoY}" x2="1200" y2="${s.twoY}" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="6 8" opacity=".26"/>
+  <text x="1180" y="${Number(s.twoY) - 12}" text-anchor="end" font-family="monospace" font-size="15" letter-spacing="2" fill="#8C929C">2×</text>` : ""}
+  <rect width="1200" height="630" fill="url(#veil)"/>
+  <!-- Once more over the veil, so the line the card is built around survives
+       the darkening that makes the text readable. -->
+  <path d="${s.line}" fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity=".85"/>
+
+  <text x="64" y="82" font-family="monospace" font-size="18" letter-spacing="6" fill="#8C929C">NEKARA</text>
+  <rect x="${1136 - 150}" y="52" width="150" height="42" rx="9" fill="${t.a}" opacity=".16" stroke="${t.a}" stroke-width="1.3"/>
+  <text x="${1136 - 75}" y="80" text-anchor="middle" font-family="monospace" font-size="19" font-weight="700" letter-spacing="4" fill="${t.a}">${t.label}</text>
+
+  <text x="64" y="330" font-family="sans-serif" font-size="112" font-weight="700" letter-spacing="-4" fill="#F3F4F6">${esc(ticker(row.symbol))}</text>
+  <text x="64" y="380" font-family="monospace" font-size="21" fill="#8C929C">${esc(row.name ?? "")}${row.name ? " · " : ""}${esc(row.chain)} · ${esc(row.dex ?? "")}</text>
+
+  <text x="1136" y="330" text-anchor="end" font-family="sans-serif" font-size="128" font-weight="700" letter-spacing="-5" fill="url(#g)">${x.toFixed(2)}×</text>
+  <text x="1136" y="378" text-anchor="end" font-family="monospace" font-size="19" letter-spacing="2" fill="#8C929C">${under}</text>
+
+  ${reasons.map((r, i) => `
+  <rect x="64" y="${430 + i * 46}" width="${Math.min(1072, 26 + esc(r).length * 11)}" height="36" rx="8" fill="#FFFFFF" opacity=".05"/>
+  <text x="80" y="${455 + i * 46}" font-family="sans-serif" font-size="19" fill="#C9CDD4">${esc(r)}</text>`).join("")}
+
+  <line x1="64" y1="556" x2="1136" y2="556" stroke="#FFFFFF" opacity=".09"/>
+  ${[["ENTRY MC", usd(row.entryMc)], ["NOW MC", usd(row.nowMc)],
+     ["SCORE", `${row.score ?? 0}/100`],
+     ["2× IN", row.secondsTo2x ? Math.round(row.secondsTo2x / 60) + "m" : "never"]]
+    .map(([k, v], i) => `
+  <text x="${64 + i * 190}" y="586" font-family="monospace" font-size="14" letter-spacing="2" fill="#585E68">${k}</text>
+  <text x="${64 + i * 190}" y="612" font-family="monospace" font-size="25" font-weight="600" fill="#F3F4F6">${v}</text>`).join("")}
+
+  <text x="1136" y="612" text-anchor="end" font-family="monospace" font-size="17" fill="#585E68">nekara.xyz/call/${row.seq ?? ""}</text>
+  <text x="1136" y="586" text-anchor="end" font-family="monospace" font-size="13" letter-spacing="1" fill="#3E444C">${s.observed ? `${s.points} OBSERVED MARKS` : "ENTRY, PEAK AND NOW — NO SERIES KEPT"}</text>
+</svg>`;
+}
+
 export function callCard(row) {
   const key = row.isDead ? "dead" : row.verdict;
   const t = THEME[key] ?? THEME.miss;
@@ -102,20 +188,50 @@ export function callCard(row) {
 </svg>`;
 }
 
-function sparkPath(row) {
-  const e = row.entryMc || 1, p = row.peakMc || e, n = row.nowMc || e;
-  const two = e * 2, mn = Math.min(e, n, two * .7), mx = Math.max(p, two * 1.05);
-  const Y = v => 380 - ((v - mn) / (mx - mn || 1)) * 130;
-  const pk = 0.28 + Math.random() * 0.3;
-  const pts = [];
-  for (let i = 0; i <= 40; i++) {
-    const t = i / 40;
-    const v = t <= pk ? e + (p - e) * Math.pow(t / pk, .62)
-                      : p + (n - p) * Math.pow((t - pk) / (1 - pk), .75);
-    pts.push(`${(64 + t * 1072).toFixed(0)} ${Y(v).toFixed(0)}`);
-  }
-  return "M" + pts.join("L");
+/**
+ * The marks the poller actually saw.
+ *
+ * The peak of a call is a value we observed, and a card that draws the route
+ * to it as a curve invented between three points is publishing a shape nobody
+ * recorded — with the top of the arc placed by Math.random(), so the same call
+ * drew differently on every render. The register keeps a decimated series per
+ * call and it is right here on the row.
+ *
+ * `observed` is false only for a row written before the series was kept, and
+ * the caller is expected to say so rather than pass the fallback off as data.
+ */
+function series(row, { x, w, y, h }) {
+  const e = row.entryMc || 1;
+  const seen = Array.isArray(row.spark) && row.spark.length > 1 ? row.spark.slice() : null;
+  const vals = seen ?? [e, row.peakMc || e, row.nowMc || e];
+
+  // Scaled to what happened, not to what we were hoping for. Forcing the 2×
+  // line into frame on a call that went to a tenth of entry flattens the whole
+  // series into a stripe at the bottom — the shape a reader came for, thrown
+  // away to make room for a threshold it never approached. The line is drawn
+  // only when it lands inside the frame, and the caller checks that.
+  const two = e * 2;
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = (hi - lo || hi || 1) * 0.12;
+  const mn = lo - pad, mx = hi + pad;
+  const X = i => x + (vals.length === 1 ? 0 : (i / (vals.length - 1)) * w);
+  const Y = v => y + h - ((v - mn) / (mx - mn || 1)) * h;
+
+  const pts = vals.map((v, i) => `${X(i).toFixed(1)} ${Y(v).toFixed(1)}`);
+  return {
+    observed: Boolean(seen),
+    points: vals.length,
+    line: "M" + pts.join("L"),
+    // Closed back along the baseline, so the line can carry a wash under it.
+    area: `M${X(0).toFixed(1)} ${(y + h).toFixed(1)}L` + pts.join("L") +
+          `L${X(vals.length - 1).toFixed(1)} ${(y + h).toFixed(1)}Z`,
+    twoY: Y(two).toFixed(1),
+    twoInFrame: two >= mn && two <= mx,
+    entryY: Y(e).toFixed(1),
+  };
 }
+
+const sparkPath = row => series(row, { x: 64, y: 250, w: 1072, h: 130 }).line;
 
 /**
  * The public export. Carries every field that goes into record_hash, so a
