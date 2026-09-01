@@ -197,6 +197,8 @@ ok(doc.getElementById("cdCalc").textContent === "matches",
   "and recomputing it in the browser over the engine's own field list agrees");
 ok(/never been published/.test(doc.getElementById("cdAnchor").textContent),
   "and it claims no anchor, because there is none");
+ok(doc.querySelectorAll(".cd-chart .ax").length === 3,
+  "the chart labels the three lines it draws, so the scale is readable");
 
 doc.querySelector('#navLinks a[data-v="vault"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
 await waitFor("Custody re-reads the chain", () => text("vHead") === store.head());
@@ -216,7 +218,8 @@ pick("all");
 
 /* ── 7. more than one page of register, filtered where it should be ─────── */
 console.log("\nLEBIH DARI SATU HALAMAN");
-const extra = [["SMALL", 50_000], ["BIG", 500_000], ["HUGE", 1_000_000]];
+// "$BIG" carries its own dollar, the way pump.fun listings often do.
+const extra = [["SMALL", 50_000], ["$BIG", 500_000], ["HUGE", 1_000_000]];
 for (const [symbol, mc] of extra)
   store.insertCall({
     callerId: 1, chain: "solana", tokenAddress: "TOK" + symbol, pairAddress: "P" + symbol,
@@ -237,6 +240,9 @@ await waitFor("the server filters by size", () => /2 of 2/.test(text("cnt")));
 ok(cards().length === 2, "MC ≥ $500K leaves the two that entered above it");
 ok(/2 of 2/.test(text("cnt")), "and the count follows the filter, not the page");
 ok(/mc=500000/.test(win.location.search), "the filter is in the URL and can be sent to someone");
+const bigCard = cards().find(el => /BIG/.test(el.textContent))?.textContent ?? "";
+ok(/\$BIG/.test(bigCard) && !/\$\$BIG/.test(bigCard),
+  "a symbol that already carries its dollar is not printed with two");
 
 // Paging, asked of the API directly: sixty rows is a page, not the register.
 const page = await fetch(`${BASE}/api/register?limit=2&offset=2`);

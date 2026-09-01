@@ -4,13 +4,15 @@
  * The alert carries the reasoning, not just a ticker. Two effects: a reader
  * can judge the call, and when it fails the receipt is already public.
  */
+import { ticker } from "./og.js";   // one rule for how a symbol is displayed
+
 const esc = s => String(s).replace(/[_*[\]()~`>#+=|{}.!-]/g, m => "\\" + m);
 const usd = n => n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M`
               : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n)}`;
 
 export function formatSignal(sig, seq) {
   const lines = [
-    `*SIGNAL \\#${seq}* · $${esc(sig.symbol)}`,
+    `*SIGNAL \\#${seq}* · ${esc(ticker(sig.symbol))}`,
     `${esc(sig.chain)} · ${esc(sig.dex)} · score *${sig.score}/100*`,
     ``,
     `Entry MC ${esc(usd(sig.entryMc))} · Liquidity ${esc(usd(sig.liquidityUsd))}`,
@@ -30,7 +32,7 @@ export function formatOutcome(row) {
   const v = row.verdict === "win" ? "WIN" : "MISS";
   const dead = row.isDead ? " · DEAD" : "";
   return [
-    `*${esc(v)}${esc(dead)}* · \\#${row.seq} $${esc(row.symbol)}`,
+    `*${esc(v)}${esc(dead)}* · \\#${row.seq} ${esc(ticker(row.symbol))}`,
     `Peak *${row.peakX.toFixed(2)}x* · now ${row.nowX.toFixed(2)}x`,
     row.secondsTo2x ? `Reached 2x in ${Math.round(row.secondsTo2x / 60)}m` : `Never reached 2x`,
     ``,

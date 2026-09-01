@@ -466,7 +466,10 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .cd-chart{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);padding:20px;position:relative;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
 .cd-chart svg{width:100%;height:280px;display:block;overflow:visible}
-#cdChartSvg{display:block}
+#cdChartSvg{display:block;position:relative}
+.cd-chart .ax{position:absolute;right:6px;transform:translateY(-50%);pointer-events:none;
+  font-family:var(--mono);font-size:10px;color:var(--tx-3);
+  background:rgba(8,9,11,.72);padding:1px 6px;border-radius:5px}
 .cd-lg{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:10.5px;color:var(--tx-3)}
 .cd-lg span{display:flex;align-items:center;gap:6px}
 .cd-lg i{width:14px;height:2px;display:block;border-radius:2px}

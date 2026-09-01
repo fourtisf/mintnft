@@ -802,7 +802,12 @@ function cdChart(c){
   const col=deadOf(c)?"var(--dead)":v==="open"?"var(--win)":v==="win"?"#8E9AFF":"var(--tx-3)";
   const d=p.map((y,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(y).toFixed(1)).join("");
   const pk=p.indexOf(Math.max(...p));
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+  // Labels as positioned HTML, not SVG text: this chart stretches to the panel
+  // width with preserveAspectRatio="none", which would smear any text in it.
+  const at=v=>(Y(v)/H*100).toFixed(2);
+  const axis=[[c.entry,"entry"],[two,"2×"],[dead,"dead"]]
+    .map(([v,k])=>`<span class="ax" style="top:${at(v)}%">${k} ${fmt(v)}</span>`).join("");
+  return axis+`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
     <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${col}" stop-opacity=".2"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient>
       <clipPath id="cc"><rect x="0" y="0" width="${W}" height="${Y(two).toFixed(1)}"/></clipPath></defs>
@@ -826,7 +831,8 @@ function openCall(id){
       <div class="tok" style="width:52px;height:52px;font-size:19px">${c.tick[0]}</div>
       <div class="cd-id"><h1>${c.name}</h1>
         <div class="cd-meta"><span class="tk">$${c.tick}</span><span class="dotsep"></span>${c.chain}
-          <span class="dotsep"></span>${c.src}<span class="dotsep"></span>${utc(c.at)}</div></div>
+          <span class="dotsep"></span>${c.src}<span class="dotsep"></span>${utc(c.at)}
+          <span class="dotsep"></span>${ago(c.at)}</div></div>
       <div class="cd-mx"><div class="big" style="${v==="win"&&!deadOf(c)?"background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent":v==="dead"?"color:var(--dead)":v==="miss"?"color:var(--tx-3)":""}">${(c.live||deadOf(c)?n:mult(c)).toFixed(2)}×</div>
         <div style="margin-top:8px"><span class="badge ${v}">${LBL[v]}</span></div></div>
     </div>
@@ -1383,8 +1389,13 @@ function seedPath(d){
   p.push(now);
   return p;
 }
+/* Some tokens list the dollar inside the symbol — "$TAP" — and every surface
+   here adds one. The record keeps what the provider said; the page strips it
+   once, on the way in, so the card, the avatar letter, the detail page and both
+   share templates all agree. */
+const tickerOf=s=>String(s??"").replace(/^\$+/,"")||"?";
 function rowToCall(d){
-  return{id:"r"+d.seq,seq:d.seq,name:d.name||d.symbol,tick:d.symbol||"?",
+  return{id:"r"+d.seq,seq:d.seq,name:d.name||d.symbol,tick:tickerOf(d.symbol),
     chain:CHAIN[d.chain]||String(d.chain||"").toUpperCase(),
     by:d.callerName||"screener",src:d.dex,ca:shortCa(d.tokenAddress),
     addr:d.tokenAddress||"",          // the card shows the short form; search needs the whole one

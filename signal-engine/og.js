@@ -8,6 +8,13 @@
  * Convert to PNG with resvg-js if the platform needs a raster.
  */
 const esc = s => String(s ?? "").replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+/* Some tokens are listed with the dollar already in the symbol — "$TAP" — and
+   every surface here prefixes one of its own. Written as "$$TAP" on a social
+   card, that is the first thing a reader notices, and it is the last thing you
+   want them noticing. The record keeps what the provider said; only the
+   display is normalised. */
+export const ticker = s => "$" + (String(s ?? "").replace(/^\$+/, "") || "?");
+
 const usd = n => n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n ?? 0)}`;
 
 const THEME = {
@@ -38,7 +45,7 @@ export function callCard(row) {
   <rect x="960" y="52" width="176" height="46" rx="10" fill="${t.a}" opacity=".14" stroke="${t.a}" stroke-width="1.4"/>
   <text x="1048" y="83" text-anchor="middle" font-family="monospace" font-size="21" font-weight="700" letter-spacing="4" fill="${t.a}">${t.label}</text>
 
-  <text x="64" y="186" font-family="sans-serif" font-size="66" font-weight="700" fill="#F3F4F6">$${esc(row.symbol)}</text>
+  <text x="64" y="186" font-family="sans-serif" font-size="66" font-weight="700" fill="#F3F4F6">${esc(ticker(row.symbol))}</text>
   <text x="64" y="232" font-family="monospace" font-size="22" fill="#8C929C">${esc(row.chain)} · ${esc(row.dex ?? "")} · fired ${esc((row.firedAt ?? "").slice(0, 16).replace("T", " "))} UTC</text>
 
   <text x="1136" y="196" text-anchor="end" font-family="sans-serif" font-size="92" font-weight="700" fill="url(#g)">${(row.peakX ?? 1).toFixed(2)}×</text>
