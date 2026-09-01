@@ -38,12 +38,12 @@ const add = n => store.insertCall({
 [1, 2, 3].forEach(add);
 
 console.log("\nAPA YANG DIBANGUN");
-const a1 = buildAnchor(store);
+const a1 = await buildAnchor(store);
 ok(a1.seqFrom === 1 && a1.seqTo === 3 && a1.count === 3,
   `the first anchor covers everything written so far (seq ${a1.seqFrom}-${a1.seqTo})`);
-ok(a1.chainHead === store.head(),
+ok(a1.chainHead === await store.head(),
   "it pins the head of the whole chain, so the register's shape is fixed too");
-ok(a1.merkleRoot === merkleRoot(store.allCalls().map(c => c.recordHash)),
+ok(a1.merkleRoot === merkleRoot((await store.allCalls()).map(c => c.recordHash)),
   "and a merkle root over this window's record hashes, and nothing else");
 ok(a1.merkleRoot !== a1.chainHead,
   "the two are different commitments — one proves the shape, the other proves a member");
@@ -55,7 +55,7 @@ let logged = "";
 const failed = await publishAnchor(store, () => { throw new Error("rpc down"); }, m => { logged += m; });
 ok(failed.txHash === null, "a publisher that throws records the anchor with no transaction");
 ok(/NOT published/.test(logged), "and says out loud that the register is still unanchored");
-const stillPending = pendingWindow(store);
+const stillPending = await pendingWindow(store);
 ok(stillPending.seqFrom === 1 && stillPending.calls.length === 3,
   "the window stays pending — the next run re-covers those calls rather than skipping them");
 
@@ -65,16 +65,16 @@ const published = await publishAnchor(store, a => { sent.push(a); return "0xdead
 ok(published.txHash === "0xdeadbeef", "a publisher that returns a hash has it recorded");
 ok(sent[0].merkleRoot === published.merkleRoot && sent[0].chainHead === published.chainHead,
   "and what was published is what was recorded — not a second, later computation");
-ok(pendingWindow(store).calls.length === 0, "nothing is pending once it is published");
+ok((await pendingWindow(store)).calls.length === 0, "nothing is pending once it is published");
 
 add(4); add(5);
-const a2 = buildAnchor(store);
+const a2 = await buildAnchor(store);
 ok(a2.seqFrom === 4 && a2.seqTo === 5,
   `the next anchor starts where the published one ended (seq ${a2.seqFrom}-${a2.seqTo})`);
 ok(a2.merkleRoot !== published.merkleRoot, "over its own window, not the whole register again");
 
 console.log("\nBUKTI UNTUK PIHAK KETIGA");
-const p = proofFor(store, 2);
+const p = await proofFor(store, 2);
 ok(p !== null, "a call inside a published window can be proved");
 ok(p.verifiesLocally === true, "and the proof checks against the root that was published");
 ok(verifyProof(p.recordHash, p.proof, p.merkleRoot),
@@ -84,9 +84,9 @@ ok(p.anchorTx === "0xdeadbeef" && p.chainHead === published.chainHead,
 ok(!verifyProof("0".repeat(64), p.proof, p.merkleRoot),
   "and a different record hash does not verify against the same proof");
 
-ok(proofFor(store, 4) === null,
+ok((await proofFor(store, 4)) === null,
   "a call written after the last publication has no proof yet — and is not given one");
-ok(proofFor(store, 99) === null, "nor does a call that does not exist");
+ok((await proofFor(store, 99)) === null, "nor does a call that does not exist");
 
 console.log("\nRANTAI RUSAK TIDAK DI-ANCHOR");
 // Publishing the head of a chain that no longer verifies would put our name on
@@ -102,7 +102,7 @@ const store2 = bad;
 }));
 store2.db.calls[0].entryMc = 999;          // the edit the whole product exists to catch
 let refused = null;
-try { buildAnchor(store2); } catch (e) { refused = e; }
+try { await buildAnchor(store2); } catch (e) { refused = e; }
 ok(refused !== null && /refusing to anchor a broken chain/.test(refused.message),
   "a chain that no longer verifies is refused, not published");
 

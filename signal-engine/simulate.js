@@ -9,8 +9,29 @@ import { applyObservation, stats, RULES } from "./scorer.js";
 import { verifyChain } from "./integrity.js";
 import { rmSync } from "node:fs";
 
-rmSync("./data/sim.json", { force: true });
-const store = new FileStore("./data/sim.json");
+/* The same simulation over either driver, because the interesting question is
+   whether they behave identically — and the tamper test at the bottom is the
+   one Task 3 asks to see run against Postgres, not against a file.
+
+     node simulate.js
+     node simulate.js --pg postgres://…/nekara       (loads schema.sql first) */
+const pgArg = process.argv.indexOf("--pg");
+const PG = pgArg >= 0 ? (process.argv[pgArg + 1] ?? process.env.DATABASE_URL) : null;
+
+let store;
+if (PG) {
+  const [{ PgStore }, pg, { readFileSync }] =
+    await Promise.all([import("./pgstore.js"), import("pg"), import("node:fs")]);
+  const pool = new pg.default.Pool({ connectionString: PG });
+  await pool.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+  await pool.query(readFileSync(new global.URL("../schema.sql", import.meta.url).pathname, "utf8"));
+  store = await new PgStore({ pool, log: () => {} }).init();
+  console.log("STORE       Postgres\n");
+} else {
+  rmSync("./data/sim.json", { force: true });
+  store = new FileStore("./data/sim.json");
+  console.log("STORE       FileStore (./data/sim.json)\n");
+}
 let clock = Date.now() - 30 * 3600e3;   // start 30h ago
 
 const pair = (i, o = {}) => ({
@@ -44,7 +65,7 @@ for (const p of candidates) {
   if (!ev.fire) continue;
   const sig = toSignal(p, ev);
   sig.firedAt = new Date(clock).toISOString();
-  store.insertCall(sig);
+  await store.insertCall(sig);
   fired++;
 }
 console.log(`DISCOVERY   ${fired} sinyal ditulis, ${vetoed} diveto\n`);
@@ -59,7 +80,7 @@ const script = {
   6: t => 1 + t * 0.25,                      // flat miss
 };
 
-const calls = store.allCalls();
+const calls = await store.allCalls();
 const STEP = 20_000;                          // same 20s as the hot scorer
 let samples = 0;
 for (let t = 0; t <= 1.0001; t += STEP / (30 * 3600e3)) {
@@ -68,13 +89,13 @@ for (let t = 0; t <= 1.0001; t += STEP / (30 * 3600e3)) {
     const f = script[Number(c.tokenAddress.slice(1))];
     if (!f) continue;
     const mc = Math.max(c.entryMc * f(Math.min(t, 1)), 100);
-    store.setMark(c.seq, applyObservation(c, store.mark(c.seq), mc, clock));
+    await store.setMark(c.seq, applyObservation(c, await store.mark(c.seq), mc, clock));
     samples++;
   }
 }
 console.log(`SCORING     ${samples.toLocaleString()} observasi diproses (interval 20 detik)\n`);
 
-const rows = store.register();
+const rows = await store.register();
 console.log("REGISTER");
 console.log("  seq  token   entry     peak24h   now       24h-x  ever-x  verdict  dead  2x in");
 for (const r of rows) {
@@ -90,15 +111,17 @@ for (const r of rows) {
 const s = stats(rows, 30);
 console.log(`\nSTATISTIK   ${s.calls} call · hit ${(s.hitRate * 100).toFixed(0)}% · median peak ${s.medianPeak.toFixed(2)}x · best ${s.bestPeak.toFixed(2)}x · mati ${s.dead}`);
 
-const v = store.verify();
+const v = await store.verify();
 console.log(`\nINTEGRITAS  ${v.ok ? "utuh" : "RUSAK"} — ${v.count} call, head ${v.head.slice(0, 20)}…`);
 
 /* Tamper test: edit a stored entry and confirm the chain catches it */
-const tampered = JSON.parse(JSON.stringify(store.allCalls()));
+const tampered = JSON.parse(JSON.stringify(await store.allCalls()));
 tampered[1].entryMc = 1;                     // pretend a bad entry was "corrected"
 const t2 = verifyChain(tampered);
 console.log(`ANTI-EDIT   ubah satu entry MC → ${t2.ok ? "TIDAK TERDETEKSI (gagal)" : "terdeteksi di seq " + t2.seq + " (" + t2.why + ")"}`);
 
-const removed = store.allCalls().filter(c => c.seq !== 3);
+const removed = (await store.allCalls()).filter(c => c.seq !== 3);
 const t3 = verifyChain(removed);
 console.log(`ANTI-HAPUS  hapus satu call → ${t3.ok ? "TIDAK TERDETEKSI (gagal)" : "terdeteksi di seq " + t3.seq + " (" + t3.why + ")"}`);
+
+if (PG) await store.close();

@@ -14,7 +14,11 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TYPE caller_kind  AS ENUM ('house', 'external');
 CREATE TYPE call_state   AS ENUM ('live', 'settled');
 CREATE TYPE verdict      AS ENUM ('open', 'win', 'miss');
-CREATE TYPE chain_id     AS ENUM ('sol', 'base', 'bsc', 'eth');
+-- Dexscreener's chain ids verbatim, not our own shorthand. `chain` is a hashed
+-- field: 'solana' is what went into every record hash, so 'sol' in the database
+-- would mean the stored row and the hash beside it describe different chains,
+-- and an export read straight from here could not be recomputed by anyone.
+CREATE TYPE chain_id     AS ENUM ('solana', 'base', 'bsc', 'ethereum');
 CREATE TYPE key_tier     AS ENUM ('t1', 't2', 't3');
 
 -- ─────────── callers ───────────
@@ -61,9 +65,44 @@ CREATE TABLE calls (
 
   -- entry is frozen at insert and never updated. this is the whole product.
   fired_at      timestamptz(6) NOT NULL,
-  entry_price   numeric(40,18) NOT NULL,
-  entry_supply  numeric(40,0)  NOT NULL,
-  entry_mc      numeric(40,4)  NOT NULL,
+  -- Wide on purpose. These are values the application carries as doubles, and
+  -- the record hash covers String(thatDouble) — so a column that cannot hold
+  -- the double exactly produces a row that can never verify, on a table that
+  -- cannot correct it. entry_mc at numeric(40,4) silently rounded
+  -- 433527.17956647283 to 433527.1796 and did precisely that. A double prints
+  -- at most 17 significant digits; 40 decimal places is room, and numeric is
+  -- variable-length so the headroom costs nothing. PgStore re-reads and
+  -- re-hashes every row before committing, so a value that still does not fit
+  -- is refused at insert rather than discovered later.
+  entry_price   numeric(80,40) NOT NULL,
+  entry_supply  numeric(80,40) NOT NULL,
+  entry_mc      numeric(80,40) NOT NULL,
+
+  -- Everything else integrity.js freezes. These are not denormalised copies of
+  -- tokens.symbol and friends — they are the values that went into record_hash,
+  -- and they have to live on the append-only table or the chain cannot be
+  -- recomputed from the database at all. tokens.symbol is refreshed; a provider
+  -- renaming a token would otherwise invalidate every hash that ever covered it.
+  hash_version    smallint NOT NULL DEFAULT 3,
+  pair_address    text NOT NULL,
+  symbol          text NOT NULL,
+  entry_supply_source text NOT NULL,            -- 'marketCap' | 'fdv' | 'derived'
+  liquidity_usd   numeric(80,40) NOT NULL,
+  score           smallint NOT NULL,
+  reason_ids      text[] NOT NULL,
+  entry_volume_h1 numeric(80,40) NOT NULL DEFAULT 0,  -- hashed from version 3
+  entry_volume_m5 numeric(80,40) NOT NULL DEFAULT 0,
+
+  -- Published alongside the call but outside the hash: prose, links and the
+  -- on-chain reading. Same footing as name and dex — descriptive, not frozen.
+  name          text,
+  dex           text,
+  image_url     text,
+  reasons       text[],
+  links         jsonb,
+  -- What the chain said when it fired, or null when nothing could be read.
+  -- Null is published as "not checked" and never as clean; see chain.js.
+  chain_checks  jsonb,
 
   source_kind   text NOT NULL,                  -- 'telegram' | 'x' | 'manual' | 'api'
   source_ref    text,                           -- message id / tweet id
@@ -78,10 +117,20 @@ CREATE TABLE calls (
   FOREIGN KEY (chain, token_address) REFERENCES tokens(chain, address)
 );
 
--- one caller cannot fire the same token twice inside 10 minutes
+-- One caller cannot fire the same token twice in the same ten-minute slot.
+-- Slots are fixed and aligned to the hour, not a rolling window: 10:09 and
+-- 10:11 are two minutes apart and land in different slots. The real guard
+-- against re-firing is cooldownHours in rules.js; this only stops a retry or
+-- a double-delivered candidate becoming two rows on a record that cannot
+-- delete either of them.
+--
+-- Binned in UTC because an index expression has to be IMMUTABLE, and
+-- date_trunc over a timestamptz is only STABLE — it depends on the session's
+-- TimeZone. Postgres rejects the index outright, which is how this file came
+-- to be described as "runs as-is" without ever having run.
 CREATE UNIQUE INDEX calls_dedupe
-  ON calls (caller_id, chain, token_address, date_trunc('hour', fired_at),
-            (extract(minute from fired_at)::int / 10));
+  ON calls (caller_id, chain, token_address,
+            date_bin(interval '10 minutes', fired_at AT TIME ZONE 'UTC', timestamp '2000-01-01'));
 
 CREATE INDEX calls_fired_at   ON calls (fired_at DESC);
 CREATE INDEX calls_caller     ON calls (caller_id, fired_at DESC);
@@ -96,12 +145,27 @@ CREATE RULE calls_no_delete AS ON DELETE TO calls DO INSTEAD NOTHING;
 CREATE TABLE call_marks (
   call_id        uuid PRIMARY KEY REFERENCES calls(id),
 
-  peak_mc        numeric(40,4) NOT NULL,
+  -- Same width as the call's own figures. Marks are not hashed, but each one is
+  -- computed from the one before it, so a column that rounds makes the series
+  -- drift away from what the engine actually observed.
+  peak_mc        numeric(80,40) NOT NULL,
   peak_at        timestamptz(6) NOT NULL,
-  peak_x         numeric(12,4)  NOT NULL,
+  peak_x         numeric(80,40) NOT NULL,
 
-  now_mc         numeric(40,4) NOT NULL,
-  now_x          numeric(12,4) NOT NULL,
+  -- Peak stops at settle so a verdict is reproducible; peak_all keeps moving.
+  -- Both are recorded because a call that settled at 1.8x and later touched 4x
+  -- is two true facts, and collapsing them into one loses the honest half.
+  peak_all_mc    numeric(80,40),
+  peak_all_x     numeric(80,40),
+  peak_all_at    timestamptz(6),
+
+  now_mc         numeric(80,40) NOT NULL,
+  now_x          numeric(80,40) NOT NULL,
+
+  -- Where the token says it lives. A property of the token now rather than of
+  -- the call as it fired, so it rides on the mutable half and reaches calls
+  -- written before we recorded any.
+  links          jsonb,
 
   first_2x_at    timestamptz(6),                -- null if never reached, or if backfilled
   seconds_to_2x  integer,
@@ -141,6 +205,17 @@ CREATE TABLE candles_1m (
 CREATE INDEX candles_lookup ON candles_1m (chain, address, minute DESC);
 -- SELECT create_hypertable('candles_1m','minute');   -- if using TimescaleDB
 
+-- Marks the poller actually saw, per call. Keyed on the call rather than the
+-- token because the chart on a call page claims to plot that call's own
+-- observations, and two calls on one token would otherwise share a series.
+-- Decimated by the app at 96 points, so this stays small by construction.
+CREATE TABLE call_samples (
+  call_id uuid NOT NULL REFERENCES calls(id),
+  ts      timestamptz(6) NOT NULL,
+  mc      numeric(80,40) NOT NULL,
+  PRIMARY KEY (call_id, ts)
+);
+
 -- spot ticks drive the live UI only; they never decide a verdict
 CREATE TABLE spot_ticks (
   chain   chain_id NOT NULL,
@@ -159,8 +234,13 @@ CREATE TABLE anchors (
   seq_to      bigint NOT NULL,
   chain_head  bytea  NOT NULL,      -- chain_hash of calls.seq = seq_to
   merkle_root bytea  NOT NULL,
-  network     text   NOT NULL,      -- 'base'
-  tx_hash     text   NOT NULL,
+  call_count  integer NOT NULL,
+  network     text   NOT NULL DEFAULT 'base',
+  -- Nullable, and that is the point: a publisher that fails still records the
+  -- anchor it built, with no transaction on it, so the window stays visibly
+  -- pending. An anchor row is not a published anchor — only a tx_hash is.
+  tx_hash     text,
+  built_at    timestamptz(6) NOT NULL,
   anchored_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX anchors_range ON anchors (seq_to DESC);
@@ -190,16 +270,24 @@ CREATE INDEX nonces_gc ON auth_nonces (issued_at);
 --  Views — every published number comes from here, nowhere else
 -- ══════════════════════════════════════════════════════════════
 
+-- The symbol here is the call's own frozen copy, not tokens.symbol. They are
+-- usually equal and the difference is the entire point: the register publishes
+-- what the token was called when we fired, which is what the hash covers.
 CREATE VIEW register AS
 SELECT
-  c.id, c.seq, c.fired_at, c.chain, c.token_address,
-  c.entry_mc, c.proof_tx_hash,
-  t.symbol, t.name, t.image_url, t.launchpad,
+  c.id, c.seq, c.fired_at, c.chain, c.token_address, c.pair_address,
+  c.entry_mc, c.entry_price, c.entry_supply, c.entry_supply_source,
+  c.liquidity_usd, c.score, c.reason_ids, c.reasons, c.links, c.chain_checks,
+  c.entry_volume_h1, c.entry_volume_m5, c.hash_version, c.proof_tx_hash,
+  c.symbol, coalesce(c.name, t.name) AS name,
+  coalesce(c.dex, t.launchpad) AS dex,
+  coalesce(c.image_url, t.image_url) AS image_url, t.launchpad,
   cl.handle AS caller, cl.display_name AS caller_name, cl.kind AS caller_kind,
   m.peak_mc, m.peak_x, m.now_mc, m.now_x,
   m.verdict, m.is_dead, m.state,
   CASE WHEN m.observed_live THEN m.seconds_to_2x END AS seconds_to_2x,
-  encode(c.record_hash, 'hex') AS record_hash
+  encode(c.record_hash, 'hex') AS record_hash,
+  encode(c.chain_hash,  'hex') AS chain_hash
 FROM calls c
 JOIN call_marks m ON m.call_id = c.id
 JOIN callers   cl ON cl.id = c.caller_id

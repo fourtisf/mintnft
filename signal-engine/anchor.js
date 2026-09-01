@@ -22,18 +22,18 @@
 import { merkleRoot, merkleProof, verifyProof } from "./merkle.js";
 
 /** Window of calls not yet covered by a published anchor. */
-export function pendingWindow(store) {
-  const published = store.anchors().filter(a => a.txHash);
+export async function pendingWindow(store) {
+  const published = (await store.anchors()).filter(a => a.txHash);
   const from = published.length ? Math.max(...published.map(a => a.seqTo)) + 1 : 1;
-  const calls = store.allCalls().filter(c => c.seq >= from);
+  const calls = (await store.allCalls()).filter(c => c.seq >= from);
   return { seqFrom: from, calls };
 }
 
-export function buildAnchor(store) {
-  const v = store.verify();
+export async function buildAnchor(store) {
+  const v = await store.verify();
   if (!v.ok) throw new Error(`refusing to anchor a broken chain: ${v.why} (seq ${v.seq})`);
 
-  const { seqFrom, calls } = pendingWindow(store);
+  const { seqFrom, calls } = await pendingWindow(store);
   if (!calls.length) return null;
 
   return {
@@ -51,7 +51,7 @@ export function buildAnchor(store) {
  * so the next run re-covers it rather than skipping those calls forever.
  */
 export async function publishAnchor(store, publish, log = console.log) {
-  const a = buildAnchor(store);
+  const a = await buildAnchor(store);
   if (!a) return null;
 
   let txHash = null;
@@ -61,7 +61,7 @@ export async function publishAnchor(store, publish, log = console.log) {
     log(`[ANCHOR] publish failed, window ${a.seqFrom}-${a.seqTo} stays pending — ${String(e)}`);
   }
   const record = { ...a, txHash };
-  store.addAnchor(record);
+  await store.addAnchor(record);
   log(txHash
     ? `[ANCHOR] seq ${a.seqFrom}-${a.seqTo} published, tx ${txHash}`
     : `[ANCHOR] seq ${a.seqFrom}-${a.seqTo} recorded but NOT published — the register is unanchored`);
@@ -69,11 +69,11 @@ export async function publishAnchor(store, publish, log = console.log) {
 }
 
 /** Everything a third party needs to check one call against a published anchor. */
-export function proofFor(store, seq) {
-  const anchor = store.anchors().find(a => a.txHash && a.seqFrom <= seq && a.seqTo >= seq);
+export async function proofFor(store, seq) {
+  const anchor = (await store.anchors()).find(a => a.txHash && a.seqFrom <= seq && a.seqTo >= seq);
   if (!anchor) return null;
 
-  const window = store.allCalls().filter(c => c.seq >= anchor.seqFrom && c.seq <= anchor.seqTo);
+  const window = (await store.allCalls()).filter(c => c.seq >= anchor.seqFrom && c.seq <= anchor.seqTo);
   const leaves = window.map(c => c.recordHash);
   const index = window.findIndex(c => c.seq === seq);
   if (index < 0) return null;

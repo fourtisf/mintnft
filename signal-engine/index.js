@@ -23,6 +23,28 @@ import { Telegram, formatSignal, formatOutcome } from "./notify.js";
 
 const HOT = 20_000, WARM = 300_000, DISCOVER = 60_000, ANCHOR = 86_400_000;
 
+/**
+ * Postgres when DATABASE_URL is set, the file otherwise.
+ *
+ * The Postgres driver is the store of record: `calls` refuses UPDATE and DELETE
+ * at the database, so append-only stops being a convention this process keeps
+ * and becomes something the database enforces against it. The file driver is
+ * correct and single-process, which is what it is still for.
+ *
+ * Loaded lazily so a box without a database never has to have `pg` installed.
+ */
+export async function openStore({ url = process.env.DATABASE_URL, log = console.log } = {}) {
+  if (!url) { log("[store] no DATABASE_URL — using the file register"); return new FileStore(); }
+  const { PgStore } = await import("./pgstore.js");
+  const store = await new PgStore({ url, log }).init();
+  const v = await store.verify();
+  // Refusing to serve a broken chain is not an option here — the register is
+  // what it is and hiding it would be the lie. Saying so at boot is.
+  log(v.ok ? `[store] Postgres — ${v.count} calls, chain intact`
+           : `[store] Postgres — CHAIN BROKEN at seq ${v.seq}: ${v.why}`);
+  return store;
+}
+
 export function start({ store = new FileStore(), api = new Dexscreener(), port = 8787,
                         log = console.log,
                         callerId = Number(process.env.CALLER_ID ?? 1),
@@ -51,13 +73,13 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
     callerId,
     onScan(n) { triage.scanned(n); },
     onReject(pair, ev) { triage.rejected(pair, ev); },
-    onSignal(sig) {
-      if (store.hasToken(sig.chain, sig.tokenAddress, 24 * 3600e3)) return;
-      const call = store.insertCall(sig);
+    async onSignal(sig) {
+      if (await store.hasToken(sig.chain, sig.tokenAddress, 24 * 3600e3)) return;
+      const call = await store.insertCall(sig);
       // The row, not the bare call: a feed message that arrives in a different
       // shape than /api/register is a second format to keep in step, and the
       // client would have to invent the mark fields it is missing.
-      feed.publish({ ...call, ...store.mark(call.seq) });
+      feed.publish({ ...call, ...await store.mark(call.seq) });
       triage.fired();
       log(`[FIRED] #${call.seq} ${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
       telegram.send(formatSignal(sig, call.seq));
@@ -94,14 +116,14 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
         const price = Number(p.priceUsd ?? 0);
         if (!(price > 0) || !(c.entrySupply > 0)) continue;
         const mc = price * c.entrySupply;
-        const before = store.mark(c.seq);
+        const before = await store.mark(c.seq);
         const after = applyObservation(c, before, mc);
         // A token's socials are a property of the token now, not of the call as
         // it was fired, so they ride on the mark — the mutable half — and reach
         // calls written before we recorded any. Kept when the provider stops
         // sending them: a missing field is not a project deleting its Twitter.
         const links = linksOf(p);
-        store.setMark(c.seq, links.length ? { ...after, links } : after);
+        await store.setMark(c.seq, links.length ? { ...after, links } : after);
         feed.publishMark(c, after);
         if (before.verdict !== "win" && after.verdict === "win")
           log(`[WIN] #${c.seq} $${c.symbol} hit ${after.peakX.toFixed(2)}x in ${after.secondsTo2x}s`);
@@ -114,17 +136,27 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
     }
   }
 
+  /* Every read of the store is awaited. The file driver answers synchronously
+     and awaiting a value that is not a promise costs nothing, so the same code
+     drives both drivers rather than each having its own copy of the loop. */
+  const hot = async () => refresh(await store.liveCalls());
+  const warm = async () => {
+    const settled = [];
+    for (const c of await store.allCalls())
+      if ((await store.mark(c.seq)).state === "settled") settled.push(c);
+    return refresh(settled);
+  };
+  const anchor = async () => {
+    const v = await store.verify();
+    if (!v.ok) return log("INTEGRITY BROKEN", v);
+    return publishAnchor(store, publishAnchorTx ?? (() => null), log);
+  };
+
   const timers = [
     setInterval(() => engine.tick().catch(e => log("discovery failed", String(e))), DISCOVER),
-    setInterval(() => refresh(store.liveCalls()).catch(e => log("hot failed", String(e))), HOT),
-    setInterval(() => refresh(store.allCalls().filter(c => store.mark(c.seq).state === "settled"))
-      .catch(e => log("warm failed", String(e))), WARM),
-    setInterval(() => {
-      const v = store.verify();
-      if (!v.ok) return log("INTEGRITY BROKEN", v);
-      publishAnchor(store, publishAnchorTx ?? (() => null), log)
-        .catch(e => log("anchor failed", String(e)));
-    }, ANCHOR),
+    setInterval(() => hot().catch(e => log("hot failed", String(e))), HOT),
+    setInterval(() => warm().catch(e => log("warm failed", String(e))), WARM),
+    setInterval(() => anchor().catch(e => log("anchor failed", String(e))), ANCHOR),
   ];
 
   const server = serve(store, { port, secret, domain, tierSource, delays, triage, cfg: engine.cfg, log });
@@ -141,4 +173,4 @@ export function start({ store = new FileStore(), api = new Dexscreener(), port =
            store, engine, triage, feed, server, refresh };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) start();
+if (import.meta.url === `file://${process.argv[1]}`) start({ store: await openStore() });

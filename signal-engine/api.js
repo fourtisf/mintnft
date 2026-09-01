@@ -142,7 +142,7 @@ export function serve(store, {
     const tier = tierOf(req);
     // What the default rule would have returned on this call, computed here so
     // a card and the simulation on Hindsight can never disagree about it.
-    const rows = filterForTier(store.register(), tier, Date.now(), delays)
+    const rows = filterForTier(await store.register(), tier, Date.now(), delays)
       .map(r => ({ ...r, realised2x: realised(r, "2x") }));
 
     if (p === "/api/register") {
@@ -306,11 +306,11 @@ export function serve(store, {
 
     /* ── integrity ── */
     if (p === "/api/verify") {
-      const v = store.verify();
-      const published = store.anchors().filter(a => a.txHash);
+      const v = await store.verify();
+      const published = (await store.anchors()).filter(a => a.txHash);
       const latest = published[published.length - 1] ?? null;
       return json(res, v.ok ? 200 : 409, {
-        ...v, head: store.head(),
+        ...v, head: await store.head(),
         anchored: !!latest,
         anchoredThrough: latest?.seqTo ?? 0,
         latestAnchor: latest,
@@ -323,7 +323,7 @@ export function serve(store, {
     if (p.startsWith("/api/verify/")) {
       const seq = Number(p.split("/").pop());
       if (!rows.some(r => r.seq === seq)) return notFound(res);
-      const proof = proofFor(store, seq);
+      const proof = await proofFor(store, seq);
       return proof ? json(res, 200, proof)
                    : json(res, 202, { seq, anchored: false, note: "not yet covered by a published anchor" });
     }
@@ -334,7 +334,7 @@ export function serve(store, {
       if (!row) return notFound(res);
       // The whole observed series here, not the thinned one on the list route:
       // this is where someone checks that peakMc is a mark we actually saw.
-      return json(res, 200, { ...row, samples: store.samples ? store.samples(seq) : [] });
+      return json(res, 200, { ...row, samples: store.samples ? await store.samples(seq) : [] });
     }
 
     notFound(res);

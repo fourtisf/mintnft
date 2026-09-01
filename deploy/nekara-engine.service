@@ -60,6 +60,13 @@ Environment=CALLER_ID=1
 # Environment=KEYS_CONTRACT=
 # Environment=BASE_RPC=
 
+# Storage. Unset means the file register. Set it and the engine runs on
+# Postgres, where the append-only rule is enforced by the database rather than
+# by this process. Migrate an existing file register across first with
+# migrate-pg.js — it refuses rather than half-migrating, because `calls` cannot
+# delete the rows a partial run would leave behind.
+# Environment=DATABASE_URL=postgres://nekara@127.0.0.1/nekara
+
 # On-chain gates: mint and freeze authority, holder concentration, LP burn.
 # Unset means they never run, the engine fires exactly as before, and every
 # call records chainChecks: null — published as "not checked", never as clean.

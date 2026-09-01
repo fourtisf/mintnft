@@ -73,7 +73,9 @@ export class Engine {
 
       this.seen.set(ev.key, Date.now());
       this.stats.fired++;
-      this.onSignal(toSignal(pair, ev, { ...this.attribution, chainChecks: report }));
+      // Awaited: the call has to be durably written before the next candidate
+      // is judged, and before anything publishes it.
+      await this.onSignal(toSignal(pair, ev, { ...this.attribution, chainChecks: report }));
     }
     return this.stats;
   }

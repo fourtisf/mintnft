@@ -67,7 +67,8 @@ These are not style preferences. Each one is a place where the product quietly
 becomes the thing it was built to replace.
 
 1. **Never update or delete a row in `calls`.** The schema enforces it with
-   `RULE ... DO INSTEAD NOTHING`. Revoke UPDATE/DELETE from the app role too.
+   `RULE ... DO INSTEAD NOTHING`, and `test-pg.js` proves it by asking the
+   database to break it. Revoke UPDATE/DELETE from the app role too.
    Corrections are new rows, never edits.
 2. **Never compute a stat that excludes misses.** If you find yourself writing
    `WHERE verdict != 'miss'`, stop. Hit rate is wins over *all* calls.
@@ -100,7 +101,8 @@ Deploy on a small VPS; Postgres and Redis in Docker.
 |---|---|
 | `signal-engine/` | Working JS. Screener, scorer, integrity chain, API, analytics, notifier. Tested against fixtures and a simulated market. **Never run against live data.** |
 | `contracts/` | Compile clean. 666/666 trait parity with the prototype, 1.61M gas worst case. |
-| `schema.sql` | Postgres DDL, runs as-is. Structurally verified. |
+| `schema.sql` | Postgres DDL. It now runs; it did not before — an index expression over a `timestamptz` is only STABLE and Postgres rejected the file outright, which is what "structurally verified" had been standing in for. |
+| `signal-engine/pgstore.js` | The Postgres driver, behind the same interface as `FileStore`. `migrate-pg.js` moves a file register across without recomputing a hash. |
 | `prototype/proof.html` | Design reference. Single file, mock data, seven pages. |
 
 ## How to verify your work
@@ -115,6 +117,8 @@ node test-og.js      # shared links preview the call, not the site
 node test-chain.js   # on-chain gates, and that an unread check never reads clean
 node test-hashversion.js  # rows written under an older hash scheme still verify
 node test-anchor.js  # what is built, published, refused, and provable to a third party
+node test-pg.js      # the Postgres driver, if TEST_DATABASE_URL is set; skips loudly otherwise
+node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgres
 
 cd ..
 node parity.js       # contracts vs prototype, must print 666 / 666
