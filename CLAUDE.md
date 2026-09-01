@@ -114,6 +114,7 @@ node test-marks.js   # marks come off the call's own pair
 node test-og.js      # shared links preview the call, not the site
 node test-chain.js   # on-chain gates, and that an unread check never reads clean
 node test-hashversion.js  # rows written under an older hash scheme still verify
+node test-anchor.js  # what is built, published, refused, and provable to a third party
 
 cd ..
 node parity.js       # contracts vs prototype, must print 666 / 666
@@ -167,10 +168,12 @@ continuing. Everything else is recoverable; that one is not.
    been published, so it is not independently verifiable — `/api/verify` says
    exactly that and the site now repeats it rather than printing an anchor date
    it invented. What is missing is a publisher with a funded key. `anchor.js`
-   is written and has no test of its own — this file used to claim a
-   `test-anchor.js` that has never existed in any commit, which is the exact
-   kind of quiet false claim the register is built to make impossible. Write
-   it before wiring a key to real funds.
+   now has `test-anchor.js`, which covers the window arithmetic, the merkle
+   proof a third party checks, the refusal to anchor a chain that no longer
+   verifies, and the one that loses calls silently — a publisher that throws
+   must leave its window pending. It runs against a publisher function, not a
+   chain: **nothing here has been run against a real EVM**, so wiring a funded
+   key is a first run to be watched, not a formality.
 7. ~~**Volume is recorded but not hashed.**~~ Done. `canonical()` now carries a
    field list per hash version, a row is re-hashed under the version it was
    written with, and `entryVolumeH1`/`entryVolumeM5` are frozen from v3.

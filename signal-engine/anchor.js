@@ -7,9 +7,13 @@
  *   merkleRoot  root over this window's record hashes — lets one call be
  *               proved without publishing the rest
  *
- * Publishing is injected rather than built in. The mechanism is proved against
- * a real EVM in test-anchor.js; on a box with a key and an RPC, pass a
- * publisher that sends the transaction and returns its hash.
+ * Publishing is injected rather than built in: on a box with a key and an RPC,
+ * pass a publisher that sends the transaction and returns its hash.
+ *
+ * test-anchor.js proves what is built, what is recorded, what is refused and
+ * what can be proved to a third party — against a publisher function, not a
+ * chain. Nothing here has yet been run against a real EVM, so wiring a funded
+ * key is a first run to be watched rather than a formality.
  *
  * Until a publisher returns a txHash the register is unanchored, and the API
  * says so. An anchor sitting in the same file as the register it vouches for
