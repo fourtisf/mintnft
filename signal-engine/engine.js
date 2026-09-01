@@ -37,8 +37,12 @@ export class Engine {
     // no RPC configured it returns null for every token and every chain gate
     // abstains, so the engine behaves exactly as it did before this existed.
     this.inspector = inspector ?? new ChainInspector({ log });
-    if (!this.inspector.configured)
-      log("[chain] no RPC configured — on-chain gates idle, calls will record chainChecks: null");
+    // Logged either way. A line only on failure means a working key produces
+    // no line at all, and nobody can read that out of a log — the four stale
+    // "idle" lines from an earlier boot are still sitting there above it.
+    log(this.inspector.summary
+      ? `[chain] ${this.inspector.summary()}` + (this.inspector.configured ? "" : ", calls will record chainChecks: null")
+      : "[chain] inspector supplied by the caller");
     this.seen = new Map();
     this.log = log;
     this.stats = { scanned: 0, vetoed: 0, scoredLow: 0, chainVetoed: 0, fired: 0 };

@@ -125,9 +125,38 @@ console.log("\nYANG TIDAK BISA DIPERIKSA");
 
   const noKey = new ChainInspector({ solanaRpc: null, rpcs: {}, log: () => {} });
   ok(noKey.configured === false, "with no RPC anywhere the inspector says so");
+  ok(/^idle — nothing set in HELIUS_KEY/.test(noKey.summary()),
+     `and names what it looked for: "${noKey.summary().slice(0, 44)}…"`);
   ok((await noKey.inspect(solPair)) === null, "and reads nothing");
   ok(chainVerdict(null, CONFIG).vetoes.length === 0, "a null reading is silence, not a pass and not a veto");
   ok(chainVerdict(null, CONFIG).checked.length === 0, "and claims no gate ran");
+}
+
+/* ── what the boot log says ────────────────────────────────────────────── */
+console.log("\nAPA YANG DIKATAKAN LOG");
+{
+  // A key pasted into a systemd drop-in arrives with whitespace often enough to
+  // matter, and one that keeps it builds a URL that 401s on every call — which
+  // then reads as "the chain established nothing", the one outcome reserved for
+  // not being able to look at all.
+  const padded = new ChainInspector({ heliusKey: "  abc123  ", rpcs: {}, log: () => {} });
+  ok(padded.configured, "a key with whitespace around it is still a key");
+  ok(padded.solana === "https://mainnet.helius-rpc.com/?api-key=abc123",
+     "and the whitespace does not reach the URL");
+  ok(!padded.summary().includes("abc123"),
+     `the boot line never carries the key itself — "${padded.summary()}"`);
+  ok(/^armed — solana via HELIUS_KEY/.test(padded.summary()),
+     "it says what is armed and which variable armed it");
+
+  const empty = new ChainInspector({ heliusKey: "   ", rpcs: {}, log: () => {} });
+  ok(!empty.configured, "a key that is only whitespace is not a key");
+
+  // The failure this line exists for: the engine used to log only when nothing
+  // was configured, so a working key produced no line, and no line cannot be
+  // read out of a log that still holds the idle lines from an earlier boot.
+  const both = new ChainInspector({ heliusKey: "k", rpcs: { base: "https://b.example" }, log: () => {} });
+  ok(/armed/.test(both.summary()) && /base via BASE_RPC/.test(both.summary()),
+     `every armed chain is named, not just the first — "${both.summary()}"`);
 }
 
 /* ── EVM: the pair address is the LP token ─────────────────────────────── */

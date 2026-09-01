@@ -56,16 +56,29 @@ class Report {
   }
 }
 
+/* A systemd drop-in written by hand ends up with a trailing space or a stray
+   newline often enough that it is worth handling, and a key with whitespace on
+   it builds a URL that 401s on every call — which then reads as "the chain
+   established nothing", the one outcome that is supposed to mean we could not
+   look. Absent and empty are the same thing here; neither is a key. */
+const env = name => {
+  const v = process.env[name];
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+};
+
 export class ChainInspector {
-  constructor({ heliusKey = process.env.HELIUS_KEY,
-                solanaRpc = process.env.SOLANA_RPC,
+  constructor({ heliusKey = env("HELIUS_KEY"),
+                solanaRpc = env("SOLANA_RPC"),
                 rpcs = null,
                 fetchImpl = globalThis.fetch,
                 timeoutMs = 6000,
                 log = console.log } = {}) {
-    this.solana = solanaRpc || (heliusKey ? `https://mainnet.helius-rpc.com/?api-key=${heliusKey}` : null);
+    const sol = (typeof solanaRpc === "string" && solanaRpc.trim()) ? solanaRpc.trim() : null;
+    const key = (typeof heliusKey === "string" && heliusKey.trim()) ? heliusKey.trim() : null;
+    this.solana = sol || (key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : null);
+    this.solanaFrom = sol ? "SOLANA_RPC" : key ? "HELIUS_KEY" : null;
     this.rpcs = rpcs ?? Object.fromEntries(
-      Object.entries(EVM_CHAINS).map(([c, env]) => [c, process.env[env] || null]));
+      Object.entries(EVM_CHAINS).map(([c, name]) => [c, env(name)]));
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.log = log;
@@ -74,6 +87,27 @@ export class ChainInspector {
   /** True when at least one chain can be inspected. Used only for logging —
    *  the engine must behave identically either way. */
   get configured() { return Boolean(this.solana || Object.values(this.rpcs).some(Boolean)); }
+
+  /**
+   * One line saying what is armed and what armed it, for the boot log.
+   *
+   * It exists because the engine used to log only when nothing was configured,
+   * which made a working key indistinguishable from a restart that never
+   * happened: you cannot read the absence of a line out of `journalctl | grep`,
+   * because the old lines are still there. Silence is not a success signal
+   * anywhere else in this codebase and it should not have been one here.
+   *
+   * Never the key itself — this goes to a log that gets pasted into chats.
+   */
+  summary() {
+    const on = [];
+    if (this.solana) on.push(`solana via ${this.solanaFrom} (${new URL(this.solana).host})`);
+    for (const [chain, url] of Object.entries(this.rpcs))
+      if (url) on.push(`${chain} via ${EVM_CHAINS[chain]}`);
+    return on.length
+      ? `armed — ${on.join(", ")}`
+      : `idle — nothing set in ${["HELIUS_KEY", "SOLANA_RPC", ...Object.values(EVM_CHAINS)].join(", ")}`;
+  }
 
   /**
    * Never throws and never rejects a call by failing. An RPC being down is a
