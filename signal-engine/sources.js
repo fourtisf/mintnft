@@ -12,18 +12,50 @@
  * the addresses over. Same rules, far better coverage.
  */
 
+/**
+ * A token trades in several pools; the deepest one is the market.
+ *
+ * Shared because every source needs it and each was doing it differently or,
+ * worse, asking the provider once per token to find out.
+ */
+export const deepestPerToken = pairs => {
+  const best = {};
+  for (const p of pairs ?? []) {
+    const a = p.baseToken?.address;
+    if (!a) continue;
+    if (!best[a] || (p.liquidity?.usd ?? 0) > (best[a].liquidity?.usd ?? 0)) best[a] = p;
+  }
+  return Object.values(best);
+};
+
+/**
+ * Price a list of tokens in as few requests as the provider allows.
+ *
+ * One request per token is what this used to do, and thirty profiles meant
+ * thirty requests fired back to back. Dexscreener answered them with 429s, so
+ * every candidate came back empty and the engine scanned nothing at all while
+ * looking, from the outside, like a market with nothing in it.
+ *
+ * /tokens/v1 takes thirty addresses at a time. Thirty requests become one.
+ */
+async function priceTokens(api, wanted) {
+  const byChain = {};
+  for (const w of wanted) {
+    if (!w?.chainId || !w?.tokenAddress) continue;
+    (byChain[w.chainId] ??= new Set()).add(w.tokenAddress);
+  }
+  const out = [];
+  for (const [chain, set] of Object.entries(byChain))
+    out.push(...deepestPerToken(await api.tokensBatch(chain, [...set])));
+  return out;
+}
+
 /** Default. Works with no keys, misses a lot. */
 export class ProfileSource {
   constructor(api) { this.api = api; this.name = "dexscreener-profiles"; }
   async candidates() {
     const list = await this.api.latestProfiles();
-    const out = [];
-    for (const p of Array.isArray(list) ? list : []) {
-      if (!p.chainId || !p.tokenAddress) continue;
-      const pairs = await this.api.pairsForToken(p.chainId, p.tokenAddress);
-      if (pairs.length) out.push(pairs[0]);
-    }
-    return out;
+    return priceTokens(this.api, Array.isArray(list) ? list : []);
   }
 }
 
@@ -73,14 +105,7 @@ export class HeliusSource {
   async candidates() {
     const mints = await this.newMints();
     if (!mints.length) return [];
-    const pairs = await this.api.tokensBatch("solana", mints);
-    const best = {};
-    for (const p of pairs) {
-      const a = p.baseToken?.address;
-      if (!a) continue;
-      if (!best[a] || (p.liquidity?.usd ?? 0) > (best[a].liquidity?.usd ?? 0)) best[a] = p;
-    }
-    return Object.values(best);
+    return deepestPerToken(await this.api.tokensBatch("solana", mints));
   }
 }
 
@@ -142,7 +167,7 @@ export class EvmFactorySource {
 export class BoostSource {
   constructor(api) { this.api = api; this.name = "dexscreener-boosts"; }
   async candidates() {
-    const seen = new Set(), out = [];
+    const seen = new Set(), wanted = [];
     for (const call of [() => this.api.latestBoosts(), () => this.api.topBoosts()]) {
       let list = [];
       try { list = await call(); } catch { continue; }
@@ -151,11 +176,11 @@ export class BoostSource {
         const key = `${b.chainId}:${b.tokenAddress}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        const pairs = await this.api.pairsForToken(b.chainId, b.tokenAddress);
-        if (pairs.length) out.push(pairs[0]);
+        wanted.push(b);
       }
     }
-    return out;
+    // Both feeds priced in one batch rather than one request per token.
+    return priceTokens(this.api, wanted);
   }
 }
 

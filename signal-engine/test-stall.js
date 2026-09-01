@@ -100,6 +100,46 @@ console.log("\nENGINE TETAP HIDUP SETELAH PENYEDIA MATI");
   ok(again !== undefined, "and the engine can still run a second pass — it is not wedged");
 }
 
+console.log("\nSATU PERMINTAAN UNTUK TIGA PULUH TOKEN");
+{
+  // The failure this replaces: one request per profile. Thirty profiles meant
+  // thirty requests back to back, Dexscreener answered them with 429s, and
+  // every candidate came back empty — an engine scanning nothing while looking
+  // like a market with nothing in it.
+  const { ProfileSource, BoostSource } = await import("./sources.js");
+  const profiles = Array.from({ length: 30 }, (_, i) => ({ chainId: "solana", tokenAddress: "T" + i }));
+  const pair = a => ({ chainId: "solana", pairAddress: "P" + a, baseToken: { address: a, symbol: a },
+                       liquidity: { usd: 50000 } });
+
+  const urls = [];
+  const api = new Dexscreener({ log: () => {}, fetchImpl: async url => {
+    urls.push(url);
+    const body = url.includes("token-profiles") ? profiles
+      : url.includes("token-boosts") ? profiles.slice(0, 10)
+      : url.includes("/tokens/v1/") ? url.split("/").pop().split(",").map(pair)
+      : [];
+    return { ok: true, status: 200, headers: { get: () => null }, json: async () => body };
+  } });
+
+  const got = await new ProfileSource(api).candidates();
+  ok(got.length === 30, `all thirty tokens are priced (${got.length})`);
+  ok(urls.length === 2, `in two requests, not thirty-one (${urls.length})`);
+  ok(urls.some(u => u.includes("/tokens/v1/")), "using the batch endpoint");
+
+  urls.length = 0;
+  const boosted = await new BoostSource(api).candidates();
+  ok(boosted.length === 10, `both boost feeds priced together (${boosted.length})`);
+  ok(urls.length === 3, `two feeds plus one batch, not twenty-one requests (${urls.length})`);
+
+  // The deepest pool is the market: a token quoted in two, the deeper one wins.
+  const two = { ...pair("X"), liquidity: { usd: 10 } };
+  const deep = { ...pair("X"), pairAddress: "DEEP", liquidity: { usd: 90000 } };
+  const { deepestPerToken } = await import("./sources.js");
+  const best = deepestPerToken([two, deep]);
+  ok(best.length === 1 && best[0].pairAddress === "DEEP",
+    "and one pair per token comes back — the deepest");
+}
+
 clearInterval(keepAlive);
 console.log(failures ? `\n${failures} GAGAL\n` : "\nsemua lolos\n");
 process.exit(failures ? 1 : 0);

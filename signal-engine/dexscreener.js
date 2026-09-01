@@ -18,20 +18,42 @@
 
 const BASE = "https://api.dexscreener.com";
 
+/**
+ * A per-minute budget, spent evenly rather than all at once.
+ *
+ * A token bucket that starts full lets the first 280 requests go out back to
+ * back. The published limit is per minute, and a burst that size inside two
+ * seconds is answered with 429s regardless — which is what happened: every
+ * candidate lookup was throttled, every one came back empty, and the engine
+ * scanned nothing while looking exactly like a quiet market.
+ *
+ * So the bucket also enforces a minimum gap between requests, at the rate the
+ * limit implies. Fewer requests is the real fix and batching did that; this is
+ * what stops the ones that remain arriving as a spike.
+ */
 class Bucket {
   constructor(perMinute, name) {
     this.cap = perMinute;
     this.tokens = perMinute;
+    this.gapMs = 60000 / perMinute;
     this.name = name;
     this.last = Date.now();
+    this.nextAt = 0;
   }
   async take() {
     for (;;) {
       const now = Date.now();
       this.tokens = Math.min(this.cap, this.tokens + ((now - this.last) / 60000) * this.cap);
       this.last = now;
-      if (this.tokens >= 1) { this.tokens -= 1; return; }
-      await new Promise(r => setTimeout(r, Math.ceil((60000 / this.cap) * (1 - this.tokens))));
+      if (this.tokens >= 1 && now >= this.nextAt) {
+        this.tokens -= 1;
+        this.nextAt = now + this.gapMs;
+        return;
+      }
+      const wait = Math.max(
+        this.nextAt - now,
+        this.tokens >= 1 ? 0 : Math.ceil(this.gapMs * (1 - this.tokens)));
+      await new Promise(r => setTimeout(r, Math.max(1, wait)));
     }
   }
 }
