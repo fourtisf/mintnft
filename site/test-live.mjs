@@ -282,7 +282,16 @@ pickSel("mcSel", 0);
 await waitFor("clearing the filter restores the list", () => cards().length === 5);
 ok(!/mc=/.test(win.location.search), "clearing it takes it back out of the URL");
 
-/* ── 8. and it survives the engine going away again ──────────────────────── */
+/* ── 8. the keys page may not sell what does not exist ──────────────────── */
+console.log("\nKEYS BELUM DIBUKA");
+doc.querySelector('#navLinks a[data-v="mint"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+ok(text("supTxt") === "0 / 666 minted", `supply reads "${text("supTxt")}" — nothing is deployed`);
+ok(text("ksMinted") === "0", "and the home tile agrees");
+ok(doc.getElementById("mintBtn").disabled === true, "the claim button cannot be pressed");
+ok(!/Claim key/.test(doc.getElementById("mintBtn").textContent), "and does not offer to sell one");
+doc.querySelector('#navLinks a[data-v="reg"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+
+/* ── 9. and it survives the engine going away again ──────────────────────── */
 console.log("\nENGINE MATI LAGI");
 feed.close(); srv.close();
 await waitFor("the page notices the engine went away", () => text("syncTxt").startsWith("engine offline"), 30000);

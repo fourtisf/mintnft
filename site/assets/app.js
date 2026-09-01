@@ -683,7 +683,13 @@ function tick(){
 if(DEMO)setInterval(tick,2600);
 
 /* ═══════ mint panel ═══════ */
-let qty=1,minted=412,preview=Math.floor(Math.random()*666)+1;
+/* Nothing has been minted, because nothing can be: no contract is deployed and
+   the header says the CA is coming. The page used to open on "Phase 2 · OPEN",
+   "412 / 666 minted, 62%", and a Claim button that waited a second and reported
+   success — a sale that never happened, for a thing that does not exist yet, on
+   the site whose entire argument is that it does not fake numbers. When minting
+   is real this reads the supply off the contract; until then it reads zero. */
+let qty=1,minted=0,preview=Math.floor(Math.random()*666)+1;
 const PRICE=.08;
 function syncMint(){
   document.getElementById("qVal").textContent=qty;
@@ -699,14 +705,8 @@ function syncMint(){
 document.getElementById("qMinus").addEventListener("click",()=>{if(qty>1){qty--;syncMint()}});
 document.getElementById("qPlus").addEventListener("click",()=>{if(qty<5){qty++;syncMint()}});
 document.getElementById("reroll").addEventListener("click",()=>{preview=Math.floor(Math.random()*666)+1;drawKey(preview)});
-document.getElementById("mintBtn").addEventListener("click",e=>{
-  const b=e.currentTarget;b.disabled=true;b.textContent="Claiming…";
-  setTimeout(()=>{
-    minted=Math.min(666,minted+qty);preview=minted;syncMint();drawKey(preview);renderColl(true);
-    b.textContent="Claimed — key revealed";
-    setTimeout(()=>{b.disabled=false;b.textContent="Claim key"},2200);
-  },1100);
-});
+// No handler: there is nothing to claim. The button stays disabled until a
+// deployed contract can answer for what a click would do.
 
 /* ═══════ collection grid — lazy, paged ═══════ */
 const COLL_PAGE=48;
@@ -720,9 +720,12 @@ const keyIO=new IntersectionObserver(es=>es.forEach(en=>{
 }),{rootMargin:"300px 0px"});
 
 function collIds(){
+  // Every key in the season, as a preview. It listed 1..minted and called them
+  // "minted so far", which on a mint that has not opened was 412 keys nobody
+  // owns. The art is real and drawn here; the ownership was not.
   const out=[];
-  for(let i=1;i<=minted;i++) if(!collFilter||(revealed&&keyTraits(i).tier===collFilter)) out.push(i);
-  return out.reverse();               // newest mints first
+  for(let i=1;i<=666;i++) if(!collFilter||(revealed&&keyTraits(i).tier===collFilter)) out.push(i);
+  return out;
 }
 function renderColl(reset){
   const ids=collIds(),host=document.getElementById("coll");
@@ -737,7 +740,8 @@ function renderColl(reset){
   collShown+=slice.length;
   document.getElementById("loadMore").classList.toggle("hide",collShown>=ids.length);
   document.getElementById("collCount").textContent=
-    ids.length?`showing ${collShown} of ${ids.length} keys`:"no keys in this tier yet";
+    ids.length?`showing ${collShown} of ${ids.length} keys · previews, none minted yet`
+              :"no keys in this tier";
   document.querySelectorAll("[data-lazy]").forEach(el=>keyIO.observe(el));
 }
 document.getElementById("loadMore").addEventListener("click",()=>renderColl(false));
