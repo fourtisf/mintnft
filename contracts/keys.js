@@ -40,7 +40,10 @@ const die = m => { console.error(m); process.exit(1); };
 /** Nothing here waits forever. An RPC that accepts a connection and never
  *  answers is the failure that looks most like work in progress, and every
  *  command below starts with one. */
-const TIMEOUT_MS = Number(env('RPC_TIMEOUT_MS') ?? 15000);
+// Measured against Robinhood Chain's public mainnet endpoint, which answered
+// roughly one call in three: 15s and three tries was not enough, and an
+// operator should not have to discover that by watching it fail.
+const TIMEOUT_MS = Number(env('RPC_TIMEOUT_MS') ?? 30000);
 const withTimeout = (promise, what, ms = TIMEOUT_MS) => Promise.race([
   promise,
   new Promise((_, reject) => setTimeout(
@@ -49,7 +52,7 @@ const withTimeout = (promise, what, ms = TIMEOUT_MS) => Promise.race([
 
 /** Public endpoints answer one call and drop the next. Reads are safe to
  *  repeat, so repeat them rather than turning a flaky node into a failure. */
-async function retry(fn, what, attempts = Number(env('RPC_ATTEMPTS') ?? 3)) {
+async function retry(fn, what, attempts = Number(env('RPC_ATTEMPTS') ?? 5)) {
   let last;
   for (let i = 1; i <= attempts; i++) {
     try { return await withTimeout(fn(), what); }

@@ -92,13 +92,16 @@ const ROOT = path.join(__dirname, '..');
       execFile('node', [path.join(__dirname, 'keys.js'), 'ping'], {
         cwd: ROOT,
         env: { ...process.env, DEPLOY_RPC: url, DEPLOY_PK: owner.privateKey,
-               ETH_RPC: '', RPC_TIMEOUT_MS: '2000', KEYS_OUT: OUT, KEYS_CONTRACT: '' },
+               // Both knobs pinned: this tests the mechanism, not whatever the
+               // defaults happen to be tuned to on the day.
+               ETH_RPC: '', RPC_TIMEOUT_MS: '2000', RPC_ATTEMPTS: '2',
+               KEYS_OUT: OUT, KEYS_CONTRACT: '' },
       }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
     });
     const took = Date.now() - t0;
 
     ok(r.code !== 0, 'perintahnya berhenti, tidak menggantung selamanya');
-    ok(took < 15000, `dan berhenti cepat (${(took / 1000).toFixed(1)} detik)`);
+    ok(took < 15000, `dan berhenti setelah dua percobaan (${(took / 1000).toFixed(1)} detik)`);
     ok(/tidak menjawab dalam/.test(r.out), 'mengatakan RPC-nya yang diam');
     ok(r.out.includes(url), 'dan menyebut endpoint mana');
     ok(/curl/.test(r.out), 'lalu memberi perintah untuk memeriksanya sendiri');
