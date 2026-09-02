@@ -6,10 +6,11 @@
  * This is the test behind the claim "nothing can be quietly deleted". Without
  * it the hash chain only says the register agrees with itself.
  */
-const solc = require('solc'), fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path');
 const { VM } = require('@ethereumjs/vm');
 const { Common, Chain, Hardfork } = require('@ethereumjs/common');
 const { Address, keccak256 } = require('ethereumjs-util');
+const { compile, artifact } = require('./contracts/build.js');
 
 const word = n => Buffer.from(BigInt(n).toString(16).padStart(64, '0'), 'hex');
 const hex = h => Buffer.from(h.replace(/^0x/, ''), 'hex');
@@ -21,16 +22,7 @@ const ok = (cond, msg) => {
 };
 
 (async () => {
-  const src = path.join(__dirname, 'contracts', 'ProofAnchor.sol');
-  const out = JSON.parse(solc.compile(JSON.stringify({
-    language: 'Solidity',
-    sources: { 'ProofAnchor.sol': { content: fs.readFileSync(src, 'utf8') } },
-    settings: { optimizer: { enabled: true, runs: 200 }, viaIR: true,
-                outputSelection: { '*': { '*': ['evm.bytecode.object'] } } },
-  })));
-  const errs = (out.errors || []).filter(e => e.severity === 'error');
-  if (errs.length) { errs.forEach(e => console.log(e.formattedMessage)); process.exit(1); }
-  const code = out.contracts['ProofAnchor.sol'].ProofAnchor.evm.bytecode.object;
+  const code = artifact(compile(['ProofAnchor.sol']), 'ProofAnchor.sol', 'ProofAnchor').bytecode;
 
   const vm = await VM.create({ common: new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Shanghai }) });
   const owner = Address.fromString('0x' + '11'.repeat(20));
@@ -91,7 +83,7 @@ const ok = (cond, msg) => {
 
   let allProved = true, worstGas = 0n;
   for (let seq = 1; seq <= N; seq++) {
-    const p = proofFor(store, seq);
+    const p = await proofFor(store, seq);
     if (!p || !p.verifiesLocally) { allProved = false; break; }
     const v = await verifyOnChain(p.recordHash, p.proof);
     if (!v.ok) { allProved = false; break; }
@@ -105,7 +97,7 @@ const ok = (cond, msg) => {
 
   // a record that was never in the register
   const fake = require('crypto').createHash('sha256').update('never happened').digest('hex');
-  const p1 = proofFor(store, 1);
+  const p1 = await proofFor(store, 1);
   ok(!(await verifyOnChain(fake, p1.proof)).ok, 'a fabricated record does not verify');
 
   // an edited record: same call, one field changed

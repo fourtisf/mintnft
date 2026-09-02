@@ -21,6 +21,8 @@ import { rmSync } from "node:fs";
 import { FileStore } from "./store.js";
 import { buildAnchor, publishAnchor, pendingWindow, proofFor } from "./anchor.js";
 import { verifyProof, merkleRoot } from "./merkle.js";
+import { toCsv } from "./og.js";
+import { verifyCsv } from "./verify.js";
 
 const DATA = "./data/anchor-test.json";
 let failures = 0;
@@ -110,6 +112,47 @@ let published2 = "no";
 try { await publishAnchor(store2, () => { published2 = "yes"; return "0xbad"; }, () => {}); }
 catch { /* the throw is the point */ }
 ok(published2 === "no", "and the publisher is never called — nothing reaches the chain");
+
+rmSync(DATA, { force: true });
+
+console.log("\nCSV PUBLIK BISA DIHITUNG ULANG");
+// The CSV is the only artefact an outsider actually holds. Nothing tested the
+// round trip until this block existed, and it did not survive it: a call whose
+// provider reported no volume hashed entryVolumeH1 as null and exported it as
+// an empty cell, which reads back as "" — so the register's own export failed
+// to recompute its own chain, and the standalone verifier said "edited".
+const csvStore = new FileStore(DATA);
+csvStore.insertCall({
+  callerId: 1, chain: "solana", tokenAddress: "TV", pairAddress: "PV", symbol: "VOL",
+  firedAt: new Date(Date.UTC(2026, 7, 10, 12)).toISOString(),
+  entryPriceUsd: 0.001, entrySupply: 1e9, entryMc: 1e6, entrySupplySource: "derived",
+  liquidityUsd: 40_000, score: 80, reasonIds: ["depth", "accel"],
+  sourceKind: "screener", sourceRef: "helius",
+  entryVolumeH1: 52_000, entryVolumeM5: 4_100,
+});
+// The case that broke it: a provider that answered without volume at all.
+csvStore.insertCall({
+  callerId: 2, chain: "base", tokenAddress: "TQ", pairAddress: "PQ", symbol: "QUIET",
+  firedAt: new Date(Date.UTC(2026, 7, 10, 13)).toISOString(),
+  entryPriceUsd: 0.002, entrySupply: 5e8, entryMc: 1e6, entrySupplySource: "provider",
+  liquidityUsd: 55_000, score: 82, reasonIds: [], sourceKind: "screener", sourceRef: null,
+});
+
+const csv = toCsv(csvStore.register());
+const cols = csv.split("\n")[0].split(",");
+const quiet = csv.split("\n")[2].split(",");
+const cell = name => quiet[cols.indexOf(name)];
+ok(cell("entryVolumeH1") === "\\N" && cell("entryVolumeM5") === "\\N",
+  "volume the provider never sent exports as absent, not as an empty cell");
+ok(cell("secondsTo2x") === "", "an unhashed field stays blank — the marker is only for what is hashed");
+const back = verifyCsv(csv);
+ok(back.ok, `the published CSV recomputes its own chain (${back.rows} calls)`
+  + (back.ok ? "" : ` — ${back.problems.map(p => p.seq + ": " + p.why).join("; ")}`));
+ok(back.head === await csvStore.head(), "and lands on the same head the register holds");
+
+ok(!verifyCsv(csv.replace("52000", "99000")).ok, "one edited number breaks the recomputation");
+const rows = csv.split("\n"); rows.splice(1, 1);
+ok(!verifyCsv(rows.join("\n")).ok, "one removed row breaks it too");
 
 rmSync(DATA, { force: true });
 console.log(failures ? `\n${failures} GAGAL\n` : "\nsemua lolos\n");

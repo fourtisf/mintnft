@@ -31,12 +31,24 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
 
     uint256 public totalMinted;
 
+    /// @notice The number every mint path is measured against — public,
+    ///         allowlist and treasury alike. It starts at the number the site
+    ///         advertises and can only be raised by openSeason(), which emits
+    ///         an event, so supply can never grow quietly.
+    uint256 public seasonCap = SEASON_1;
+
     /* ─────────── phases ─────────── */
 
     enum Phase { Closed, Allowlist, Public }
 
     Phase   public phase;
-    uint256 public price = 0.08 ether;
+
+    /// @dev Deliberately low. At ETH between $2,000 and $6,500 these sit
+    ///      inside the $1-$10 band the key is priced for; setPrices() moves
+    ///      them if the market leaves that band before the mint opens.
+    uint256 public allowlistPrice = 0.0005 ether;
+    uint256 public price          = 0.0015 ether;
+
     bytes32 public allowlistRoot;
 
     mapping(address => uint256) public mintedBy;
@@ -63,12 +75,17 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     IProofRenderer public renderer;
     bool public rendererLocked;
 
+    mapping(address => uint256[]) private _owned;
+    mapping(uint256 => uint256) private _ownedIndex;
+
     /* ─────────── events ─────────── */
 
     event Minted(address indexed to, uint256 indexed tokenId, uint256 quantity);
     event SeedCommitted(bytes32 commitment, uint256 revealBlock);
     event Revealed(bytes32 seed, uint256 revealBlock, bytes32 blockHash);
     event PhaseSet(Phase phase);
+    event SeasonOpened(uint256 seasonCap);
+    event PricesSet(uint256 allowlistPrice, uint256 publicPrice);
     event RendererLocked(address renderer);
 
     /* ─────────── errors ─────────── */
@@ -86,6 +103,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     error AlreadyRevealed();
     error BadSeed();
     error NotRevealed();
+    error BadCap();
     error Locked();
     error TransferFailed();
 
@@ -106,36 +124,48 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
         if (phase != Phase.Allowlist) revert WrongPhase();
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
         if (!MerkleProof.verifyCalldata(proof, allowlistRoot, leaf)) revert NotAllowlisted();
-        _mintMany(msg.sender, qty);
+        _mintMany(msg.sender, qty, allowlistPrice);
     }
 
     function mintPublic(uint256 qty) external payable nonReentrant {
         if (phase != Phase.Public) revert WrongPhase();
-        _mintMany(msg.sender, qty);
+        _mintMany(msg.sender, qty, price);
     }
 
-    function _mintMany(address to, uint256 qty) internal {
-        if (qty == 0 || totalMinted + qty > SEASON_1) revert SoldOut();
+    function _mintMany(address to, uint256 qty, uint256 unit) internal {
+        // Unreachable today — setPhase cannot leave Closed once revealed, so
+        // both paid paths already fail on phase. It stays because the rule is
+        // "no minting after the tiers are computable", and a rule that lives
+        // only in another function is one relaxation away from being gone.
+        if (revealed) revert AlreadyRevealed();
+        if (qty == 0 || totalMinted + qty > seasonCap) revert SoldOut();
         if (mintedBy[to] + qty > MAX_PER_WALLET) revert WalletLimit();
-        if (msg.value != price * qty) revert BadPayment();
+        if (msg.value != unit * qty) revert BadPayment();
 
         mintedBy[to] += qty;
         uint256 first = totalMinted + 1;
+        totalMinted += qty;
 
         for (uint256 i = 0; i < qty; i++) {
             _safeMint(to, first + i);
         }
-        totalMinted += qty;
 
         emit Minted(to, first, qty);
     }
 
-    /// @notice Season 2 allocation, held back and minted by the treasury only.
-    function mintReserved(address to, uint256 qty) external onlyOwner {
-        if (totalMinted + qty > MAX_SUPPLY) revert SoldOut();
+    /// @notice Treasury allocation. Bounded by seasonCap exactly like the paid
+    ///         paths, so the number on the site is the number that can exist;
+    ///         reaching the Season 2 tail means calling openSeason() first,
+    ///         and that is an event anyone can see.
+    function mintReserved(address to, uint256 qty) external onlyOwner nonReentrant {
+        if (revealed) revert AlreadyRevealed();
+        if (qty == 0 || totalMinted + qty > seasonCap) revert SoldOut();
+
         uint256 first = totalMinted + 1;
-        for (uint256 i = 0; i < qty; i++) _safeMint(to, first + i);
         totalMinted += qty;
+
+        for (uint256 i = 0; i < qty; i++) _safeMint(to, first + i);
+
         emit Minted(to, first, qty);
     }
 
@@ -167,8 +197,15 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     /// @notice Reveals the season seed. The secret is checked against the
     ///         commitment, then mixed with a blockhash nobody could predict
     ///         when that commitment was published.
+    ///         Minting must already be closed. Once the seed is public every
+    ///         token's tier is computable, so a mint left open after reveal
+    ///         would let anyone — the treasury included — time a transaction
+    ///         onto the id they want. That is the exact thing the commitment
+    ///         exists to prevent, so the contract refuses rather than relying
+    ///         on the operator remembering the order.
     function reveal(bytes32 secret) external onlyOwner {
         if (revealed) revert AlreadyRevealed();
+        if (phase != Phase.Closed) revert WrongPhase();
         if (block.number <= revealBlock) revert TooEarly();
         if (block.number > revealBlock + 256) revert WindowMissed();
         if (keccak256(abi.encodePacked(secret)) != seedCommit) revert BadSeed();
@@ -190,17 +227,55 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
         return renderer.traits(tokenId, seed).tier;
     }
 
+    /// @notice Every token a holder owns, in no particular order.
+    function tokensOfOwner(address holder) external view returns (uint256[] memory) {
+        return _owned[holder];
+    }
+
     /// @notice Best tier held by an address, or 0 if none. This is what the
-    ///         backend reads when it decides which latency queue a session joins.
+    ///         backend reads when it decides which latency queue a session joins,
+    ///         once per session every few minutes, so it walks the holder's own
+    ///         tokens rather than the whole season. Scanning all 666 cost about
+    ///         1.58M gas at a full mint; measured on a 661-token season a
+    ///         five-key holder now costs about 40K and a holder of none about
+    ///         2K, neither of which grows as the season fills.
     function bestTierOf(address holder) external view returns (uint8 best) {
         if (!revealed) return 0;
-        uint256 n = totalMinted;
-        for (uint256 id = 1; id <= n; id++) {
-            if (_ownerOf(id) == holder) {
-                uint8 t = renderer.traits(id, seed).tier;
-                if (t > best) best = t;
-                if (best == 3) return 3;
+        uint256[] storage ids = _owned[holder];
+        uint256 n = ids.length;
+        for (uint256 i = 0; i < n; i++) {
+            uint8 t = renderer.traits(ids[i], seed).tier;
+            if (t > best) best = t;
+            if (best == 3) return 3;
+        }
+    }
+
+    /// @dev The index behind tokensOfOwner and bestTierOf. ERC721 alone knows
+    ///      only balances and owners, so answering "which tokens" meant a scan.
+    ///      ERC721Enumerable would also index the whole collection, which nothing
+    ///      here reads; this keeps the per-owner half and skips the global one.
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override
+        returns (address from)
+    {
+        from = super._update(to, tokenId, auth);
+        if (from == to) return from;
+
+        if (from != address(0)) {
+            uint256 i = _ownedIndex[tokenId];
+            uint256 last = _owned[from].length - 1;
+            if (i != last) {
+                uint256 moved = _owned[from][last];
+                _owned[from][i] = moved;
+                _ownedIndex[moved] = i;
             }
+            _owned[from].pop();
+            delete _ownedIndex[tokenId];
+        }
+        if (to != address(0)) {
+            _ownedIndex[tokenId] = _owned[to].length;
+            _owned[to].push(tokenId);
         }
     }
 
@@ -224,9 +299,30 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
 
     /* ─────────── admin ─────────── */
 
-    function setPhase(Phase p) external onlyOwner { phase = p; emit PhaseSet(p); }
-    function setPrice(uint256 p) external onlyOwner { price = p; }
+    function setPhase(Phase p) external onlyOwner {
+        if (revealed && p != Phase.Closed) revert AlreadyRevealed();
+        phase = p;
+        emit PhaseSet(p);
+    }
+
+    /// @notice Both prices at once, so the allowlist can never be left at a
+    ///         stale figure while the public one moves.
+    function setPrices(uint256 allowPrice, uint256 publicPrice) external onlyOwner {
+        allowlistPrice = allowPrice;
+        price = publicPrice;
+        emit PricesSet(allowPrice, publicPrice);
+    }
+
     function setAllowlistRoot(bytes32 r) external onlyOwner { allowlistRoot = r; }
+
+    /// @notice Raises the supply ceiling toward MAX_SUPPLY. One direction only:
+    ///         a cap that could fall would let a sold-out season be reopened
+    ///         at a different number and read as if it had always been that.
+    function openSeason(uint256 newCap) external onlyOwner {
+        if (newCap <= seasonCap || newCap > MAX_SUPPLY) revert BadCap();
+        seasonCap = newCap;
+        emit SeasonOpened(newCap);
+    }
 
     function setRenderer(address r) external onlyOwner {
         if (rendererLocked) revert Locked();

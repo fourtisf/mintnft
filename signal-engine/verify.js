@@ -34,13 +34,12 @@ export function parseCsv(text) {
   return rows.filter(r => r.length > 1).map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
 }
 
-/** Undo the two lossy encodings in the export. */
+/** Undo the two lossy encodings in the export: the pipe-joined reason list,
+ *  and \\N for a hashed field that was absent rather than empty. */
 function rehydrate(r) {
-  return {
-    ...r,
-    reasonIds: r.reasonIds ? r.reasonIds.split("|") : [],
-    sourceRef: r.sourceRef === "\\N" ? null : r.sourceRef,
-  };
+  const out = { ...r, reasonIds: r.reasonIds ? r.reasonIds.split("|") : [] };
+  for (const k of Object.keys(out)) if (out[k] === "\\N") out[k] = null;
+  return out;
 }
 
 export function verifyCsv(text) {

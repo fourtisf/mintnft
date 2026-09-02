@@ -1,16 +1,14 @@
-const solc=require('solc'),fs=require('fs'),path=require('path');
+const fs=require('fs'),path=require('path');
 const {VM}=require('@ethereumjs/vm');const {Common,Chain,Hardfork}=require('@ethereumjs/common');
 const {Address,keccak256}=require('ethereumjs-util');
 const {JSDOM,VirtualConsole}=require('jsdom');
+// One compiler config, shared with contracts/test-keys.js. viaIR in particular
+// has to be identical in both harnesses or they are testing different bytecode.
+const {compile,artifact}=require('./contracts/build.js');
 const outDir=path.join(__dirname,'out');fs.mkdirSync(outDir,{recursive:true});
-function findImports(p){const t=path.join(__dirname,'node_modules',p);
-  return fs.existsSync(t)?{contents:fs.readFileSync(t,'utf8')}:{error:'nf '+p}}
-const sources={};
-for(const f of ['ProofParts.sol','ProofRenderer.sol']) sources['contracts/'+f]={content:fs.readFileSync(path.join(__dirname,'contracts',f),'utf8')};
-const out=JSON.parse(solc.compile(JSON.stringify({language:'Solidity',sources,
-  settings:{optimizer:{enabled:true,runs:200},viaIR:true,outputSelection:{'*':{'*':['evm.bytecode.object']}}}}),{import:findImports}));
-const P=out.contracts['contracts/ProofParts.sol'].ProofParts.evm.bytecode.object;
-const R=out.contracts['contracts/ProofRenderer.sol'].ProofRenderer.evm.bytecode.object;
+const out=compile(['ProofParts.sol','ProofRenderer.sol']);
+const P=artifact(out,'ProofParts.sol','ProofParts').bytecode;
+const R=artifact(out,'ProofRenderer.sol','ProofRenderer').bytecode;
 const seed=Buffer.from('7f'.repeat(32),'hex');
 
 (async()=>{

@@ -1,20 +1,27 @@
-const solc=require('solc'),fs=require('fs'),path=require('path');
-const sources={};
-for(const f of fs.readdirSync('contracts')) sources['contracts/'+f]={content:fs.readFileSync('contracts/'+f,'utf8')};
-function findImports(p){
-  const tries=[path.join('node_modules',p), p];
-  for(const t of tries) if(fs.existsSync(t)) return {contents:fs.readFileSync(t,'utf8')};
-  return {error:'not found: '+p};
-}
-const out=JSON.parse(solc.compile(JSON.stringify({
-  language:'Solidity', sources,
-  settings:{optimizer:{enabled:true,runs:200},viaIR:true,outputSelection:{'*':{'*':['evm.bytecode.object']}}}
-}),{import:findImports}));
-const errs=(out.errors||[]).filter(e=>e.severity==='error');
-(out.errors||[]).filter(e=>e.severity!=='error').slice(0,4).forEach(w=>console.log('warn:',w.message.split('\n')[0]));
-if(errs.length){errs.forEach(e=>console.log('\nERROR:',e.formattedMessage));process.exit(1);}
+// Every contract, with its deployed size against the 24KB limit.
+const fs = require('fs');
+const { compile, artifact } = require('./contracts/build.js');
+
+// .sol only: contracts/ also holds the build helper, the allowlist generator
+// and the test suite, and handing those to solc is a parser error, not a
+// compile failure — which reads like the contracts are broken when they are not.
+const files = fs.readdirSync('contracts').filter(f => f.endsWith('.sol'));
+
+let out;
+try { out = compile(files); }
+catch (e) { console.log(e.message); process.exit(1); }
+
+(out.errors || []).filter(e => e.severity !== 'error').slice(0, 4)
+  .forEach(w => console.log('warn:', w.message.split('\n')[0]));
+
 console.log('\n=== KOMPILASI BERHASIL ===');
-for(const f in out.contracts) for(const c in out.contracts[f]){
-  const sz=out.contracts[f][c].evm.bytecode.object.length/2;
-  if(sz>0) console.log(`${c.padEnd(16)} ${(sz/1024).toFixed(1)} KB  ${sz>24576?'!! LEWAT BATAS 24KB':'ok (batas 24KB)'}`);
+let over = 0;
+for (const f of files) {
+  for (const name of Object.keys(out.contracts['contracts/' + f] || {})) {
+    const sz = artifact(out, f, name).deployedSize;
+    if (!sz) continue;
+    if (sz > 24576) over++;
+    console.log(`${name.padEnd(16)} ${(sz / 1024).toFixed(1)} KB  ${sz > 24576 ? '!! LEWAT BATAS 24KB' : 'ok (batas 24KB)'}`);
+  }
 }
+process.exit(over ? 1 : 0);

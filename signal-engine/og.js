@@ -1,3 +1,5 @@
+import { HASH_VERSION, schemeFor } from "./integrity.js";
+
 /**
  * Social cards, 1200x630, drawn as SVG.
  *
@@ -587,8 +589,9 @@ const sparkPath = row => series(row, { x: 64, y: 250, w: 1072, h: 130 }).line;
  * reader can recompute the whole chain themselves rather than take our word
  * that the hash in the last column belongs to the row in front of it.
  *
- * reasonIds is pipe-joined and sourceRef distinguishes empty from absent,
- * because both have to survive the round trip for the recomputation to agree.
+ * reasonIds is pipe-joined, and every hashed field distinguishes empty from
+ * absent, because both have to survive the round trip for the recomputation
+ * to agree.
  */
 export const CSV_COLUMNS = [
   "seq", "hashVersion", "callerId", "chain", "tokenAddress", "pairAddress", "symbol",
@@ -602,12 +605,22 @@ export const CSV_COLUMNS = [
   "recordHash", "chainHash",
 ];
 
+/**
+ * Hashed fields write \\N when they are absent; everything else writes an empty
+ * cell. An empty cell reads back as "", and "" is not null: a call whose
+ * provider reported no volume hashed entryVolumeH1 as null, so exporting it
+ * blank produced a CSV that could not recompute its own chain — on the one
+ * artefact whose entire job is to let an outsider recompute it. The marker was
+ * already carrying sourceRef for exactly this reason; it now covers the whole
+ * hashed set, so adding a nullable field to a future scheme cannot reopen this.
+ */
+const HASHED = new Set(schemeFor(HASH_VERSION));
+
 export function toCsv(rows, cols = CSV_COLUMNS) {
   const cell = (r, c) => {
-    const v = c === "reasonIds" ? (r.reasonIds ?? []).join("|")
-            : c === "sourceRef" ? (r.sourceRef == null ? "\\N" : r.sourceRef)
-            : r[c];
-    return v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+    const v = c === "reasonIds" ? (r.reasonIds ?? []).join("|") : r[c];
+    if (v == null) return HASHED.has(c) ? "\\N" : "";
+    return /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
   };
   return [cols.join(","), ...rows.map(r => cols.map(c => cell(r, c)).join(","))].join("\n");
 }

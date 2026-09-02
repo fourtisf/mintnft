@@ -664,7 +664,7 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
       <div class="keystats rv">
         <div class="ks"><div class="v" id="ksMinted">412</div><div class="k">Minted</div></div>
         <div class="ks"><div class="v">666</div><div class="k">Season 1 supply</div></div>
-        <div class="ks"><div class="v">0.08<span style="font-size:.55em;color:var(--tx-3)"> ETH</span></div><div class="k">Phase 2 price</div></div>
+        <div class="ks"><div class="v">0.0015<span style="font-size:.55em;color:var(--tx-3)"> ETH</span></div><div class="k">Public mint price</div></div>
         <div class="ks"><div class="v">66</div><div class="k">Tier III keys</div></div>
       </div>
       <div style="text-align:center" class="rv">
@@ -951,10 +951,10 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 
     <div class="abord mintpanel"><div class="inner">
       <div class="top"><div class="phase">Phase 2 · Public</div><span class="live">OPEN</span></div>
-      <div class="prow" style="border-top:none"><span class="k">Price per key</span><span class="v big">0.08 <small style="font-size:13px;color:var(--tx-3)">ETH</small></span></div>
+      <div class="prow" style="border-top:none"><span class="k">Price per key</span><span class="v big">0.0015 <small style="font-size:13px;color:var(--tx-3)">ETH</small></span></div>
       <div class="prow"><span class="k">Quantity</span>
         <span class="qty"><button id="qMinus">−</button><span id="qVal">1</span><button id="qPlus">+</button></span></div>
-      <div class="prow"><span class="k">Total</span><span class="v" id="total">0.08 ETH</span></div>
+      <div class="prow"><span class="k">Total</span><span class="v" id="total">0.0015 ETH</span></div>
       <div class="prow"><span class="k">Max per wallet</span><span class="v">5</span></div>
       <button class="btn btn-p btn-lg btn-full" style="margin-top:18px" id="mintBtn">Claim key</button>
       <div class="supply">
@@ -1028,9 +1028,9 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
     <div class="sec-head rv"><div class="eyebrow">Schedule</div><h2>Mint phases</h2></div>
     <div class="phases rv">
       <div class="ph"><span>Phase</span><span>Supply</span><span>Price</span><span style="justify-self:end">Status</span></div>
-      <div class="ph"><span>Phase 1 · Allowlist</span><span class="mn">111</span><span class="mn">0.06 ETH</span><span class="st done">Closed</span></div>
-      <div class="ph"><span>Phase 2 · Public</span><span class="mn">222</span><span class="mn">0.08 ETH</span><span class="st now">Open</span></div>
-      <div class="ph"><span>Phase 3 · Final</span><span class="mn">333</span><span class="mn">0.08 ETH</span><span class="st next">Soon</span></div>
+      <div class="ph"><span>Phase 1 · Allowlist</span><span class="mn">111</span><span class="mn">0.0005 ETH</span><span class="st next">Not open</span></div>
+      <div class="ph"><span>Phase 2 · Public</span><span class="mn">222</span><span class="mn">0.0015 ETH</span><span class="st next">Not open</span></div>
+      <div class="ph"><span>Phase 3 · Final</span><span class="mn">333</span><span class="mn">0.0015 ETH</span><span class="st next">Not open</span></div>
       <div class="ph"><span>Season 2 · Reserved</span><span class="mn">445</span><span class="mn">—</span><span class="st done">Held back</span></div>
     </div>
   </section>
@@ -1629,10 +1629,13 @@ setInterval(()=>{document.getElementById("syncTxt").textContent="synced "+Math.r
 
 /* ═══════ mint panel ═══════ */
 let qty=1,minted=412,preview=Math.floor(Math.random()*666)+1;
-const PRICE=.08;
+// Public mint price. The contract carries the figure that binds — this one
+// only has to agree with it, so it is a literal in one place rather than
+// arithmetic in four.
+const PRICE=.0015;
 function syncMint(){
   document.getElementById("qVal").textContent=qty;
-  document.getElementById("total").textContent=(qty*PRICE).toFixed(2)+" ETH";
+  document.getElementById("total").textContent=(qty*PRICE).toFixed(4)+" ETH";
   document.getElementById("qMinus").disabled=qty<=1;
   document.getElementById("qPlus").disabled=qty>=5;
   const pct=Math.round(minted/666*100);

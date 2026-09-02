@@ -100,7 +100,7 @@ Deploy on a small VPS; Postgres and Redis in Docker.
 | Path | State |
 |---|---|
 | `signal-engine/` | Working JS. Screener, scorer, integrity chain, API, analytics, notifier. Tested against fixtures and a simulated market. **Never run against live data.** |
-| `contracts/` | Compile clean. 666/666 trait parity with the prototype, 1.61M gas worst case. |
+| `contracts/` | Compile clean. 666/666 trait parity with the prototype, 1.61M gas worst case. `ProofKeys` now has `test-keys.js` — 111 assertions on a real EVM, covering the mint paths, the merkle allowlist, the supply cap and the reveal window. **Nothing has been sent to a real network.** |
 | `schema.sql` | Postgres DDL. It now runs; it did not before — an index expression over a `timestamptz` is only STABLE and Postgres rejected the file outright, which is what "structurally verified" had been standing in for. |
 | `signal-engine/pgstore.js` | The Postgres driver, behind the same interface as `FileStore`. `migrate-pg.js` moves a file register across without recomputing a hash. |
 | `prototype/proof.html` | Design reference. Single file, mock data, seven pages. |
@@ -126,6 +126,12 @@ node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgr
 
 cd ..
 node parity.js       # contracts vs prototype, must print 666 / 666
+node compile.js      # every contract's deployed size against the 24KB limit
+node contracts/test-keys.js  # the mint, the allowlist, the cap, the reveal, the
+                             # money out — and that bestTierOf no longer costs
+                             # more because the season got bigger
+node test-tier.js    # the backend's tier read reaches the real function
+node test-anchor.js  # the anchor and one proof, inside a deployed ProofAnchor
 node site/test-live.mjs   # the site against a real engine: offline, connected,
                           # a signal arriving on the socket, its marks moving
 node site/test-hang.mjs   # a host that accepts and never answers still reads
@@ -175,17 +181,37 @@ continuing. Everything else is recoverable; that one is not.
    silently. The public leg is `PUBLIC_DELAY_S` (default 3600) and is the only
    one that is settable — with no keys minted it is an hour nobody has paid to
    skip. The paid ladder is the promise and does not move.
-6. **Nothing is anchored.** The chain is internally consistent and has never
+6. **The contracts have never touched a real chain.** Same shape of gap as #1
+   and just as load-bearing: `contracts/test-keys.js` runs against
+   `@ethereumjs/vm`, which is a real EVM but not a real network. Two things in
+   `contracts/DEPLOY.md` have deadlines, and the reveal window is about eight
+   and a half minutes wide on Base. Read that file before sending anything.
+   `recommitCount` — the counter that makes a missed window impossible to hide
+   — is public on-chain but is **not** shown on the Keys page yet, so today it
+   protects only a reader who goes looking.
+7. **Nothing is anchored.** The chain is internally consistent and has never
    been published, so it is not independently verifiable — `/api/verify` says
    exactly that and the site now repeats it rather than printing an anchor date
-   it invented. What is missing is a publisher with a funded key. `anchor.js`
-   now has `test-anchor.js`, which covers the window arithmetic, the merkle
+   it invented. What is missing is a publisher with a funded key.
+   `signal-engine/test-anchor.js` covers the window arithmetic, the merkle
    proof a third party checks, the refusal to anchor a chain that no longer
    verifies, and the one that loses calls silently — a publisher that throws
-   must leave its window pending. It runs against a publisher function, not a
-   chain: **nothing here has been run against a real EVM**, so wiring a funded
-   key is a first run to be watched, not a formality.
-7. ~~**Volume is recorded but not hashed.**~~ Done. `canonical()` now carries a
+   must leave its window pending; it runs against a publisher function, not a
+   chain. The root `test-anchor.js` is the one that deploys a real
+   `ProofAnchor` on a local EVM and has a non-owner verify every proof inside
+   it. **It had been broken since `proofFor` became async in the Postgres move
+   and nobody saw it**, which is how the CSV bug below survived: a test that
+   cannot run reads exactly like a test that passes.
+   Both now run. A real network still does not.
+
+   The public CSV could not recompute its own chain whenever a provider
+   reported no volume: v3 hashes `entryVolumeH1`/`entryVolumeM5`, an absent one
+   hashes as `null`, and the export wrote an empty cell that reads back as
+   `""`. `\N` now marks every hashed field that is absent, not just
+   `sourceRef`, and `signal-engine/test-anchor.js` runs `toCsv` → `verifyCsv`
+   for a call with volume and one without. Nothing had ever exercised that
+   round trip, on the one artefact an outsider actually holds.
+8. ~~**Volume is recorded but not hashed.**~~ Done. `canonical()` now carries a
    field list per hash version, a row is re-hashed under the version it was
    written with, and `entryVolumeH1`/`entryVolumeM5` are frozen from v3.
    `test-hashversion.js` pins the v2 canonical form and digest as literals, so
@@ -205,6 +231,17 @@ continuing. Everything else is recoverable; that one is not.
   shuffle and the two claims together are a contradiction.
 - The season seed mixes the committed secret with `blockhash(revealBlock)`.
   Commit-reveal alone lets a deployer grind outcomes offline before committing.
+- **One supply number, `seasonCap`, bounds every mint path** — public,
+  allowlist and treasury alike. It starts at 666 and only `openSeason()` raises
+  it, never past `MAX_SUPPLY`, always with an event. `mintReserved` used to
+  measure itself against `MAX_SUPPLY` while the paid paths measured themselves
+  against `SEASON_1`, which let the treasury add 445 keys past the number the
+  site advertises. Do not reintroduce a second cap.
+- **Minting closes before the seed is revealed, and the contract enforces it.**
+  Once the seed is public every token's tier is computable, so an open mint
+  would let anyone time a transaction onto a Tier III id. `reveal()` refuses
+  unless the phase is Closed and `setPhase` will not reopen afterwards. A
+  season 2 needs its own commitment, not a second bite at this one.
 - Head position is fixed at x=300 in the artwork. The old per-token nudge was
   invisible and forced every shape to be arithmetic instead of a constant
   string, which matters enormously inside a contract.

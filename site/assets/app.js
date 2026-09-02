@@ -740,10 +740,13 @@ if(DEMO)setInterval(tick,2600);
    the site whose entire argument is that it does not fake numbers. When minting
    is real this reads the supply off the contract; until then it reads zero. */
 let qty=1,minted=0,preview=Math.floor(Math.random()*666)+1;
-const PRICE=.08;
+// Public mint price. The contract carries the figure that binds — this one
+// only has to agree with it, so it is a literal in one place rather than
+// arithmetic in four.
+const PRICE=.0015;
 function syncMint(){
   document.getElementById("qVal").textContent=qty;
-  document.getElementById("total").textContent=(qty*PRICE).toFixed(2)+" ETH";
+  document.getElementById("total").textContent=(qty*PRICE).toFixed(4)+" ETH";
   document.getElementById("qMinus").disabled=qty<=1;
   document.getElementById("qPlus").disabled=qty>=5;
   const pct=Math.round(minted/666*100);

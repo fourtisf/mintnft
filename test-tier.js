@@ -7,34 +7,21 @@
  * deploy the real ProofKeys, call it through the real ChainTierSource, and
  * separately show that a deliberately wrong selector does revert.
  */
-const solc = require('solc'), fs = require('fs'), path = require('path');
 const { VM } = require('@ethereumjs/vm');
 const { Common, Chain, Hardfork } = require('@ethereumjs/common');
 const { Address, keccak256 } = require('ethereumjs-util');
+const { compile, artifact } = require('./contracts/build.js');
 
 const ok = (c, m) => { console.log(`  ${c ? 'ok   ' : 'GAGAL'}  ${m}`); if (!c) process.exitCode = 1; };
 
 (async () => {
-  const sources = {};
-  for (const f of fs.readdirSync(path.join(__dirname, 'contracts')))
-    sources['contracts/' + f] = { content: fs.readFileSync(path.join(__dirname, 'contracts', f), 'utf8') };
-  const findImports = p => {
-    const t = path.join(__dirname, 'node_modules', p);
-    return fs.existsSync(t) ? { contents: fs.readFileSync(t, 'utf8') } : { error: 'nf ' + p };
-  };
-  const out = JSON.parse(solc.compile(JSON.stringify({
-    language: 'Solidity', sources,
-    settings: { optimizer: { enabled: true, runs: 200 }, viaIR: true,
-                outputSelection: { '*': { '*': ['evm.bytecode.object'] } } },
-  }), { import: findImports }));
-  const errs = (out.errors || []).filter(e => e.severity === 'error');
-  if (errs.length) { errs.forEach(e => console.log(e.formattedMessage)); process.exit(1); }
+  const out = compile(['ProofKeys.sol', 'ProofParts.sol', 'ProofRenderer.sol']);
 
   const vm = await VM.create({ common: new Common({ chain: Chain.Mainnet, hardfork: Hardfork.Shanghai }) });
   const owner = Address.fromString('0x' + '11'.repeat(20));
   const dummyRenderer = '0x' + '22'.repeat(20);
 
-  const code = out.contracts['contracts/ProofKeys.sol'].ProofKeys.evm.bytecode.object;
+  const code = artifact(out, 'ProofKeys.sol', 'ProofKeys').bytecode;
   const ctor = Buffer.concat([Buffer.from(code, 'hex'),
     Buffer.from(dummyRenderer.slice(2).padStart(64, '0'), 'hex'),
     Buffer.from(owner.toString().slice(2).padStart(64, '0'), 'hex')]);
