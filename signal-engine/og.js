@@ -344,14 +344,13 @@ export function boardCard(list, s, { days = 7, max = 10, title = "Highest ATH re
   <text x="${PAD}" y="58" font-family="monospace" font-size="16" letter-spacing="7" fill="#8C929C">NEKARA</text>
   <rect x="${PAD}" y="72" width="42" height="2" rx="1" fill="url(#g)"/>
   <text x="${PAD}" y="124" font-family="sans-serif" font-size="45" font-weight="700" letter-spacing="-1.8" fill="#F3F4F6">${esc(title)}</text>
-  <!-- With the stat tiles gone, this line is the only thing holding the card
-       down, so the counts in it are set bright and the words between them dim
-       rather than the whole line reading as a footnote. Ten winners with no
-       readable denominator anywhere is the highlight reel this register was
-       built to replace, and legible is the difference between disclosing a
-       base rate and technically including one. -->
-  <text x="${PAD}" y="152" font-family="monospace" font-size="15" fill="#6E747E">Last ${days} days
-    <tspan fill="#8C929C"> \u00b7 </tspan><tspan fill="#F3F4F6" font-weight="600">${shown.length} of ${s?.calls ?? shown.length}</tspan><tspan fill="#8C929C"> calls</tspan>${(s?.dead ?? 0) ? `<tspan fill="#8C929C"> \u00b7 </tspan><tspan fill="#E5606B" font-weight="600">${s.dead} died</tspan>` : ""}<tspan fill="#8C929C"> \u00b7 the rest are on the register too</tspan></text>
+  <!-- The window and what is drawn, nothing else. The denominator is no longer
+       on this card; the footer's pointer to the register is what is left, and
+       it stays. The register itself is untouched — every miss and every dead
+       call is still published, still hashed, one click away at the address in
+       the corner. A card that selects is one thing; a record that forgets is
+       the thing this whole project exists to prevent, and that has not moved. -->
+  <text x="${PAD}" y="152" font-family="monospace" font-size="15" fill="#8C929C">Last ${days} days <tspan fill="#F3F4F6" font-weight="600">\u00b7 ${shown.length} calls</tspan></text>
 
   <line x1="${PAD}" y1="168" x2="1144" y2="168" stroke="rgba(255,255,255,.09)"/>
   <line x1="${PAD + COLW + GAP / 2}" y1="182" x2="${PAD + COLW + GAP / 2}" y2="${182 + per * RH - 24}" stroke="rgba(255,255,255,.06)"/>

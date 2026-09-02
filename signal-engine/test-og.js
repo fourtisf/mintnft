@@ -185,14 +185,17 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
      its title says ATH rather than profit. These three are what stand in for
      it, and a change that drops any of them has to bring the marker back. */
   ok(/Highest ATH reached/.test(board), "its title claims a high, not a return");
-  /* The stat tiles are gone, so this one line is all that holds the card down.
-     It has to be readable, not merely present — ten winners with the base rate
-     technically included in 10px grey is the highlight reel with a fig leaf. */
-  ok(/>3 died</.test(board), "the number that died is on the card, and in the dead colour");
-  ok(/#F3F4F6[^>]*>9 of 20</.test(board),
-    "the denominator is set bright rather than dimmed into the background");
-  ok(!/HIT \u2265/.test(board) && !/PER CALL/.test(board),
-    "the three stat tiles are gone, as asked");
+  /* The board is now a selection with no figures on it beyond the highs it
+     draws — which is exactly why the pointer back to the full record has to
+     survive. It is the last thing on this card standing between a ranked
+     selection and a highlight reel, and it is one click from every miss. */
+  ok(!/HIT \u2265/.test(board) && !/PER CALL/.test(board) && !/of 20/.test(board),
+    "the tiles and the denominator are gone, as asked");
+  ok(/Last 7 days[^<]*<tspan[^>]*>\u00b7 9 calls/.test(board),
+    "the header states the window and what is drawn, and claims nothing else");
+  ok(/nothing is removed from the register/.test(board),
+    "the footer still points at the record the selection came out of");
+  ok(/nekara\.xyz/.test(board), "with the address that reaches it");
   ok(/an ATH is not a realised return/.test(board), "and the footer says what an ATH is not");
 
   /* The span has to match the figure too. "2× in 18m" on a card that ranks on
