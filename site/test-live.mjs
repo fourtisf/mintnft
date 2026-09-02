@@ -264,7 +264,7 @@ ok(text("vHead") === store.head(), "Custody shows the head the engine reports, n
 ok(/unanchored/.test(doc.getElementById("vAnchors").textContent),
   "and the anchor table says nothing has been published");
 doc.querySelector('#navLinks a[data-v="reg"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
-ok(win.location.pathname === "/", "and leaving it puts the list's own address back");
+ok(win.location.pathname === "/signals", "and leaving it puts the list's own address back");
 
 const seg = doc.getElementById("seg");
 const pick = f => seg.querySelector(`[data-f="${f}"]`)
@@ -349,6 +349,56 @@ btn.dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
 await waitFor("signing out drops back to public", () => feed.rooms[0].size >= 1);
 ok(feed.rooms[3].size === 0, "signing out gives the latency back");
 ok(btn.textContent === "Connect", "and offers the way in again");
+
+/* ── every view has an address ────────────────────────────────────────────── */
+console.log("\nSETIAP HALAMAN PUNYA ALAMAT");
+{
+  const nav = v => doc.querySelector(`#navLinks a[data-v="${v}"]`)
+    .dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+  const path = () => win.location.pathname;
+
+  nav("quant");
+  ok(path() === "/hindsight", `Hindsight has its own address (${path()})`);
+  nav("vault");
+  ok(path() === "/custody", `and Custody (${path()})`);
+  nav("reg");
+  ok(path() === "/signals", `and the list itself (${path()})`);
+  nav("home");
+  ok(path() === "/", "while Home stays at the root");
+
+  /* jsdom does not implement history.back() — it logs "navigation to another
+     Document" and does nothing — so the browser's own stack cannot be driven
+     here. What can be, and what was actually written, is the handler: put an
+     address in the bar and deliver the event, and the view has to follow.
+     A real back press in a real browser does exactly those two things. */
+  win.history.replaceState(null, "", "/custody");
+  win.dispatchEvent(new win.PopStateEvent("popstate"));
+  ok(!doc.getElementById("v-vault").classList.contains("hide"),
+    "a popped address restores the view it names, so Back moves between pages");
+  win.history.replaceState(null, "", "/signals");
+  win.dispatchEvent(new win.PopStateEvent("popstate"));
+  ok(!doc.getElementById("v-reg").classList.contains("hide") &&
+     doc.getElementById("v-vault").classList.contains("hide"),
+    "and popping again moves on rather than stacking views on top of each other");
+
+  // Filters belong to the list, and only to the list.
+  nav("reg");
+  doc.getElementById("mcSel").value = "100000";
+  doc.getElementById("mcSel").dispatchEvent(new win.Event("change", { bubbles: true }));
+  await waitFor("the filter reaches the url", () => win.location.search.includes("mc=100000"), 3000);
+  ok(win.location.pathname === "/signals" && win.location.search.includes("mc=100000"),
+    `a filtered list is /signals?mc=… (${path()}${win.location.search})`);
+  nav("vault");
+  ok(win.location.search === "",
+    "and leaving the list drops the filter rather than carrying it onto Custody");
+
+  // Put it back: a filter left on here would quietly hide rows from every
+  // assertion after this block.
+  nav("reg");
+  doc.getElementById("mcSel").value = "0";
+  doc.getElementById("mcSel").dispatchEvent(new win.Event("change", { bubbles: true }));
+  await waitFor("the filter is cleared", () => win.location.search === "", 3000);
+}
 
 /* ── the brand links, which pointed at "#" on a live site ─────────────────── */
 console.log("\nTAUTAN MEREK");

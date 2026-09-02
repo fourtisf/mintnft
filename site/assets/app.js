@@ -809,8 +809,21 @@ document.getElementById("collSeg").addEventListener("click",e=>{
 });
 
 /* ═══════ nav + interactions ═══════ */
-function go(v,hash){
-  if(v!=="call")pushUrl();
+/* One path per view.
+   The whole site lived at "/". Clicking Signals changed what was on screen and
+   nothing else: the page could not be linked to, a reload dropped the reader
+   back on Home, and the browser's back button did nothing at all — on a site
+   whose entire pitch is "go and check for yourself". Only /call/:seq had an
+   address, because a share post needed one.
+   Method is an overlay rather than a view, so it rides on whatever is beneath
+   it and takes its own path only while it is open. */
+const VIEW_PATH={home:"/",reg:"/signals",quant:"/hindsight",ops:"/triage",vault:"/custody",mint:"/keys"};
+const PATH_VIEW=Object.fromEntries(Object.entries(VIEW_PATH).map(([v,p])=>[p,v]));
+let VIEW="home";
+
+function go(v,hash,push=true){
+  VIEW=v;
+  if(v!=="call")pushUrl(push);
   ["home","reg","quant","ops","vault","mint","call"].forEach(k=>document.getElementById("v-"+k).classList.toggle("hide",k!==v));
   document.getElementById("tkr").classList.toggle("hide",v!=="reg");
   document.body.style.paddingBottom=v==="reg"?"36px":"0";
@@ -1809,7 +1822,7 @@ async function loadRegister(append){
 
 /* Filters live in the URL, so a view can be sent to someone and survives a
    reload. Nothing else on the page reads the query string. */
-function pushUrl(){
+function pushUrl(push=false){
   if(DEMO||!history.replaceState)return;
   const p=new URLSearchParams();
   if(S.f!=="all")p.set("f",S.f);
@@ -1820,9 +1833,16 @@ function pushUrl(){
   if(S.minVol)p.set("vol",S.minVol);
   if(S.hours)p.set("h",S.hours);
   const qs=p.toString();
-  // The list lives at the root. Writing location.pathname here kept /call/9
-  // in the address after leaving the call it belonged to.
-  history.replaceState(null,"",qs?"/?"+qs:"/");
+  /* The filters belong to the Signals list and to nothing else, so they are
+     only written while that is the view — otherwise leaving a filtered list
+     carried "?f=win" onto Custody. Reading location.pathname here is what kept
+     /call/9 in the address after leaving the call it belonged to. */
+  const base=VIEW_PATH[VIEW]??"/";
+  const url=VIEW==="reg"&&qs?base+"?"+qs:base;
+  // A view change is a place the reader can go back from; a filter change is
+  // not — otherwise four taps on the segmented control cost four taps of Back.
+  if(push&&location.pathname+location.search!==url)history.pushState(null,"",url);
+  else history.replaceState(null,"",url);
 }
 function syncControls(){
   [...document.getElementById("seg").children].forEach(b=>b.classList.toggle("on",b.dataset.f===S.f));
@@ -1887,9 +1907,21 @@ async function pullLive(){
   }
 }
 
-// A link carrying filters, or a call, opens where it belongs.
+// A link carrying filters, a call, or a view opens where it belongs.
 const deepCall=callFromUrl();
-if(readUrl()||deepCall)go("reg");
+const bootView=PATH_VIEW[location.pathname.replace(/\/+$/,"")||"/"];
+if(readUrl()||deepCall)go("reg",null,false);
+else if(bootView&&bootView!=="home")go(bootView,null,false);
+
+/* Back and forward move between views rather than leaving the site. Without
+   this the first Back press on /signals left nekara.xyz entirely, which reads
+   as the site having no history at all. */
+addEventListener("popstate",()=>{
+  const seq=callFromUrl();
+  if(seq!=null){openCallBySeq(seq);return}
+  readUrl();
+  go(PATH_VIEW[location.pathname.replace(/\/+$/,"")||"/"]??"home",null,false);
+});
 /* The brand links, in one place. They pointed at "#" on a live site, which is
    worse than no icon: a reader who clicks one learns the page is unfinished.
    Fill these in and they work; leave one empty and it does not appear. */
