@@ -187,6 +187,21 @@ const ROOT = path.join(__dirname, '..');
     const r = await keys('deploy', '--owner', owner.address, '--confirm');
     ok(r.code !== 0 && /sudah ada/.test(r.out),
       'deploy kedua ditolak — itu koleksi kedua, bukan pembaruan');
+
+    // The case a flaky RPC produces: the deploy landed, the reply did not, so
+    // nothing was recorded and a re-run looks like a first run.
+    const OUT3 = fs.mkdtempSync(path.join(os.tmpdir(), 'nekara-lost-'));
+    const lost = await new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), 'deploy', '--owner', owner.address, '--confirm'], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
+               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT3, KEYS_CONTRACT: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+    ok(lost.code !== 0 && /sudah mengirim \d+ transaksi/.test(lost.out),
+      'catatan hilang tetapi chain ingat: nonce bukan nol menghentikan deploy kedua');
+    ok(/explorer|address\//.test(lost.out), 'dan menunjuk ke explorer untuk memeriksanya sendiri');
+    fs.rmSync(OUT3, { recursive: true, force: true });
   }
 
   /* ═══════ state ═══════ */
@@ -348,7 +363,9 @@ const ROOT = path.join(__dirname, '..');
                ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT2, KEYS_CONTRACT: '' },
       }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
     });
-    await keys2('deploy', '--owner', owner.address, '--confirm');
+    // --again on purpose: this account has been deploying all file long, and
+    // the nonce guard is right to stop a re-run that has not been thought about.
+    await keys2('deploy', '--owner', owner.address, '--again', '--confirm');
     await keys2('commit', 'rahasia-kedua', '--ahead', '600', '--confirm');
     l1.mine(100000);                              // ~two weeks of Ethereum
     rpc.mine(100000);

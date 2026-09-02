@@ -47,6 +47,23 @@ const withTimeout = (promise, what, ms = TIMEOUT_MS) => Promise.race([
     () => reject(new Error(`${what} tidak menjawab dalam ${(ms / 1000).toFixed(0)} detik`)), ms).unref?.()),
 ]);
 
+/** Public endpoints answer one call and drop the next. Reads are safe to
+ *  repeat, so repeat them rather than turning a flaky node into a failure. */
+async function retry(fn, what, attempts = Number(env('RPC_ATTEMPTS') ?? 3)) {
+  let last;
+  for (let i = 1; i <= attempts; i++) {
+    try { return await withTimeout(fn(), what); }
+    catch (e) {
+      last = e;
+      if (i < attempts) {
+        console.error(`  ${e.message} — coba lagi (${i + 1}/${attempts})`);
+        await new Promise(r => setTimeout(r, 1500 * i));
+      }
+    }
+  }
+  throw last;
+}
+
 function wallet() {
   const rpc = env('DEPLOY_RPC');
   const pk = env('DEPLOY_PK');
@@ -196,6 +213,19 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
     die(`out/keys.${chainId}.json sudah ada (ProofKeys ${existing.keys}).\n`
       + 'Deploy kedua membuat koleksi kedua, bukan memperbarui yang pertama.\n'
       + 'Tambahkan --again kalau itu memang yang Anda mau.');
+  }
+
+  // The dangerous case on a public RPC that drops calls: the deploy lands but
+  // the reply is lost, so no file is written and a re-run looks like a first
+  // run. The chain remembers even when the connection does not — a nonce above
+  // zero on an account with no recorded deployment means something was sent.
+  const nonce = await retry(() => signer.getTransactionCount(), 'nonce deployer');
+  if (nonce > 0 && !existing && !argv.again) {
+    die(`akun ini sudah mengirim ${nonce} transaksi, tetapi out/keys.${chainId}.json tidak ada.\n\n`
+      + 'Kalau deploy sebelumnya terputus di tengah, kontraknya mungkin sudah berdiri dan\n'
+      + 'deploy kedua akan membuat koleksi kedua di alamat lain. Periksa dulu di explorer:\n'
+      + `  ${env('KEYS_EXPLORER') ?? 'https://robinhoodchain.blockscout.com'}/address/${await signer.getAddress()}\n\n`
+      + 'Kalau memang belum ada kontrak di sana, ulangi dengan --again.');
   }
 
   const plan = [
@@ -367,7 +397,7 @@ const USAGE = `
   const ctx = wallet();
   let chainId;
   try {
-    chainId = (await withTimeout(ctx.provider.getNetwork(), `DEPLOY_RPC (${env('DEPLOY_RPC')})`)).chainId;
+    chainId = (await retry(() => ctx.provider.getNetwork(), `DEPLOY_RPC (${env('DEPLOY_RPC')})`)).chainId;
   } catch (e) {
     die(`${e.message}\n\n`
       + 'Periksa endpoint-nya langsung:\n'
@@ -381,10 +411,14 @@ const USAGE = `
 
   if (cmd === 'ping') {
     console.log(`DEPLOY_RPC  ${env('DEPLOY_RPC')}\n  chain ${chainId}, blok `
-      + `${await withTimeout(ctx.provider.getBlockNumber(), 'DEPLOY_RPC')}`);
+      + `${await retry(() => ctx.provider.getBlockNumber(), 'DEPLOY_RPC')}`);
     if (ctx.signer) {
       const a = await ctx.signer.getAddress();
-      console.log(`  deployer ${a}  saldo ${eth(await ctx.provider.getBalance(a))} ETH`);
+      const [bal, nonce] = await Promise.all([
+        retry(() => ctx.provider.getBalance(a), 'saldo'),
+        retry(() => ctx.provider.getTransactionCount(a), 'nonce'),
+      ]);
+      console.log(`  deployer ${a}  saldo ${eth(bal)} ETH  transaksi terkirim ${nonce}`);
     }
     if (!env('ETH_RPC')) return void console.log('\nETH_RPC belum diisi — commit dan reveal butuh itu');
     const l1 = await ethMainnet();
