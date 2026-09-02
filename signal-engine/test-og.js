@@ -12,7 +12,7 @@
  * no card — the preview is a leak of the same kind as an early feed row.
  */
 import { rmSync } from "node:fs";
-import { podiumCard } from "./og.js";
+import { podiumCard, boardCard } from "./og.js";
 import { FileStore } from "./store.js";
 import { start } from "./index.js";
 
@@ -188,6 +188,25 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
   ok(/>3</.test(board) && /DEAD/.test(board), "the dead count is on the card");
   ok(/an ATH is not a realised return/.test(board), "and the footer says what an ATH is not");
   ok(/9 of 20 calls/.test(board), "with the denominator, as everywhere else");
+
+  /* The span has to match the figure too. "2× in 18m" on a card that ranks on
+     the all-time high answers a question the card is not asking. */
+  const T0 = Date.parse("2026-09-01T00:00:00Z");
+  const timed = (athMin, extra = {}) => ({
+    symbol: "T", chain: "solana", entryMc: 1e5, peakMc: 9e5, peakAllMc: 9e5,
+    peakX: 9, peakAllX: 9, nowX: 2, verdict: "win", isDead: false, state: "settled",
+    firedAt: new Date(T0).toISOString(),
+    peakAllAt: new Date(T0 + athMin * 60e3).toISOString(),
+    secondsTo2x: 300, spark: [1e5, 9e5, 2e5], ...extra,
+  });
+  const at = mins => boardCard([timed(mins)], { calls: 1, hitRate: 1, dead: 0 }, { days: 7 })
+    .match(/ATH in ([0-9.]+[mhd])/)?.[1] ?? null;
+  ok(at(42) === "42m" && at(144) === "2.4h" && at(4440) === "3.1d",
+    `measured from the call, at a readable resolution (${at(42)}, ${at(144)}, ${at(4440)})`);
+  ok(!boardCard([timed(42)], { calls: 1, hitRate: 1, dead: 0 }, { days: 7 }).includes("2\u00d7 in"),
+    "and it is the time to the high, not the time to 2× — the card does not rank on 2×");
+  // A call whose high is still its entry has not reached one.
+  ok(at(0) === null, "a call that has not moved off entry prints no span rather than \"ATH in 0m\"");
 
   // The hero layout does say "the ones that paid", so there the marker stays.
   const heroCard = podiumCard(many.slice(0, 5), { calls: 20, hitRate: 0.45, dead: 3 }, { days: 7, max: 5 });

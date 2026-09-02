@@ -17,6 +17,32 @@ export const ticker = s => "$" + (String(s ?? "").replace(/^\$+/, "") || "?");
 
 const usd = n => n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n ?? 0)}`;
 
+/** A span, at the resolution a reader cares about. */
+const span = ms => !Number.isFinite(ms) || ms < 0 ? null
+  : ms < 3600e3 ? Math.max(1, Math.round(ms / 60e3)) + "m"
+  : ms < 864e5 ? (ms / 3600e3).toFixed(1) + "h"
+  : (ms / 864e5).toFixed(1) + "d";
+
+/**
+ * How long the call took to reach its high, from the moment it fired.
+ *
+ * peakAllAt is the timestamp of the highest value ever observed; peakAt stops
+ * at settle alongside peakX. On a card that ranks on the all-time high, "2× in
+ * 18m" answers a question the card is not asking — the high is the subject, so
+ * the time to it is the span worth printing.
+ *
+ * Null when the two timestamps are the same: a call whose high is its entry
+ * has not reached one, and "ATH in 0m" would be a figure dressed up as a fact.
+ */
+const secs = sec => (sec ? span(sec * 1000) : null);
+
+function athAge(row) {
+  const at = row.peakAllAt ?? row.peakAt;
+  if (!at || !row.firedAt) return null;
+  const ms = Date.parse(at) - Date.parse(row.firedAt);
+  return ms > 30e3 ? span(ms) : null;
+}
+
 const THEME = {
   win:  { a: "#5B7CFA", b: "#9B6DFF", label: "WIN" },
   miss: { a: "#6E757E", b: "#8C929C", label: "MISS" },
@@ -86,9 +112,10 @@ export function bannerCard(row) {
   const under = (live || row.isDead)
     ? `NOW \u00b7 PEAK ${(row.peakX ?? 1).toFixed(2)}\u00d7`
     : `PEAK \u00b7 NOW ${(row.nowX ?? 1).toFixed(2)}\u00d7`;
-  const dur = sec => !sec ? null
-    : sec < 3600 ? Math.round(sec / 60) + "m" : (sec / 3600).toFixed(1) + "h";
-  const took = dur(row.secondsTo2x);
+  // Matched to the figure across the top: a card headlining the high says how
+  // long the high took, one headlining where it is now says when it doubled.
+  const took = (live || row.isDead) ? secs(row.secondsTo2x) : athAge(row);
+  const tookLabel = (live || row.isDead) ? "2\u00d7 in " : "ATH in ";
   const reasons = (row.reasons ?? []).slice(0, 2);
   // Sized to the number: 97.31× is five glyphs where 3.90× is four, and a
   // single size makes one of them either cramped or timid.
@@ -130,7 +157,7 @@ export function bannerCard(row) {
 
   <text x="1144" y="428" text-anchor="end" font-family="sans-serif" font-size="62" font-weight="700" letter-spacing="-2.4" fill="#F3F4F6">${esc(ticker(row.symbol))}</text>
   <text x="1144" y="462" text-anchor="end" font-family="monospace" font-size="16" fill="#8C929C">${esc(row.name ?? "")}${row.name ? " \u00b7 " : ""}${esc(row.chain)} \u00b7 ${esc(row.dex ?? "")}</text>
-  ${took ? `<text x="1144" y="492" text-anchor="end" font-family="monospace" font-size="16" fill="${t.a}">2\u00d7 in ${took}</text>` : ""}
+  ${took ? `<text x="1144" y="492" text-anchor="end" font-family="monospace" font-size="16" fill="${t.a}">${tookLabel}${took}</text>` : ""}
 
   <line x1="56" y1="524" x2="1144" y2="524" stroke="rgba(255,255,255,.10)"/>
   ${[["ENTRY MC", usd(row.entryMc)], ["PEAK MC", usd(row.peakMc)], ["NOW MC", usd(row.nowMc)],
@@ -266,8 +293,6 @@ export function boardCard(list, s, { days = 7, max = 10, title = "Highest ATH re
   const PAD = 56, COLW = 520, GAP = 48;
   const per = Math.ceil(shown.length / 2) || 1;
   const RH = Math.min(80, 400 / Math.max(1, per));
-  const dur = sec => !sec ? null
-    : sec < 3600 ? Math.round(sec / 60) + "m" : (sec / 3600).toFixed(1) + "h";
 
   const line = (r, i) => {
     const col = i < per ? 0 : 1;
@@ -287,12 +312,12 @@ export function boardCard(list, s, { days = 7, max = 10, title = "Highest ATH re
     const mult = r.peakAllX ?? r.peakX ?? 1;
     const c = mult >= 1.02 ? "url(#g)" : mult <= 0.98 ? "#E5606B" : "#8C929C";
     const sp = series(r, { x: x + COLW - 246, y: y + 10, w: 116, h: 32 });
-    const took = dur(r.secondsTo2x);
+    const took = athAge(r);
     return `
   <g>
     <text x="${x}" y="${y + 30}" font-family="monospace" font-size="13" fill="#3E444C">${String(i + 1).padStart(2, "0")}</text>
     <text x="${x + 34}" y="${y + 26}" font-family="sans-serif" font-size="22" font-weight="700" letter-spacing="-.5" fill="#F3F4F6">${esc(ticker(r.symbol))}</text>
-    <text x="${x + 34}" y="${y + 46}" font-family="monospace" font-size="11.5" fill="#6E747E">${usd(r.entryMc)} \u2192 ${usd(r.peakMc)}${took ? "  \u00b7  2\u00d7 in " + took : ""}</text>
+    <text x="${x + 34}" y="${y + 46}" font-family="monospace" font-size="11.5" fill="#6E747E">${usd(r.entryMc)} \u2192 ${usd(r.peakAllMc ?? r.peakMc)}${took ? "  \u00b7  ATH in " + took : ""}</text>
     <path d="${sp.line}" fill="none" stroke="${c}" stroke-width="3.4" filter="url(#glow)" opacity=".7"/>
     <path d="${sp.line}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
     <text x="${x + COLW}" y="${y + 34}" text-anchor="end" font-family="sans-serif" font-size="27" font-weight="700" letter-spacing="-.8" fill="${c}">${mult.toFixed(2)}\u00d7</text>
@@ -345,8 +370,6 @@ export function podiumCard(wins, s, { days = 7, max = 5 } = {}) {
   const hero = shown[0];
   const rest = shown.slice(1, 5);
   const pct = n => (n == null ? "\u2014" : (n >= 0 ? "+" : "\u2212") + Math.abs(n * 100).toFixed(0) + "%");
-  const dur = sec => !sec ? null
-    : sec < 3600 ? Math.round(sec / 60) + "m" : (sec / 3600).toFixed(1) + "h";
   const PAD = 56;
 
   if (!hero) return digestCard([], s, { days });
@@ -368,7 +391,7 @@ export function podiumCard(wins, s, { days = 7, max = 5 } = {}) {
   const row = (r, i) => {
     const y = HY + i * (RH + RG);
     const rs = series(r, { x: RX, y: y + RH * 0.46, w: RW, h: RH * 0.54 });
-    const took = dur(r.secondsTo2x);
+    const took = secs(r.secondsTo2x);
     return `
   <g>
     ${surface(RX, y, RW, RH, 13)}
@@ -442,7 +465,7 @@ export function podiumCard(wins, s, { days = 7, max = 5 } = {}) {
 
   <text x="${HX + 30}" y="${HY + 122}" font-family="sans-serif" font-size="56" font-weight="700" letter-spacing="-2.2" fill="#F3F4F6">${esc(ticker(hero.symbol))}</text>
   <text x="${HX + HW - 30}" y="${HY + 124}" text-anchor="end" font-family="sans-serif" font-size="76" font-weight="700" letter-spacing="-3" fill="url(#g)">${(hero.peakX ?? 1).toFixed(2)}\u00d7</text>
-  <text x="${HX + 30}" y="${HY + 152}" font-family="monospace" font-size="13.5" fill="#8C929C">${esc(hero.chain)} \u00b7 ${esc(hero.dex ?? "")}${dur(hero.secondsTo2x) ? " \u00b7 2\u00d7 in " + dur(hero.secondsTo2x) : ""}</text>
+  <text x="${HX + 30}" y="${HY + 152}" font-family="monospace" font-size="13.5" fill="#8C929C">${esc(hero.chain)} \u00b7 ${esc(hero.dex ?? "")}${secs(hero.secondsTo2x) ? " \u00b7 2\u00d7 in " + secs(hero.secondsTo2x) : ""}</text>
   ${hero.isDead ? `<text x="${HX + HW - 30}" y="${HY + 152}" text-anchor="end" font-family="monospace" font-size="12" letter-spacing="2" fill="#E5606B">DIED AFTER \u00b7 NOW ${(hero.nowX ?? 0).toFixed(2)}\u00d7</text>` : ""}
 
   <line x1="${HX + 30}" y1="${HY + HH - 82}" x2="${HX + HW - 30}" y2="${HY + HH - 82}" stroke="rgba(255,255,255,.09)"/>
