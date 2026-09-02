@@ -37,10 +37,22 @@ const env = n => {
 
 const die = m => { console.error(m); process.exit(1); };
 
+/** Nothing here waits forever. An RPC that accepts a connection and never
+ *  answers is the failure that looks most like work in progress, and every
+ *  command below starts with one. */
+const TIMEOUT_MS = Number(env('RPC_TIMEOUT_MS') ?? 15000);
+const withTimeout = (promise, what, ms = TIMEOUT_MS) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(
+    () => reject(new Error(`${what} tidak menjawab dalam ${(ms / 1000).toFixed(0)} detik`)), ms).unref?.()),
+]);
+
 function wallet() {
   const rpc = env('DEPLOY_RPC');
   const pk = env('DEPLOY_PK');
   if (!rpc) die('DEPLOY_RPC belum diisi — RPC mana yang harus dikirimi?');
+  // Said out loud before the first call, so a hang has a name attached to it.
+  console.error(`menghubungi ${rpc} …`);
   const provider = new ethers.providers.JsonRpcProvider(rpc);
   // Base produces a block every two seconds; ethers polls every four by
   // default, so a confirmation takes longer to notice than to happen.
@@ -67,12 +79,15 @@ async function ethMainnet() {
     + 'dan tanpa endpoint itu tidak ada yang bisa dibaca');
   const call = async (method, params) => {
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
     const j = await r.json();
     if (j.error) throw new Error(j.error.message);
     return j.result;
   };
-  const chainId = Number(await call('eth_chainId', []));
+  let chainId;
+  try { chainId = Number(await call('eth_chainId', [])); }
+  catch (e) { die(`ETH_RPC (${url}) tidak menjawab — ${e.message}`); }
   if (chainId !== 1) {
     die(`ETH_RPC menunjuk ke chain ${chainId}, bukan Ethereum mainnet (1). `
       + 'Seed harus berpegang pada rantai yang bisa dicek siapa pun.');
@@ -317,6 +332,7 @@ function parseArgv(a) {
 const USAGE = `
   node contracts/keys.js <perintah> [--confirm]
 
+    ping                           kedua RPC hidup atau tidak, dan saldo deployer
     state                          fase, harga, suplai, dan seed — termasuk
                                    menghitung ulang seed yang sudah terbit
     deploy --owner 0x…             ProofParts -> ProofRenderer -> ProofKeys
@@ -339,8 +355,32 @@ const USAGE = `
   if (!cmd || cmd === 'help') { console.log(USAGE); return; }
 
   const ctx = wallet();
-  const chainId = (await ctx.provider.getNetwork()).chainId;
+  let chainId;
+  try {
+    chainId = (await withTimeout(ctx.provider.getNetwork(), `DEPLOY_RPC (${env('DEPLOY_RPC')})`)).chainId;
+  } catch (e) {
+    die(`${e.message}\n\n`
+      + 'Periksa endpoint-nya langsung:\n'
+      + `  curl -s --max-time 10 -X POST ${env('DEPLOY_RPC')} \\\n`
+      + `    -H 'content-type: application/json' \\\n`
+      + `    -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'\n\n`
+      + 'Kalau itu juga diam, RPC-nya yang bermasalah, bukan perintah ini.');
+  }
+  console.error(`terhubung, chain ${chainId}\n`);
   const confirm = !!argv.confirm;
+
+  if (cmd === 'ping') {
+    console.log(`DEPLOY_RPC  ${env('DEPLOY_RPC')}\n  chain ${chainId}, blok `
+      + `${await withTimeout(ctx.provider.getBlockNumber(), 'DEPLOY_RPC')}`);
+    if (ctx.signer) {
+      const a = await ctx.signer.getAddress();
+      console.log(`  deployer ${a}  saldo ${eth(await ctx.provider.getBalance(a))} ETH`);
+    }
+    if (!env('ETH_RPC')) return void console.log('\nETH_RPC belum diisi — commit dan reveal butuh itu');
+    const l1 = await ethMainnet();
+    console.log(`\nETH_RPC     ${env('ETH_RPC')}\n  chain 1, blok ${await l1.head()}`);
+    return;
+  }
 
   if (cmd === 'deploy') return cmdDeploy(argv, ctx, chainId, confirm);
   if (cmd === 'state') return cmdState(ctx, chainId, argv);

@@ -69,9 +69,18 @@ export ETH_RPC=https://…             # any Ethereum mainnet endpoint. Read onl
                                      # nothing is ever sent to it. Needed for the
                                      # seed's third ingredient.
 
+node contracts/keys.js ping                                 # are both RPCs alive
 node contracts/keys.js deploy --owner 0xYourSafe            # reads it back to you
 node contracts/keys.js deploy --owner 0xYourSafe --confirm  # sends
 ```
+
+Start with `ping`. Every other command opens with a network call, and an RPC
+that accepts a connection and never answers is the failure that looks most like
+work in progress. Nothing here waits longer than fifteen seconds (`RPC_TIMEOUT_MS`
+if you need more); when it gives up it names the endpoint and hands you the curl
+to check it yourself.
+
+Omit `--owner` and the deployer's own address is used.
 
 It deploys in the only order that works — `ProofRenderer` needs `ProofParts`,
 `ProofKeys` needs `ProofRenderer` — and writes the three addresses to

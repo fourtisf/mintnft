@@ -13,6 +13,7 @@
  * next step, not this file.
  */
 const { execFile } = require('node:child_process');
+const net = require('node:net');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -72,6 +73,45 @@ const ROOT = path.join(__dirname, '..');
     ok(r.code !== 0 && /belum ada alamat/.test(r.out),
       'state tanpa kontrak berhenti dan bilang kenapa, bukan mencetak nol');
     ok(!fs.existsSync(deployedPath), 'dan tidak menulis file apa pun');
+  }
+
+  /* ═══════ an RPC that accepts and never answers ═══════ */
+  head('RPC yang menerima lalu diam');
+  {
+    // The failure that looks most like work in progress. Every command starts
+    // with a network call, and the first version of this CLI sat there with a
+    // blank screen forever — the operator has no way to tell that from a slow
+    // deploy, which is the same wrong-answer-is-worse-than-slow problem this
+    // repository keeps paying for.
+    const deaf = net.createServer(sock => { sock.on('data', () => {}); });   // accepts, replies never
+    await new Promise(r => deaf.listen(0, '127.0.0.1', r));
+    const url = `http://127.0.0.1:${deaf.address().port}`;
+
+    const t0 = Date.now();
+    const r = await new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), 'ping'], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: url, DEPLOY_PK: owner.privateKey,
+               ETH_RPC: '', RPC_TIMEOUT_MS: '2000', KEYS_OUT: OUT, KEYS_CONTRACT: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+    const took = Date.now() - t0;
+
+    ok(r.code !== 0, 'perintahnya berhenti, tidak menggantung selamanya');
+    ok(took < 15000, `dan berhenti cepat (${(took / 1000).toFixed(1)} detik)`);
+    ok(/tidak menjawab dalam/.test(r.out), 'mengatakan RPC-nya yang diam');
+    ok(r.out.includes(url), 'dan menyebut endpoint mana');
+    ok(/curl/.test(r.out), 'lalu memberi perintah untuk memeriksanya sendiri');
+    await new Promise(res => deaf.close(res));
+  }
+
+  /* ═══════ ping ═══════ */
+  head('ping');
+  {
+    const r = await keys('ping');
+    ok(r.code === 0 && /chain 46630/.test(r.out), 'ping menyebut chain yang dijawab RPC');
+    ok(/deployer 0x[0-9a-fA-F]{40}\s+saldo/.test(r.out), 'dan saldo deployer, sebelum apa pun dikirim');
+    ok(/ETH_RPC\s+http/.test(r.out) && /chain 1/.test(r.out), 'plus ETH_RPC dan bahwa itu benar mainnet');
   }
 
   /* ═══════ dry run ═══════ */
