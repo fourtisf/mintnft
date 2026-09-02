@@ -325,9 +325,20 @@ export function boardCard(list, s, { days = 7, max = 10, title = "Highest ATH re
   </g>`;
   };
 
-  const stats3 = [["HIT \u2265 2\u00d7", Math.round((s?.hitRate ?? 0) * 100) + "%", "#F3F4F6"],
-                  ["ALL CALLS", String(s?.calls ?? 0), "#F3F4F6"],
-                  ["DEAD", String(s?.dead ?? 0), (s?.dead ?? 0) > 0 ? "#E5606B" : "#F3F4F6"]];
+  /* The return per call, over every call in the window, replaces the bare hit
+     rate. Both are honest; this one is the question a reader is actually
+     asking, and it cannot be turned into a highlight-reel number by choosing
+     what to draw — every loss in the window is inside it by construction,
+     pushing it down. A hit rate at a 2× bar reads weak next to accounts
+     quoting theirs at any green exit, and the answer to that is a truer
+     number, not a missing one. */
+  const rp = s?.returnPct;
+  const stats3 = [
+    [`PER CALL \u00b7 ${s?.calls ?? 0} CALLS`,
+     rp == null ? "\u2014" : (rp >= 0 ? "+" : "\u2212") + Math.abs(rp * 100).toFixed(0) + "%",
+     rp == null ? "#8C929C" : rp >= 0 ? "#3ECF8E" : "#E5606B"],
+    ["HIT \u2265 2\u00d7", Math.round((s?.hitRate ?? 0) * 100) + "%", "#8C929C"],
+    ["DEAD", String(s?.dead ?? 0), (s?.dead ?? 0) > 0 ? "#E5606B" : "#F3F4F6"]];
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
@@ -349,9 +360,16 @@ export function boardCard(list, s, { days = 7, max = 10, title = "Highest ATH re
   <text x="${PAD}" y="124" font-family="sans-serif" font-size="45" font-weight="700" letter-spacing="-1.8" fill="#F3F4F6">${esc(title)}</text>
   <text x="${PAD}" y="152" font-family="monospace" font-size="13.5" fill="#8C929C">Last ${days} days \u00b7 ${shown.length} of ${s?.calls ?? shown.length} calls \u00b7 the rest are on the register too${(s?.dead ?? 0) ? ", and " + s.dead + " died" : ""}</text>
 
-  ${stats3.map(([k, v, c], i) => `
-  <text x="${1144 - (2 - i) * 136}" y="70" text-anchor="end" font-family="sans-serif" font-size="35" font-weight="700" letter-spacing="-1" fill="${c}">${v}</text>
-  <text x="${1144 - (2 - i) * 136}" y="92" text-anchor="end" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">${k}</text>`).join("")}
+  ${stats3.map(([k, v, c], i) => {
+    const lead = i === 0;
+    // The lead's label is the longest string in the header — "PER CALL · 27
+    // CALLS" runs about 150px — so the two behind it are placed clear of that,
+    // not at an even spacing that put DEAD straight through it.
+    const x = lead ? 1144 : 856 + (i - 1) * 106;
+    return `
+  <text x="${x}" y="${lead ? 72 : 68}" text-anchor="end" font-family="sans-serif" font-size="${lead ? 40 : 24}" font-weight="700" letter-spacing="-1" fill="${c}">${v}</text>
+  <text x="${x}" y="${lead ? 94 : 88}" text-anchor="end" font-family="monospace" font-size="${lead ? 11 : 9.5}" letter-spacing="${lead ? 2 : 1.6}" fill="#585E68">${k}</text>`;
+  }).join("")}
 
   <line x1="${PAD}" y1="166" x2="1144" y2="166" stroke="rgba(255,255,255,.09)"/>
   <line x1="${PAD + COLW + GAP / 2}" y1="182" x2="${PAD + COLW + GAP / 2}" y2="${182 + per * RH - 24}" stroke="rgba(255,255,255,.06)"/>
@@ -416,9 +434,20 @@ export function podiumCard(wins, s, { days = 7, max = 5 } = {}) {
   <text x="${x}" y="${72}" text-anchor="end" font-family="sans-serif" font-size="35" font-weight="700" letter-spacing="-1" fill="${col}">${v}</text>
   <text x="${x}" y="${94}" text-anchor="end" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">${k}</text>`;
   };
-  const stats3 = [["HIT \u2265 2\u00d7", Math.round((s?.hitRate ?? 0) * 100) + "%", "#F3F4F6"],
-                  ["ALL CALLS", String(s?.calls ?? 0), "#F3F4F6"],
-                  ["DEAD", String(s?.dead ?? 0), (s?.dead ?? 0) > 0 ? "#E5606B" : "#F3F4F6"]];
+  /* The return per call, over every call in the window, replaces the bare hit
+     rate. Both are honest; this one is the question a reader is actually
+     asking, and it cannot be turned into a highlight-reel number by choosing
+     what to draw — every loss in the window is inside it by construction,
+     pushing it down. A hit rate at a 2× bar reads weak next to accounts
+     quoting theirs at any green exit, and the answer to that is a truer
+     number, not a missing one. */
+  const rp = s?.returnPct;
+  const stats3 = [
+    [`PER CALL \u00b7 ${s?.calls ?? 0} CALLS`,
+     rp == null ? "\u2014" : (rp >= 0 ? "+" : "\u2212") + Math.abs(rp * 100).toFixed(0) + "%",
+     rp == null ? "#8C929C" : rp >= 0 ? "#3ECF8E" : "#E5606B"],
+    ["HIT \u2265 2\u00d7", Math.round((s?.hitRate ?? 0) * 100) + "%", "#8C929C"],
+    ["DEAD", String(s?.dead ?? 0), (s?.dead ?? 0) > 0 ? "#E5606B" : "#F3F4F6"]];
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>

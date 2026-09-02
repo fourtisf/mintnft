@@ -263,7 +263,11 @@ export function serve(store, {
       // at settle; peakAllX is the highest value ever observed.
       const ath = r => r.peakAllX ?? r.peakX ?? 0;
       const wins = inWindow.filter(r => r.verdict === "win").sort((a, b) => ath(b) - ath(a));
-      const svg = podiumCard(wins, stats(inWindow, days), { days, max: n });
+      // The return per call rides on the same stats object, computed over every
+      // call in the window rather than over the ones the card draws.
+      const svg = podiumCard(wins,
+        { ...stats(inWindow, days), returnPct: exitSimulation(inWindow).returnPct },
+        { days, max: n });
       const cache = "public, max-age=300";
       if (p.endsWith(".png")) {
         const buf = await png(svg);
