@@ -105,6 +105,34 @@ const ROOT = path.join(__dirname, '..');
     await new Promise(res => deaf.close(res));
   }
 
+  /* ═══════ an endpoint that answers with a web page ═══════ */
+  head('endpoint yang membalas halaman web');
+  {
+    // What a moved or retired public RPC actually does. The raw failure is
+    // "Unexpected token '<'", which tells the operator nothing about the URL
+    // being wrong.
+    const html = require('node:http').createServer((_, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' })
+        .end('<!DOCTYPE html><html><body>Moved</body></html>');
+    });
+    await new Promise(r => html.listen(0, '127.0.0.1', r));
+    const url = `http://127.0.0.1:${html.address().port}`;
+
+    const r = await new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), 'ping'], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
+               ETH_RPC: url, RPC_TIMEOUT_MS: '5000', KEYS_OUT: OUT, KEYS_CONTRACT: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+
+    ok(r.code !== 0, 'berhenti, bukan diteruskan dengan hasil setengah');
+    ok(/bukan JSON/.test(r.out) && /halaman web/.test(r.out),
+      'dan mengatakan yang datang itu halaman web, bukan "Unexpected token"');
+    ok(r.out.includes(url), 'sambil menyebut URL mana yang salah');
+    await new Promise(res => html.close(res));
+  }
+
   /* ═══════ ping ═══════ */
   head('ping');
   {

@@ -81,7 +81,17 @@ async function ethMainnet() {
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
       signal: AbortSignal.timeout(TIMEOUT_MS),
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
-    const j = await r.json();
+    const body = await r.text();
+    let j;
+    try { j = JSON.parse(body); }
+    catch {
+      // A dead or moved endpoint answers with a web page, and "Unexpected
+      // token '<'" is the parser's problem, not the operator's. Say what came
+      // back instead of what failed to parse it.
+      throw new Error(`membalas HTTP ${r.status} tapi bukan JSON: `
+        + `"${body.slice(0, 70).replace(/\s+/g, ' ').trim()}…"\n`
+        + '   Itu halaman web, bukan endpoint JSON-RPC. URL-nya kemungkinan sudah pindah.');
+    }
     if (j.error) throw new Error(j.error.message);
     return j.result;
   };
