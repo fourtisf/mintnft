@@ -34,11 +34,6 @@ const u = v => Buffer.from(BigInt(v).toString(16).padStart(64, '0'), 'hex');
 const addr32 = a => Buffer.from(String(a).slice(2).padStart(64, '0'), 'hex');
 const b32 = x => Buffer.from(Buffer.from(x).toString('hex').padStart(64, '0'), 'hex');
 
-/** head/tail encoding for the one dynamic argument shape this contract takes. */
-const withProof = (qty, proof) => Buffer.concat([
-  u(qty), u(0x40), u(proof.length), ...proof,
-]);
-
 const ETH = BigInt(1e18);
 const gwei = BigInt(1e9);
 
@@ -62,12 +57,6 @@ const blockchain = { async getBlock(n) { return { hash: () => keccak256(Buffer.f
 const blockHashOf = n => keccak256(Buffer.from('nekara-block-' + n));
 
 const at = n => Block.fromBlockData({ header: { number: BigInt(n) }, withdrawals: [] }, { common });
-
-/* ─────────── merkle ─────────── */
-
-// The operator's own tool, checked here against the verifier that actually
-// guards the money. If these ever disagree, the published root is wrong.
-const { merkle, leafOf } = require('./allowlist.js');
 
 /* ─────────── harness ─────────── */
 
@@ -131,34 +120,33 @@ async function main() {
 
   const fresh = () => deploy(keys.bytecode, Buffer.concat([addr32(rendAddr), addr32(OWNER)]));
 
-  const ALLOW = 700000000000000n;    // 0.0007 ether, ~$2
-  const PUBLIC = 1700000000000000n;  // 0.0017 ether, ~$5
-  const LATE = 3300000000000000n;    // 0.0033 ether, ~$10
-  const STEP = 333n;
+  const P1 = 700000000000000n;       // 0.0007 ether, ~$2
+  const PUBLIC = 1700000000000000n;  // 0.0017, ~$5 — phase 2, what these tests mint at
+  const P3 = 3300000000000000n;      // 0.0033, ~$10
 
   /* ═══════════════ price ═══════════════ */
   head('harga');
   {
     const k = await fresh();
-    const ap = num(await send(k, 'allowlistPrice()'));
-    const p = num(await send(k, 'price()'));
-    const lp = num(await send(k, 'priceLate()'));
-    ok(ap === ALLOW && p === PUBLIC && lp === LATE,
-      `tiga harga: ${Number(ap) / 1e18} / ${Number(p) / 1e18} / ${Number(lp) / 1e18} ETH`);
-    ok(ap < p && p < lp, 'menaik: allowlist, publik, lalu tranche terakhir');
-    // ~$2 / $5 / $10 at ETH around $3,000, which is what the schedule promises.
-    ok(ap * 3000n / ETH === 2n && p * 3000n / ETH === 5n && lp * 3000n / ETH === 9n,
+    const [a, b, c] = [num(await send(k, 'priceOne()')), num(await send(k, 'priceTwo()')),
+                       num(await send(k, 'priceThree()'))];
+    ok(a === P1 && b === PUBLIC && c === P3,
+      `tiga harga: ${Number(a) / 1e18} / ${Number(b) / 1e18} / ${Number(c) / 1e18} ETH`);
+    ok(a < b && b < c, 'menaik dari fase satu ke fase tiga');
+    ok(a * 3000n / ETH === 2n && b * 3000n / ETH === 5n && c * 3000n / ETH === 9n,
       'pada ETH $3,000 ketiganya jatuh di sekitar $2, $5 dan $10');
-    ok(num(await send(k, 'PUBLIC_STEP()')) === STEP, `harga publik naik setelah ${STEP} key`);
+    ok(num(await send(k, 'currentPrice()')) === 0n, 'saat tertutup tidak ada harga — tidak ada yang dijual');
 
     const r = await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(7n), u(9n), u(11n)]));
     ok(r.ok && has(r.logs, 'PricesSet(uint256,uint256,uint256)'), 'setPrices memancarkan PricesSet');
-    ok(num(await send(k, 'allowlistPrice()')) === 7n && num(await send(k, 'price()')) === 9n
-      && num(await send(k, 'priceLate()')) === 11n, 'ketiganya bergerak sekaligus');
+    ok(num(await send(k, 'priceOne()')) === 7n && num(await send(k, 'priceTwo()')) === 9n
+      && num(await send(k, 'priceThree()')) === 11n, 'ketiganya bergerak sekaligus');
     ok((await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(9n), u(9n), u(9n)]))).ok,
-      'tranche terakhir boleh sama dengan publik — itu mint berharga rata, disengaja');
+      'tiga harga yang sama boleh — itu mint berharga rata, disengaja');
     ok((await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(9n), u(9n), u(8n)]))).err === 'BadPrice',
-      'tapi tidak boleh lebih murah — kalau turun, yang datang duluan membayar paling mahal');
+      'tapi tangganya tidak boleh turun — kalau turun, yang datang duluan membayar paling mahal');
+    ok((await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(9n), u(8n), u(9n)]))).err === 'BadPrice',
+      'termasuk turun di tengah');
     ok((await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(1n), u(1n), u(1n)]), { from: ALICE }))
       .err === 'OwnableUnauthorizedAccount', 'setPrices hanya untuk owner');
   }
@@ -168,17 +156,28 @@ async function main() {
   {
     const k = await fresh();
     ok((await send(k, 'mintPublic(uint256)', u(1), { from: ALICE, value: PUBLIC })).err === 'WrongPhase',
-      'mint publik saat Closed ditolak');
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, []), { from: ALICE, value: ALLOW })).err === 'WrongPhase',
-      'mint allowlist saat Closed ditolak');
+      'mint saat Closed ditolak');
 
+    // Every open phase sells to anyone. Only the price changes.
     await send(k, 'setPhase(uint8)', u(1));
-    ok((await send(k, 'mintPublic(uint256)', u(1), { from: ALICE, value: PUBLIC })).err === 'WrongPhase',
-      'mint publik saat fase Allowlist ditolak');
+    ok(num(await send(k, 'currentPrice()')) === P1, 'fase 1 berharga fase 1');
+    ok((await send(k, 'mintPublic(uint256)', u(1), { from: ALICE, value: P1 })).ok,
+      'dan siapa pun bisa mint — tidak ada daftar untuk dilewati');
+    ok((await send(k, 'mintPublic(uint256)', u(1), { from: BOB, value: PUBLIC })).err === 'BadPayment',
+      'membayar harga fase 2 di fase 1 ditolak');
 
     await send(k, 'setPhase(uint8)', u(2));
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, []), { from: ALICE, value: ALLOW })).err === 'WrongPhase',
-      'mint allowlist saat fase Public ditolak');
+    ok(num(await send(k, 'currentPrice()')) === PUBLIC, 'fase 2 berharga fase 2');
+    await send(k, 'setPhase(uint8)', u(3));
+    ok(num(await send(k, 'currentPrice()')) === P3, 'fase 3 berharga fase 3');
+
+    // The ladder only climbs. Reopening a cheaper phase after the dear one has
+    // run lets whoever waited buy under the people who showed up first.
+    ok((await send(k, 'setPhase(uint8)', u(2))).err === 'PhaseWentBack', 'tidak bisa mundur ke fase 2');
+    ok((await send(k, 'setPhase(uint8)', u(1))).err === 'PhaseWentBack', 'apalagi ke fase 1');
+    ok((await send(k, 'setPhase(uint8)', u(0))).ok, 'tapi menutup mint selalu boleh');
+    ok((await send(k, 'setPhase(uint8)', u(3))).ok, 'dan membuka lagi di fase yang sama boleh');
+
     ok((await send(k, 'setPhase(uint8)', u(0), { from: ALICE })).err === 'OwnableUnauthorizedAccount',
       'setPhase hanya untuk owner');
   }
@@ -191,9 +190,6 @@ async function main() {
 
     ok((await send(k, 'mintPublic(uint256)', u(2), { from: ALICE, value: PUBLIC })).err === 'BadPayment',
       'bayar kurang ditolak');
-    ok(num(await send(k, 'currentPrice()')) === PUBLIC, 'currentPrice awalnya harga publik');
-    ok(num(await send(k, 'costFor(uint256,uint256)', Buffer.concat([u(0), u(3)]))) === PUBLIC * 3n,
-      'costFor untuk tiga key di awal season');
     ok((await send(k, 'mintPublic(uint256)', u(1), { from: ALICE, value: PUBLIC * 2n })).err === 'BadPayment',
       'bayar lebih juga ditolak, bukan diterima diam-diam');
     ok((await send(k, 'mintPublic(uint256)', u(0), { from: ALICE, value: 0n })).err === 'SoldOut',
@@ -212,115 +208,6 @@ async function main() {
       'key keenam ditolak');
     ok((await send(k, 'mintPublic(uint256)', u(1), { from: BOB, value: PUBLIC })).ok,
       'batas dihitung per dompet, bukan global');
-  }
-
-  /* ═══════════════ the price schedule ═══════════════ */
-  head('harga bertingkat');
-  {
-    const k = await fresh();
-    await send(k, 'setPhase(uint8)', u(2));
-
-    ok(num(await send(k, 'costFor(uint256,uint256)', Buffer.concat([u(330), u(3)]))) === PUBLIC * 3n,
-      'tiga key terakhir sebelum tangga: harga publik');
-    ok(num(await send(k, 'costFor(uint256,uint256)', Buffer.concat([u(333), u(3)]))) === LATE * 3n,
-      'tiga key pertama sesudahnya: harga tranche terakhir');
-    // The case a per-transaction price would get wrong.
-    ok(num(await send(k, 'costFor(uint256,uint256)', Buffer.concat([u(331), u(4)]))) === PUBLIC * 2n + LATE * 2n,
-      'pembelian yang melangkahi tangga membayar dua di harga lama, dua di harga baru');
-
-    // Walk the supply to the step with the treasury, then buy across it.
-    await send(k, 'mintReserved(address,uint256)', Buffer.concat([addr32(TREASURY), u(331)]), { gas: 900e6 });
-    ok(num(await send(k, 'currentPrice()')) === PUBLIC, 'di 331, key berikutnya masih harga publik');
-
-    ok((await send(k, 'mintPublic(uint256)', u(4), { from: ALICE, value: PUBLIC * 4n })).err === 'BadPayment',
-      'membayar empat di harga publik ditolak — dua di antaranya sudah lewat tangga');
-    ok((await send(k, 'mintPublic(uint256)', u(4), { from: ALICE, value: PUBLIC * 2n + LATE * 2n })).ok,
-      'harga campuran yang benar diterima');
-    ok(num(await send(k, 'totalMinted()')) === 335n, 'dan keempatnya tercetak');
-    ok(num(await send(k, 'currentPrice()')) === LATE, 'sesudah tangga, currentPrice adalah harga terakhir');
-
-    ok((await send(k, 'mintPublic(uint256)', u(1), { from: BOB, value: PUBLIC })).err === 'BadPayment',
-      'harga lama tidak lagi berlaku');
-    ok((await send(k, 'mintPublic(uint256)', u(1), { from: BOB, value: LATE })).ok, 'harga baru berlaku');
-  }
-
-  /* ═══════════════ allowlist ═══════════════ */
-  head('whitelist');
-  {
-    const k = await fresh();
-    const listed = [ALICE, BOB, CAROL, DAVE, TREASURY];
-    const tree = merkle(listed.map(String));
-    await send(k, 'setAllowlistRoot(bytes32)', b32(tree.root));
-    await send(k, 'setPhase(uint8)', u(1));
-
-    ok(Buffer.from(num(await send(k, 'allowlistRoot()')).toString(16).padStart(64, '0'), 'hex').equals(tree.root),
-      'root tersimpan persis');
-
-    const pAlice = tree.proof(String(ALICE));
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(2, pAlice), { from: ALICE, value: ALLOW * 2n })).ok,
-      'alamat terdaftar dengan bukti sah bisa mint');
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, pAlice), { from: ALICE, value: PUBLIC })).err === 'BadPayment',
-      'harga publik ditolak di jalur allowlist — allowlist punya harganya sendiri');
-
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, pAlice), { from: STRANGER, value: ALLOW })).err === 'NotAllowlisted',
-      'bukti orang lain tidak memindahkan hak — leaf-nya msg.sender');
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, tree.proof(String(BOB))), { from: ALICE, value: ALLOW })).err === 'NotAllowlisted',
-      'bukti salah dari pohon yang sama ditolak');
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, []), { from: ALICE, value: ALLOW })).err === 'NotAllowlisted',
-      'bukti kosong ditolak');
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])',
-      withProof(1, [keccak256(Buffer.from('karangan'))]), { from: ALICE, value: ALLOW })).err === 'NotAllowlisted',
-      'bukti karangan ditolak');
-
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(4, pAlice), { from: ALICE, value: ALLOW * 4n })).err === 'WalletLimit',
-      'batas dompet juga berlaku di allowlist');
-
-    // A root swap must not leave the old list minting.
-    const tree2 = merkle([BOB, CAROL].map(String));
-    await send(k, 'setAllowlistRoot(bytes32)', b32(tree2.root));
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, pAlice), { from: ALICE, value: ALLOW })).err === 'NotAllowlisted',
-      'ganti root mencabut daftar lama');
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, tree2.proof(String(BOB))), { from: BOB, value: ALLOW })).ok,
-      'daftar baru berlaku');
-    ok((await send(k, 'setAllowlistRoot(bytes32)', b32(tree.root), { from: ALICE })).err === 'OwnableUnauthorizedAccount',
-      'setAllowlistRoot hanya untuk owner');
-  }
-
-  /* ═══════════════ allowlist shapes the tool has to get right ═══════════════ */
-  head('bentuk pohon allowlist');
-  {
-    const k = await fresh();
-    await send(k, 'setPhase(uint8)', u(1));
-
-    // One name on the list: the root is the leaf and the proof is empty. The
-    // "empty proof is always wrong" reflex is wrong here, and the contract
-    // has to agree with the generator about that.
-    const solo = merkle([String(ALICE)]);
-    ok(solo.root.equals(leafOf(String(ALICE))), 'pohon satu alamat: root adalah leaf-nya sendiri');
-    await send(k, 'setAllowlistRoot(bytes32)', b32(solo.root));
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, solo.proof(String(ALICE))),
-      { from: ALICE, value: ALLOW })).ok, 'daftar satu alamat: bukti kosong justru sah');
-    ok((await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, []),
-      { from: BOB, value: ALLOW })).err === 'NotAllowlisted', 'orang lain tetap tidak bisa masuk');
-
-    // Odd counts are where a hand-rolled tree usually breaks: the last leaf is
-    // carried up unpaired at several levels.
-    const odd = [ALICE, BOB, CAROL, DAVE, TREASURY, STRANGER, acct(88)].map(String);
-    const t7 = merkle(odd);
-    await send(k, 'setAllowlistRoot(bytes32)', b32(t7.root));
-    let allSeven = true;
-    for (const a of odd) {
-      const who = Address.fromString(a);
-      await vm.stateManager.putAccount(who, Account.fromAccountData({ balance: ETH }));
-      if (!(await send(k, 'mintAllowlist(uint256,bytes32[])', withProof(1, t7.proof(a)),
-        { from: who, value: ALLOW })).ok) allSeven = false;
-    }
-    ok(allSeven, 'pohon ganjil (7 alamat): ketujuh buktinya diterima on-chain');
-
-    let dup = null;
-    try { merkle([String(ALICE), String(BOB), String(ALICE).toUpperCase().replace('0X', '0x')]); }
-    catch (e) { dup = e.message; }
-    ok(dup && dup.includes('duplicate'), 'generator menolak alamat kembar, bukan diam-diam menyatukannya');
   }
 
   /* ═══════════════ supply cap ═══════════════ */
@@ -498,8 +385,7 @@ async function main() {
       'bukan pemilik, daftar kosong');
 
     await send(k, 'mintReserved(address,uint256)', Buffer.concat([addr32(TREASURY), u(652)]), { gas: 900e6 });
-    // 661: past PUBLIC_STEP, so this one costs the late price
-    await send(k, 'mintPublic(uint256)', u(1), { from: DAVE, value: LATE });            // 661
+    await send(k, 'mintPublic(uint256)', u(1), { from: DAVE, value: PUBLIC });          // 661
     await send(k, 'setPhase(uint8)', u(0));
     ok(num(await send(k, 'totalMinted()')) === 661n, 'season hampir penuh (661)');
 

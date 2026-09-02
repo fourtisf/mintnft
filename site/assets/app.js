@@ -786,7 +786,7 @@ function notice(text,kind){MINT.notice=text?{text,kind}:null;paintMsg(text,kind)
 /* Anything derived from state yields to a notice that is still standing. */
 function derived(text,kind){if(!MINT.notice)paintMsg(text,kind)}
 
-const PHASE_LABEL={closed:"NOT OPEN",allowlist:"ALLOWLIST",public:"OPEN"};
+const PHASE_LABEL={closed:"NOT OPEN",one:"PHASE 1",two:"PHASE 2",three:"PHASE 3"};
 
 function syncMint(){
   const st=MINT.state,cfg=MINT.id;
@@ -834,7 +834,7 @@ function syncMint(){
   if(st.canMint){
     btn.disabled=MINT.busy;
     btn.textContent=MINT.busy?"Confirm in your wallet…":`Mint ${qty} · ${eth(dueFor(st,qty,unit))} ETH`;
-    if(!MINT.busy)derived(st.method==="allowlist"?"This wallet is on the allowlist.":"");
+    if(!MINT.busy)derived("");
     return;
   }
   btn.disabled=true;btn.textContent="Can't mint";
@@ -889,7 +889,7 @@ async function doMint(){
     if(!await onRightChain(eth_))return;
 
     const due=dueFor(st,qty,wei(st.unitPrice));
-    const data=calldata(MINT.id.selectors[st.method],qty,st.method==="allowlist"?st.proof:null);
+    const data=calldata(MINT.id.selectors.public,qty);
 
     MINT.busy=true;syncMint();
     notice("Waiting for your wallet…");

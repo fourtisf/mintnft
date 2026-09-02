@@ -3,7 +3,7 @@
  *
  * The failures this file exists for are all the same shape: a panel that
  * renders "open, 0 of 666 minted" when nothing is deployed, or when the RPC is
- * down, or when the allowlist file could not be read. Each of those looks to a
+ * down. Each of those looks to a
  * reader like a mint that has opened and sold nothing, and one of them would
  * have them signing a transaction that cannot succeed.
  *
@@ -14,7 +14,7 @@
 import { writeFileSync, rmSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { KeysReader, loadProofs } from "./keys.js";
+import { KeysReader } from "./keys.js";
 import { serve } from "./api.js";
 import { FileStore } from "./store.js";
 
@@ -26,7 +26,6 @@ const CONTRACT = "0x" + "ab".repeat(20);
 const HOLDER = "0x" + "11".repeat(20);
 const OUTSIDER = "0x" + "99".repeat(20);
 const word = n => "0x" + BigInt(n).toString(16).padStart(64, "0");
-const ROOT = "0x" + "cd".repeat(32);
 
 /** A node that answers by selector. Anything unasked-for is a failure here,
  *  not a zero — a stub that quietly returns 0 hides a missing read. */
@@ -44,27 +43,27 @@ const node = (values, { fail = false } = {}) => async (_url, init) => {
 import { keccak256 } from "ethereumjs-util";
 const sel = sig => "0x" + keccak256(Buffer.from(sig)).slice(0, 4).toString("hex");
 const S = {
-  phase: sel("phase()"), price: sel("price()"), allowlistPrice: sel("allowlistPrice()"),
-  priceLate: sel("priceLate()"), publicStep: sel("PUBLIC_STEP()"),
+  phase: sel("phase()"), price: sel("currentPrice()"),
+  priceOne: sel("priceOne()"), priceTwo: sel("priceTwo()"), priceThree: sel("priceThree()"),
   totalMinted: sel("totalMinted()"), seasonCap: sel("seasonCap()"),
   maxPerWallet: sel("MAX_PER_WALLET()"), revealed: sel("revealed()"),
-  allowlistRoot: sel("allowlistRoot()"), recommitCount: sel("recommitCount()"),
+  recommitCount: sel("recommitCount()"),
   mintedBy: sel("mintedBy(address)"),
 };
 
-const P_ALLOW = 700000000000000n, P_PUBLIC = 1700000000000000n, P_LATE = 3300000000000000n;
+const P1 = 700000000000000n, P2 = 1700000000000000n, P3 = 3300000000000000n;
 
-const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0, root = ROOT } = {}) => ({
+const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0,
+                 now = P2 } = {}) => ({
   [S.phase]: word(phase),
-  [S.price]: word(P_PUBLIC),
-  [S.allowlistPrice]: word(P_ALLOW),
-  [S.priceLate]: word(P_LATE),
-  [S.publicStep]: word(333),
+  [S.price]: word(now),
+  [S.priceOne]: word(P1),
+  [S.priceTwo]: word(P2),
+  [S.priceThree]: word(P3),
   [S.totalMinted]: word(minted),
   [S.seasonCap]: word(cap),
   [S.maxPerWallet]: word(5),
   [S.revealed]: word(revealed),
-  [S.allowlistRoot]: root,
   [S.recommitCount]: word(0),
   [S.mintedBy]: word(mintedBy),
 });
@@ -101,43 +100,33 @@ head("RPC mati");
 head("membaca chain");
 {
   const { state } = await reader().state(HOLDER);
-  ok(state.phase === 2 && state.phaseName === "public", "fase terbaca");
+  ok(state.phase === 2 && state.phaseName === "two", "fase terbaca");
   ok(state.totalMinted === 12 && state.seasonCap === 666, "suplai terbaca dari chain, bukan dari konstanta situs");
-  ok(state.price === String(P_PUBLIC) && state.allowlistPrice === String(P_ALLOW)
-    && state.priceLate === String(P_LATE),
-    "ketiga harga dikirim sebagai wei string — tidak muat di float ganda tanpa cerita");
+  ok(state.price === String(P2) && state.priceOne === String(P1) && state.priceThree === String(P3),
+    "harga sekarang dan ketiga harga fase dikirim sebagai wei string");
   ok(state.remaining === 5, "sisa jatah dompet dihitung dari mintedBy on-chain");
   ok(state.canMint === true && state.method === "public" && state.unitPrice === state.price,
     "fase publik: boleh mint, dengan harga publik");
 }
 
-/* ═══════════════ the price schedule ═══════════════ */
-head("harga bertingkat");
+/* ═══════════════ price by phase ═══════════════ */
+head("harga per fase");
 {
-  const early = (await reader({}, chain({ minted: 12 })).state(HOLDER)).state;
-  ok(early.nextPrices.every(p => p === String(P_PUBLIC)),
-    "sebelum tangga, kelima key berikutnya di harga publik");
-
-  const late = (await reader({}, chain({ minted: 400 })).state(HOLDER)).state;
-  ok(late.nextPrices.every(p => p === String(P_LATE)), "sesudah tangga, semuanya di harga terakhir");
-  ok(late.unitPrice === String(P_LATE), "dan angka yang dicetak halaman ikut naik");
-
-  // The case a single unit price multiplied by quantity gets wrong.
-  const straddle = (await reader({}, chain({ minted: 331 })).state(HOLDER)).state;
-  ok(JSON.stringify(straddle.nextPrices) ===
-     JSON.stringify([P_PUBLIC, P_PUBLIC, P_LATE, P_LATE, P_LATE].map(String)),
-    "yang melangkahi tangga: dua di harga lama, tiga di harga baru");
-
-  const list = (await reader({ proofs: { root: ROOT, proofs: { [HOLDER]: [] } } },
-    chain({ phase: 1, minted: 400 })).state(HOLDER)).state;
-  ok(list.nextPrices.every(p => p === String(P_ALLOW)),
-    "allowlist rata di harganya sendiri, tangga publik tidak menyentuhnya");
+  for (const [phase, name, price] of [[1, "satu", P1], [2, "dua", P2], [3, "tiga", P3]]) {
+    const st = (await reader({}, chain({ phase, now: price })).state(HOLDER)).state;
+    ok(st.price === String(price) && st.unitPrice === String(price),
+      `fase ${name} memakai harganya sendiri`);
+    ok(st.nextPrices.length === st.maxPerWallet && st.nextPrices.every(p => p === String(price)),
+      `dan kelima key berikutnya rata di harga itu`);
+  }
+  const closed = (await reader({}, chain({ phase: 0, now: 0n })).state(HOLDER)).state;
+  ok(closed.canMint === false, "tertutup berarti tidak ada yang bisa dibeli");
 }
 
 /* ═══════════════ the refusals, each with its own reason ═══════════════ */
 head("penolakan dan alasannya");
 {
-  const closed = (await reader({}, chain({ phase: 0 })).state(HOLDER)).state;
+  const closed = (await reader({}, chain({ phase: 0, now: 0n })).state(HOLDER)).state;
   ok(closed.canMint === false && closed.why === "minting is closed", "fase tertutup");
 
   const out = (await reader({}, chain({ minted: 666 })).state(HOLDER)).state;
@@ -147,55 +136,7 @@ head("penolakan dan alasannya");
   ok(full.canMint === false && /already holds its 5/.test(full.why),
     "dompet sudah penuh — alasannya bukan 'tidak berhak'");
 
-  const none = (await reader({ proofs: null }, chain({ phase: 1 })).state(HOLDER)).state;
-  ok(none.canMint === false && none.why === "no allowlist has been published",
-    "fase allowlist tanpa daftar sama sekali");
-}
 
-/* ═══════════════ the allowlist ═══════════════ */
-head("whitelist");
-{
-  const proofs = { root: ROOT, proofs: { [HOLDER]: ["0x" + "11".repeat(32)] } };
-
-  const yes = (await reader({ proofs }, chain({ phase: 1 })).state(HOLDER)).state;
-  ok(yes.canMint === true && yes.method === "allowlist", "alamat terdaftar boleh mint");
-  ok(yes.unitPrice === yes.allowlistPrice, "dan dengan harga allowlist, bukan harga publik");
-  ok(Array.isArray(yes.proof) && yes.proof.length === 1, "buktinya ikut dikirim ke halaman");
-
-  const no = (await reader({ proofs }, chain({ phase: 1 })).state(OUTSIDER)).state;
-  ok(no.canMint === false && no.why === "this wallet is not on the allowlist",
-    "alamat lain ditolak dengan alasan yang jelas");
-  ok(no.proof === undefined, "dan tidak diberi bukti siapa pun");
-
-  const stale = { root: "0x" + "ee".repeat(32), proofs: { [HOLDER]: [] } };
-  const drift = (await reader({ proofs: stale }, chain({ phase: 1 })).state(HOLDER)).state;
-  ok(drift.canMint === false && /does not match the one on-chain/.test(drift.why),
-    "daftar yang tidak cocok dengan root on-chain ditolak, bukan diserahkan untuk gagal di dompet");
-
-  // The case that must never read as "you are not on the list".
-  const broken = { root: null, proofs: null, error: "unexpected token" };
-  const cant = (await reader({ proofs: broken }, chain({ phase: 1 })).state(HOLDER)).state;
-  ok(cant.canMint === false && /could not be read/.test(cant.why),
-    "file rusak mengaku rusak — tidak menuduh pembacanya tidak terdaftar");
-}
-
-/* ═══════════════ loadProofs ═══════════════ */
-head("memuat file bukti");
-{
-  const dir = mkdtempSync(join(tmpdir(), "nekara-proofs-"));
-  const good = join(dir, "ok.json");
-  writeFileSync(good, JSON.stringify({ root: ROOT, proofs: { [HOLDER.toUpperCase()]: ["0x00"] } }));
-  const p = loadProofs(good, () => {});
-  ok(p.proofs[HOLDER] !== undefined, "alamat dinormalkan ke huruf kecil saat dimuat");
-
-  const bad = join(dir, "bad.json");
-  writeFileSync(bad, "{ not json");
-  const b = loadProofs(bad, () => {});
-  ok(b.proofs === null && b.error, "file rusak dikembalikan sebagai rusak, bukan sebagai daftar kosong");
-
-  ok(loadProofs(join(dir, "missing.json"), () => {}).proofs === null, "file yang tidak ada juga");
-  ok(loadProofs(null, () => {}) === null, "tidak diset sama sekali berarti tidak ada daftar");
-  rmSync(dir, { recursive: true, force: true });
 }
 
 /* ═══════════════ the routes ═══════════════ */
@@ -215,7 +156,7 @@ head("rute");
   const id = await get("/api/keys");
   ok(id.status === 200 && id.body.contract === CONTRACT && id.body.chainId === 4663,
     "/api/keys memberi alamat dan chain, supaya situs tidak menebaknya");
-  ok(id.body.selectors?.public && id.body.selectors?.allowlist,
+  ok(typeof id.body.selectors?.public === "string" && id.body.selectors.public.length === 10,
     "berikut selektor mint, diturunkan di sini dan tidak pernah diketik di browser");
 
   const st = await get(`/api/keys/state?address=${HOLDER}`);

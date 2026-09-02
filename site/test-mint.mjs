@@ -30,10 +30,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const CONTRACT = "0x" + "ab".repeat(20);
 const WALLET = "0x" + "11".repeat(20);
-const PRICE = "1700000000000000";        // 0.0017 ETH, ~$5
-const ALLOW_PRICE = "700000000000000";   // 0.0007, ~$2
-const LATE = "3300000000000000";         // 0.0033, ~$10
-const PROOF = ["0x" + "aa".repeat(32), "0x" + "bb".repeat(32)];
+const PRICE = "1700000000000000";   // 0.0017 ETH, ~$5 — phase 2
+const P1 = "700000000000000";       // 0.0007, ~$2
+const P3 = "3300000000000000";      // 0.0033, ~$10
 const CHAIN = 4663;                      // Robinhood Chain
 
 /* The selectors the page is given come from the engine, which derives them. */
@@ -48,10 +47,8 @@ const IDENTITY = { configured: true, contract: CONTRACT, chainId: CHAIN,
                    explorer: "https://robinhoodchain.blockscout.com", selectors: MINT_SELECTORS };
 
 const baseState = over => ({
-  phase: 2, phaseName: "public", price: PRICE, allowlistPrice: ALLOW_PRICE,
-  priceLate: LATE, publicStep: 333,
-  totalMinted: 12, seasonCap: 666, maxPerWallet: 5, revealed: false,
-  recommitCount: 0, allowlistRoot: "0x" + "00".repeat(32),
+  phase: 2, phaseName: "two", price: PRICE, priceOne: P1, priceTwo: PRICE, priceThree: P3,
+  totalMinted: 12, seasonCap: 666, maxPerWallet: 5, revealed: false, recommitCount: 0,
   address: WALLET, mintedBy: 0, remaining: 5,
   canMint: true, method: "public", unitPrice: PRICE,
   nextPrices: Array(5).fill(PRICE), ...over,
@@ -177,48 +174,18 @@ head("mint publik, tiga sekaligus");
   ok(tx.data === iface.encodeFunctionData("mintPublic", [3]).toLowerCase(), "calldata membawa qty 3");
 }
 
-/* ═══════════════ the allowlist ═══════════════ */
-head("melangkahi tangga harga");
+/* ═══════════════ what a wallet may not do ═══════════════ */
+head("harga per fase");
 {
-  // 331 minted, step at 333: two at the public price, three at the late one.
-  // A page that multiplies one price by the quantity sends the wrong value and
-  // the contract refuses it, after the reader has already agreed to pay.
+  // Phase 3 is dearer, and the panel prints whatever the contract says rather
+  // than a figure the page keeps in step by hand.
   const p = await boot({ state: baseState({
-    totalMinted: 331, nextPrices: [PRICE, PRICE, LATE, LATE, LATE] }) });
-  await p.click("qPlus"); await p.click("qPlus"); await p.click("qPlus");
-  ok(p.txt("qVal") === "4", "empat key dipilih");
-  const due = BigInt(PRICE) * 2n + BigInt(LATE) * 2n;
-  ok(p.txt("total") === "0.0100 ETH", `total menjumlahkan harga per key (${p.txt("total")})`);
+    phase: 3, phaseName: "three", price: P3, unitPrice: P3, nextPrices: Array(5).fill(P3) }) });
+  ok(p.txt("unitPrice") === "0.0033", "fase tiga: harga fase tiga");
+  await p.click("qPlus");
+  ok(p.txt("total") === "0.0066 ETH", "dan totalnya ikut");
   await p.mint();
-  ok(BigInt(p.sent[0].value) === due,
-    "dan nilai yang dikirim persis itu — bukan harga satuan dikali empat");
-  ok(BigInt(p.sent[0].value) !== BigInt(PRICE) * 4n, "yang mana akan ditolak kontrak");
-}
-
-head("mint whitelist");
-{
-  const p = await boot({ state: baseState({
-    phase: 1, phaseName: "allowlist", method: "allowlist", unitPrice: ALLOW_PRICE,
-    nextPrices: Array(5).fill(ALLOW_PRICE), proof: PROOF }) });
-  ok(p.txt("unitPrice") === "0.0007", "harga allowlist yang dipakai, bukan harga publik");
-  ok(/on the allowlist/.test(p.msg()), "halaman mengatakan dompet ini terdaftar");
-
-  await p.mint();
-  const tx = p.sent[0];
-  ok(BigInt(tx.value) === BigInt(ALLOW_PRICE), "dibayar dengan harga allowlist");
-  ok(tx.data === iface.encodeFunctionData("mintAllowlist", [1, PROOF]).toLowerCase(),
-    "calldata bukti merkle identik dengan encoder ABI — offset, panjang dan isinya");
-}
-
-head("tidak terdaftar");
-{
-  const p = await boot({ state: baseState({
-    phase: 1, phaseName: "allowlist", canMint: false, why: "this wallet is not on the allowlist",
-    method: undefined, unitPrice: undefined, proof: undefined }) });
-  ok(p.btn().disabled === true, "tombol mati");
-  ok(/not on the allowlist/.test(p.msg()), "alasannya persis itu, bukan 'gagal'");
-  await p.mint();
-  ok(p.sent.length === 0, "dan tidak ada transaksi yang dikirim");
+  ok(BigInt(p.sent[0].value) === BigInt(P3) * 2n, "nilai yang dikirim memakai harga fase itu");
 }
 
 head("jatah dompet sudah habis");

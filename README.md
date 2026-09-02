@@ -19,7 +19,6 @@ the last section of TASKS.md for why.
 | `schema.sql` | Postgres DDL. Runs as-is. |
 | `contracts/` | Solidity. Compiles with `viaIR: true` — configured once in `contracts/build.js`, shared by every harness. |
 | `contracts/DEPLOY.md` | Mint runbook. The reveal window is ~8.5 minutes wide; read it before sending anything. |
-| `contracts/allowlist.js` | Builds the whitelist merkle root and each address's proof. The same code `test-keys.js` checks against the on-chain verifier. |
 | `contracts/keys.js` | Deploy and admin. The only thing here that sends a transaction, and it does nothing without `--confirm`. |
 | `signal-engine/` | The working engine. Start here — it is the actual product. |
 | `signal-engine/DEPLOY.md` | First live run checklist. |
@@ -35,7 +34,7 @@ npm i                      # deps are pinned in package.json
 node compile.js            # contracts build, all under 24KB
 node parity.js             # must print 666 / 666
 node contracts/test-keys.js   # ProofKeys on a real EVM: payment, wallet limit,
-                           # merkle allowlist, supply cap, commit-reveal,
+                           # the three phases, supply cap, commit-reveal,
                            # withdraw, reentrancy
 node contracts/test-deploy.js  # the deploy CLI itself, against a JSON-RPC node
 node site/test-mint.mjs    # the mint panel, and its calldata against the ABI

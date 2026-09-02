@@ -133,7 +133,7 @@ node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgr
 cd ..
 node parity.js       # contracts vs prototype, must print 666 / 666
 node compile.js      # every contract's deployed size against the 24KB limit
-node contracts/test-keys.js  # the mint, the allowlist, the cap, the reveal, the
+node contracts/test-keys.js  # the mint, the phases, the cap, the reveal, the
                              # money out — and that bestTierOf no longer costs
                              # more because the season got bigger
 node test-tier.js    # the backend's tier read reaches the real function
@@ -261,15 +261,16 @@ continuing. Everything else is recoverable; that one is not.
 - `recommitSeed` works only while `totalMinted == 0`. After the first mint the
   deployer can compute what the seed would be, so a second commitment there is a
   reroll whatever it was meant for.
-- **Three prices, and the contract keeps all three.** Allowlist, public for the
-  first `PUBLIC_STEP` (333) keys, then a dearer final tranche — roughly $2, $5
-  and $10. The site publishes that schedule, so it is enforced on-chain rather
-  than left to an operator remembering to raise the price by hand mid-rush.
-  Priced one key at a time: a basket that straddles the step pays the step, and
-  `setPrices` refuses a late price below the public one, because a schedule that
-  falls partway through charges the earliest buyers the most.
+- **Three phases, all of them public, one price each** — roughly $2, $5 and $10.
+  There is no allowlist: the merkle path was built and then removed on the
+  owner's instruction, and re-adding it is a contract change. The owner opens
+  each phase when they choose; nothing moves on its own, because a schedule that
+  follows supply cannot be held back for a quiet week and holding it back is the
+  point of having phases. Phases only climb — reopening a cheaper one after the
+  dear one has run lets whoever waited buy under the people who showed up first —
+  and `setPrices` refuses a ladder that falls, for the same reason.
 - **One supply number, `seasonCap`, bounds every mint path** — public,
-  allowlist and treasury alike. It starts at 666 and only `openSeason()` raises
+  every phase and the treasury alike. It starts at 666 and only `openSeason()` raises
   it, never past `MAX_SUPPLY`, always with an event. `mintReserved` used to
   measure itself against `MAX_SUPPLY` while the paid paths measured themselves
   against `SEASON_1`, which let the treasury add 445 keys past the number the

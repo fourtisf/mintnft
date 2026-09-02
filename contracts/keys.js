@@ -24,7 +24,6 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 const { compile, artifact } = require('./build.js');
-const { merkle, normalize } = require('./allowlist.js');
 
 const OUT = process.env.KEYS_OUT || path.join(__dirname, '..', 'out');
 
@@ -202,8 +201,8 @@ async function send(label, contract, method, args, { confirm, value = 0 } = {}) 
 
 /* ─────────── subcommands ─────────── */
 
-const PHASES = { closed: 0, allowlist: 1, public: 2 };
-const PHASE_NAME = ['Closed', 'Allowlist', 'Public'];
+const PHASES = { closed: 0, '1': 1, '2': 2, '3': 3 };
+const PHASE_NAME = ['Closed', 'Phase 1', 'Phase 2', 'Phase 3'];
 
 async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   if (!signer) die('DEPLOY_PK belum diisi');
@@ -240,7 +239,7 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   // asking about, i.e. exactly when someone is trying to find out how much to
   // send. A floor, and labelled as one.
   const MEASURED = { ProofParts: 3306219n, ProofRenderer: 3245679n, ProofKeys: 2361979n };
-  const ADMIN_GAS = 420780n;   // prices, allowlist root, commit, phases, reveal, withdraw
+  const ADMIN_GAS = 420780n;   // prices, commit, the three phases, reveal, withdraw
 
   // A stand-in for the address the previous step will produce. Both
   // constructors only store it, so the gas is the same as the real one.
@@ -272,7 +271,7 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   const price = await retry(() => provider.getGasPrice(), 'harga gas');
   const cost = price.toBigInt() * gas;
   console.log(`  ${'+ admin'.padEnd(14)} ${' '.repeat(7)}${ADMIN_GAS.toString().padStart(9)} gas  `
-    + 'harga, allowlist, commit, fase, reveal, withdraw');
+    + 'harga, commit, fase, reveal, withdraw');
   console.log(`\n  total     ${gas} gas @ ${ethers.utils.formatUnits(price, 'gwei')} gwei`);
   console.log(`  perkiraan biaya  ${eth(cost, 8)} ETH${estimated ? '' : '   (dari pengukuran lokal — node menolak mengestimasi)'}`);
   console.log(`  saldo Anda       ${eth(balance, 8)} ETH`);
@@ -323,10 +322,10 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
 
 async function cmdState({ provider, signer }, chainId, argv) {
   const c = await keysContract(provider, null, chainId, argv.at);
-  const [phase, price, allowPrice, minted, cap, revealed, root, commit, ethBlock, entropy, recommits] =
+  const [phase, now, p1, p2, p3, minted, cap, revealed, commit, ethBlock, entropy, recommits] =
     await Promise.all([
-      c.phase(), c.price(), c.allowlistPrice(), c.totalMinted(), c.seasonCap(),
-      c.revealed(), c.allowlistRoot(), c.seedCommit(), c.entropyBlock(),
+      c.phase(), c.currentPrice(), c.priceOne(), c.priceTwo(), c.priceThree(),
+      c.totalMinted(), c.seasonCap(), c.revealed(), c.seedCommit(), c.entropyBlock(),
       c.mintEntropy(), c.recommitCount(),
     ]);
   const head = await provider.getBlockNumber();
@@ -334,9 +333,8 @@ async function cmdState({ provider, signer }, chainId, argv) {
   console.log(`ProofKeys ${c.address}  (chain ${chainId}, blok ${head})\n`);
   console.log(`  fase             ${PHASE_NAME[phase]}`);
   console.log(`  tercetak         ${minted} / ${cap}   (MAX_SUPPLY 1111)`);
-  console.log(`  harga allowlist  ${eth(allowPrice)} ETH`);
-  console.log(`  harga publik     ${eth(price)} ETH`);
-  console.log(`  allowlist root   ${root === ethers.constants.HashZero ? 'belum diset' : root}`);
+  console.log(`  harga sekarang   ${phase === 0 ? 'mint tertutup' : eth(now) + ' ETH'}`);
+  console.log(`  jadwal           ${eth(p1)} / ${eth(p2)} / ${eth(p3)} ETH   (fase 1 / 2 / 3)`);
   console.log(`  saldo kontrak    ${eth(await provider.getBalance(c.address))} ETH`);
 
   console.log(`  entropi mint     ${entropy}`);
@@ -383,29 +381,6 @@ async function cmdState({ provider, signer }, chainId, argv) {
   if (recommits.gt(0)) console.log(`  recommitCount    ${recommits}  (komitmen pernah diganti, sebelum ada yang mint)`);
 }
 
-async function cmdAllowlistRoot(argv, ctx, chainId, confirm) {
-  const file = argv._[1];
-  if (!file) die('usage: keys.js allowlist-root addresses.txt [--confirm]');
-  const addresses = fs.readFileSync(file, 'utf8')
-    .split('\n').map(l => l.split('#')[0].trim()).filter(Boolean);
-  const t = merkle(addresses);
-  const root = '0x' + t.root.toString('hex');
-
-  fs.mkdirSync(OUT, { recursive: true });
-  const proofs = {};
-  for (const a of addresses) proofs[normalize(a)] = t.proof(a).map(p => '0x' + p.toString('hex'));
-  const dest = path.join(OUT, 'proofs.json');
-  fs.writeFileSync(dest, JSON.stringify({ root, proofs }, null, 2));
-
-  console.log(`${addresses.length} alamat  ->  root ${root}`);
-  console.log(`bukti per alamat: ${dest}`);
-  console.log('salin ke signal-engine/ dan set ALLOWLIST_PROOFS ke path-nya,');
-  console.log('supaya situs bisa menyerahkan bukti ke dompet yang berhak.\n');
-
-  const c = await keysContract(ctx.provider, ctx.signer, chainId, argv.at);
-  await send('setAllowlistRoot', c, 'setAllowlistRoot', [root], { confirm });
-}
-
 /* ─────────── entry ─────────── */
 
 function parseArgv(a) {
@@ -426,9 +401,8 @@ const USAGE = `
     state                          fase, harga, suplai, dan seed — termasuk
                                    menghitung ulang seed yang sudah terbit
     deploy --owner 0x…             ProofParts -> ProofRenderer -> ProofKeys
-    phase closed|allowlist|public  buka atau tutup mint
-    prices <allowlistEth> <publicEth> <lateEth>
-    allowlist-root addresses.txt   hitung root, tulis out/proofs.json, kirim
+    phase 1|2|3|closed             buka fase berikutnya, atau tutup mint
+    prices <fase1Eth> <fase2Eth> <fase3Eth>
     commit <secret> [--ahead 600]  komitkan seed musim, dipatok ke satu blok
                                    Ethereum mainnet yang belum ada
     reveal <secret>                buka seed (fase harus Closed)
@@ -478,28 +452,24 @@ const USAGE = `
 
   if (cmd === 'deploy') return cmdDeploy(argv, ctx, chainId, confirm);
   if (cmd === 'state') return cmdState(ctx, chainId, argv);
-  if (cmd === 'allowlist-root') return cmdAllowlistRoot(argv, ctx, chainId, confirm);
 
   const c = await keysContract(ctx.provider, ctx.signer, chainId, argv.at);
 
   if (cmd === 'phase') {
     const p = PHASES[String(argv._[1] || '').toLowerCase()];
-    if (p === undefined) die('fase harus closed, allowlist, atau public');
+    if (p === undefined) die('fase harus 1, 2, 3, atau closed');
     if (p !== 0 && await c.revealed()) die('seed sudah terbit — mint tidak bisa dibuka lagi, dan itu disengaja');
     return void await send(`setPhase(${PHASE_NAME[p]})`, c, 'setPhase', [p], { confirm });
   }
 
   if (cmd === 'prices') {
     const [a, b, l] = [argv._[1], argv._[2], argv._[3]];
-    if (!a || !b || !l) die('usage: keys.js prices <allowlistEth> <publicEth> <lateEth>\n'
-      + '  allowlist, publik, lalu tranche terakhir setelah PUBLIC_STEP key');
-    const [wa, wb, wl] = [a, b, l].map(v => ethers.utils.parseEther(v));
-    if (wa.gt(wb)) console.log('catatan: harga allowlist lebih mahal daripada publik. Sengaja?');
-    const step = await retry(() => c.PUBLIC_STEP(), 'PUBLIC_STEP');
-    console.log(`  allowlist  ${eth(wa)} ETH`);
-    console.log(`  publik     ${eth(wb)} ETH   untuk ${step} key pertama`);
-    console.log(`  terakhir   ${eth(wl)} ETH   sesudah itu\n`);
-    return void await send('setPrices', c, 'setPrices', [wa, wb, wl], { confirm });
+    if (!a || !b || !l) die('usage: keys.js prices <fase1Eth> <fase2Eth> <fase3Eth>');
+    const [w1, w2, w3] = [a, b, l].map(v => ethers.utils.parseEther(v));
+    console.log(`  fase 1  ${eth(w1)} ETH`);
+    console.log(`  fase 2  ${eth(w2)} ETH`);
+    console.log(`  fase 3  ${eth(w3)} ETH\n`);
+    return void await send('setPrices', c, 'setPrices', [w1, w2, w3], { confirm });
   }
 
   if (cmd === 'commit') {

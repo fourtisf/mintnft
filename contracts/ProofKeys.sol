@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IProofRenderer {
@@ -32,33 +31,29 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     uint256 public totalMinted;
 
     /// @notice The number every mint path is measured against — public,
-    ///         allowlist and treasury alike. It starts at the number the site
+    ///         every phase and the treasury alike. It starts at the number the site
     ///         advertises and can only be raised by openSeason(), which emits
     ///         an event, so supply can never grow quietly.
     uint256 public seasonCap = SEASON_1;
 
     /* ─────────── phases ─────────── */
 
-    enum Phase { Closed, Allowlist, Public }
+    /// @notice Three open phases, every one of them public. The owner decides
+    ///         when each begins; the price is whatever that phase costs.
+    ///         Nothing here closes a phase on its own — a schedule that moves
+    ///         with supply is a schedule the operator cannot hold back for a
+    ///         quiet week, and holding it back is the point of having phases.
+    enum Phase { Closed, One, Two, Three }
 
     Phase   public phase;
 
-    /// @notice Where the public price steps up, counted in keys minted. The
-    ///         site publishes three prices — allowlist, then public, then a
-    ///         dearer final tranche — and this is what makes the third one a
-    ///         rule rather than a promise to remember to raise it by hand at
-    ///         the right moment, in the middle of a rush.
-    uint256 public constant PUBLIC_STEP = 333;
-
-    /// @dev Set at ETH around $3,000: roughly $2, $5 and $10. setPrices() moves
-    ///      all three if the market has left that neighbourhood by deploy day —
-    ///      the dollar figures are the promise, the wei are just today's
-    ///      arithmetic.
-    uint256 public allowlistPrice = 0.0007 ether;   // ~$2
-    uint256 public price          = 0.0017 ether;   // ~$5,  first PUBLIC_STEP
-    uint256 public priceLate      = 0.0033 ether;   // ~$10, after that
-
-    bytes32 public allowlistRoot;
+    /// @dev One price per phase, roughly $2, $5 and $10 at ETH around $3,000.
+    ///      setPrices() moves all three if the market has left that
+    ///      neighbourhood by deploy day — the dollar figures are the promise,
+    ///      the wei are just today's arithmetic.
+    uint256 public priceOne   = 0.0007 ether;   // ~$2
+    uint256 public priceTwo   = 0.0017 ether;   // ~$5
+    uint256 public priceThree = 0.0033 ether;   // ~$10
 
     mapping(address => uint256) public mintedBy;
 
@@ -116,7 +111,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
                    uint256 entropyBlock, bytes32 entropyHash);
     event PhaseSet(Phase phase);
     event SeasonOpened(uint256 seasonCap);
-    event PricesSet(uint256 allowlistPrice, uint256 publicPrice, uint256 latePrice);
+    event PricesSet(uint256 priceOne, uint256 priceTwo, uint256 priceThree);
     event RendererLocked(address renderer);
 
     /* ─────────── errors ─────────── */
@@ -125,7 +120,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     error SoldOut();
     error WalletLimit();
     error BadPayment();
-    error NotAllowlisted();
+    error PhaseWentBack();
     error AlreadyCommitted();
     error BadBlock();
     error MintingStarted();
@@ -146,37 +141,18 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
 
     /* ─────────── minting ─────────── */
 
-    function mintAllowlist(uint256 qty, bytes32[] calldata proof)
-        external
-        payable
-        nonReentrant
-    {
-        if (phase != Phase.Allowlist) revert WrongPhase();
-        bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
-        if (!MerkleProof.verifyCalldata(proof, allowlistRoot, leaf)) revert NotAllowlisted();
-        _mintMany(msg.sender, qty, allowlistPrice * qty);
-    }
-
     function mintPublic(uint256 qty) external payable nonReentrant {
-        if (phase != Phase.Public) revert WrongPhase();
-        _mintMany(msg.sender, qty, costFor(totalMinted, qty));
+        if (phase == Phase.Closed) revert WrongPhase();
+        _mintMany(msg.sender, qty, currentPrice() * qty);
     }
 
-    /// @notice What the next `qty` public keys cost, starting from `from`
-    ///         already minted. Priced one key at a time rather than by the
-    ///         supply at the top of the transaction, so a purchase that
-    ///         straddles the step pays the step — buying five at 331 does not
-    ///         buy four of them cheap.
-    function costFor(uint256 from, uint256 qty) public view returns (uint256 total) {
-        for (uint256 i = 0; i < qty; i++) {
-            total += (from + i) < PUBLIC_STEP ? price : priceLate;
-        }
-    }
-
-    /// @notice The price of the very next public key, for a page that has to
-    ///         print one number.
-    function currentPrice() external view returns (uint256) {
-        return totalMinted < PUBLIC_STEP ? price : priceLate;
+    /// @notice What a key costs right now. Flat inside a phase, so a basket
+    ///         cannot straddle a price change mid-transaction.
+    function currentPrice() public view returns (uint256) {
+        if (phase == Phase.One) return priceOne;
+        if (phase == Phase.Two) return priceTwo;
+        if (phase == Phase.Three) return priceThree;
+        return 0;                       // Closed: nothing is for sale
     }
 
     function _mintMany(address to, uint256 qty, uint256 due) internal {
@@ -369,29 +345,28 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
 
     /* ─────────── admin ─────────── */
 
+    /// @notice Opens a phase, or closes the mint. Phases only ever move
+    ///         forward: going back to a cheaper one after the dear one has run
+    ///         would let whoever waited buy under the people who showed up
+    ///         first. Closed is always reachable, so a mint can be paused.
     function setPhase(Phase p) external onlyOwner {
         if (revealed && p != Phase.Closed) revert AlreadyRevealed();
+        if (p != Phase.Closed && uint8(p) < uint8(phase)) revert PhaseWentBack();
         phase = p;
         emit PhaseSet(p);
     }
 
-    /// @notice All three at once, so no tranche is ever left at a stale figure
-    ///         while another moves. The late price may equal the public one —
-    ///         that is a flat mint, deliberately — but it may not be lower,
-    ///         because a schedule that falls partway through means whoever
-    ///         bought first paid most for arriving early.
-    function setPrices(uint256 allowPrice, uint256 publicPrice, uint256 latePrice)
-        external
-        onlyOwner
-    {
-        if (latePrice < publicPrice) revert BadPrice();
-        allowlistPrice = allowPrice;
-        price = publicPrice;
-        priceLate = latePrice;
-        emit PricesSet(allowPrice, publicPrice, latePrice);
+    /// @notice All three at once, so no phase is ever left at a stale figure
+    ///         while another moves. Two may be equal — that is a flat stretch,
+    ///         deliberately — but the ladder may not fall, because a schedule
+    ///         that drops partway through charges the earliest buyers the most.
+    function setPrices(uint256 one, uint256 two, uint256 three) external onlyOwner {
+        if (two < one || three < two) revert BadPrice();
+        priceOne = one;
+        priceTwo = two;
+        priceThree = three;
+        emit PricesSet(one, two, three);
     }
-
-    function setAllowlistRoot(bytes32 r) external onlyOwner { allowlistRoot = r; }
 
     /// @notice Raises the supply ceiling toward MAX_SUPPLY. One direction only:
     ///         a cap that could fall would let a sold-out season be reopened

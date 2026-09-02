@@ -186,7 +186,7 @@ const ROOT = path.join(__dirname, '..');
     // The renderer wiring is the thing a deploy gets wrong silently, so read a
     // token URI through it rather than trusting the address matched.
     await (await c.setPhase(2)).wait();
-    await (await c.mintPublic(1, { value: await c.price() })).wait();
+    await (await c.mintPublic(1, { value: await c.currentPrice() })).wait();
     const uri = await c.tokenURI(1);
     ok(uri.includes('SEALED'), 'token pertama terbaca tersegel lewat renderer sungguhan');
     await (await c.setPhase(0)).wait();
@@ -220,7 +220,8 @@ const ROOT = path.join(__dirname, '..');
     const r = await keys('state');
     ok(r.code === 0 && /fase\s+Closed/.test(r.out), 'membaca fase dari chain');
     ok(/1 \/ 666/.test(r.out), 'membaca suplai dari chain');
-    ok(/harga publik\s+0\.0017\d* ETH/.test(r.out), 'membaca harga publik dari chain');
+    ok(/jadwal\s+0\.0007\d* \/ 0\.0017\d* \/ 0\.0033\d* ETH/.test(r.out),
+      'membaca ketiga harga fase dari chain');
     ok(/belum ada komitmen/.test(r.out), 'mengatakan seed belum dikomitkan, bukan mengarang tanggal');
   }
 
@@ -229,28 +230,28 @@ const ROOT = path.join(__dirname, '..');
   {
     const dry = await keys('prices', '0.001', '0.004', '0.009');
     ok(dry.code === 0 && /DRY RUN/.test(dry.out), 'prices tanpa --confirm tidak mengirim');
-    ok(/publik\s+0\.004\d* ETH\s+untuk 333 key pertama/.test(dry.out),
-      'dan menjelaskan tangganya: harga publik berlaku untuk 333 key pertama');
-    ok((await at(owner).price()).eq(ethers.utils.parseEther('0.0017')), 'harga belum berubah');
+    ok(/fase 1\s+0\.001\d* ETH/.test(dry.out) && /fase 3\s+0\.009\d* ETH/.test(dry.out),
+      'dan mencetak ketiga harga fase');
+    ok((await at(owner).priceTwo()).eq(ethers.utils.parseEther('0.0017')), 'harga belum berubah');
 
     await keys('prices', '0.001', '0.004', '0.009', '--confirm');
     const c = at(owner);
-    ok((await c.allowlistPrice()).eq(ethers.utils.parseEther('0.001'))
-      && (await c.price()).eq(ethers.utils.parseEther('0.004'))
-      && (await c.priceLate()).eq(ethers.utils.parseEther('0.009')), 'ketiganya bergerak bersama');
+    ok((await c.priceOne()).eq(ethers.utils.parseEther('0.001'))
+      && (await c.priceTwo()).eq(ethers.utils.parseEther('0.004'))
+      && (await c.priceThree()).eq(ethers.utils.parseEther('0.009')), 'ketiganya bergerak bersama');
     ok((await keys('prices', '0.001', '0.004', '0.003', '--confirm')).code !== 0,
-      'tranche terakhir yang lebih murah ditolak');
+      'tangga harga yang turun ditolak');
     await keys('prices', '0.0007', '0.0017', '0.0033', '--confirm');
   }
 
   /* ═══════ opening the public mint ═══════ */
   head('mint publik');
   {
-    await keys('phase', 'public', '--confirm');
+    await keys('phase', '2', '--confirm');
     const c = at(buyer);
-    ok((await c.phase()) === 2, 'CLI benar-benar membuka fase Public');
+    ok((await c.phase()) === 2, 'CLI benar-benar membuka fase 2');
 
-    const price = await c.price();
+    const price = await c.currentPrice();
     await (await c.mintPublic(2, { value: price.mul(2) })).wait();
     ok((await c.balanceOf(buyer.address)).toNumber() === 2,
       'dompet lain berhasil mint dua key dengan harga yang dibaca dari kontrak');
@@ -259,38 +260,6 @@ const ROOT = path.join(__dirname, '..');
     try { await c.callStatic.mintPublic(1, { value: price.sub(1) }); }
     catch (e) { refused = e; }
     ok(refused !== null, 'bayar kurang satu wei ditolak');
-  }
-
-  /* ═══════ the allowlist, end to end ═══════ */
-  head('whitelist');
-  {
-    const listFile = path.join(OUT, 'allowlist.txt');
-    fs.writeFileSync(listFile, [listed.address, treasury.address, buyer.address].join('\n') + '\n');
-
-    const r = await keys('allowlist-root', listFile, '--confirm');
-    ok(r.code === 0, 'allowlist-root berjalan');
-    const proofsFile = path.join(OUT, 'proofs.json');
-    ok(fs.existsSync(proofsFile), 'bukti per alamat ditulis ke proofs.json');
-    const { root, proofs } = JSON.parse(fs.readFileSync(proofsFile, 'utf8'));
-    ok(await at(owner).allowlistRoot() === root, 'root yang ditulis sama dengan yang ada di chain');
-
-    await keys('phase', 'allowlist', '--confirm');
-    const c = at(listed);
-    const proof = proofs[listed.address.toLowerCase()];
-    ok(Array.isArray(proof), 'alamat terdaftar punya bukti di file');
-
-    await (await c.mintAllowlist(1, proof, { value: await c.allowlistPrice() })).wait();
-    ok((await c.balanceOf(listed.address)).toNumber() === 1,
-      'bukti dari file itu diterima kontrak — root, bukti dan situs sepakat');
-
-    const outsider = ethers.Wallet.createRandom().connect(provider);
-    await (await owner.connect(provider).sendTransaction({ to: outsider.address, value: 10n ** 17n })).wait();
-    let refused = null;
-    try {
-      await new ethers.Contract(at(owner).address, abi, outsider)
-        .callStatic.mintAllowlist(1, proof, { value: await c.allowlistPrice() });
-    } catch (e) { refused = e; }
-    ok(refused !== null, 'bukti orang lain tidak berlaku untuk dompet yang tidak terdaftar');
   }
 
   /* ═══════ commit and reveal ═══════ */
@@ -318,7 +287,7 @@ const ROOT = path.join(__dirname, '..');
       'commit kedua ditolak');
 
     const early = await keys('reveal', secret, '--confirm');
-    ok(early.code !== 0 && /fase masih Allowlist/.test(early.out),
+    ok(early.code !== 0 && /fase masih Phase 2/.test(early.out),
       'reveal ditolak selagi mint terbuka — dan CLI menyebut perintah untuk menutupnya');
 
     await keys('phase', 'closed', '--confirm');
@@ -360,7 +329,7 @@ const ROOT = path.join(__dirname, '..');
     const tier = await c.tierOf(1);
     ok(tier >= 1 && tier <= 3, `tier token #1 bisa dibaca setelah reveal (${tier})`);
 
-    const reopen = await keys('phase', 'public', '--confirm');
+    const reopen = await keys('phase', '3', '--confirm');
     ok(reopen.code !== 0 && /tidak bisa dibuka lagi/.test(reopen.out),
       'CLI menolak membuka mint lagi setelah seed terbit');
   }

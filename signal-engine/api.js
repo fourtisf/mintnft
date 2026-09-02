@@ -142,9 +142,9 @@ export function serve(store, {
 
     /* ── the mint ──
        Reads only. Whether an address may mint is decided here rather than in
-       the browser, because the allowlist proof lives here — but nothing about
-       this is a gate: the contract refuses a wallet that is not entitled, and
-       this route only saves the visitor from paying gas to find that out. */
+       the browser — but nothing about this is a gate: the contract refuses a
+       wallet that is not entitled, and this route only saves the visitor from
+       paying gas to find that out. */
     if (p === "/api/keys") return json(res, 200, keys.identity());
 
     if (p === "/api/keys/state") {

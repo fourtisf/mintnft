@@ -43,7 +43,7 @@ the most dangerous line in this file; it is gone.
 npm i
 node compile.js               # four contracts, all under the 24KB limit
 node parity.js                # must print 666 / 666
-node contracts/test-keys.js   # the mint, the allowlist, the cap, the reveal
+node contracts/test-keys.js   # the mint, the phases, the cap, the reveal
 node contracts/test-deploy.js # this runbook's own commands, against a real EVM
 node test-tier.js             # the backend's tier read reaches the real function
 node site/test-mint.mjs       # the calldata the page sends is what the ABI encodes
@@ -101,17 +101,15 @@ included.
 
 Three tranches, and the contract keeps all three:
 
-| | wei | at ETH $3,000 | who |
-|---|---|---|---|
-| `allowlistPrice` | 0.0007 ETH | ~$2 | anyone on the merkle root, in the Allowlist phase |
-| `price` | 0.0017 ETH | ~$5 | public, for the first `PUBLIC_STEP` (333) keys |
-| `priceLate` | 0.0033 ETH | ~$10 | public, for everything after that |
+| | wei | at ETH $3,000 |
+|---|---|---|
+| `priceOne` | 0.0007 ETH | ~$2 |
+| `priceTwo` | 0.0017 ETH | ~$5 |
+| `priceThree` | 0.0033 ETH | ~$10 |
 
-The step is enforced on-chain, priced one key at a time: buying five at 331 pays
-two at $5 and three at $10, because a per-transaction price would let a basket
-straddle the step and buy four cheap. `setPrices` refuses a late price below the
-public one — a schedule that falls partway through means whoever arrived first
-paid most.
+Flat inside a phase, so a basket cannot straddle a price change mid-transaction.
+`setPrices` refuses a ladder that falls — a schedule that drops partway through
+charges the earliest buyers the most.
 
 Robinhood Chain's gas token is ETH, so these are the same units a buyer already
 holds. The wei figures are today's arithmetic; the dollar figures are the
@@ -122,51 +120,35 @@ opening anything:
 node contracts/keys.js prices 0.0007 0.0017 0.0033 --confirm
 ```
 
-Allowlist, public, then the final tranche. All three move together so none is
-left stale, and the site prints them as literals in `site/index.html` — change
-them there too or the page quotes a price the contract will reject.
+Phase 1, 2 and 3. All three move together so none is left stale, and the site
+prints them as literals in `site/index.html` — change them there too or the page
+quotes a price the contract will reject.
 
-Both move together, so the allowlist can never be left at a stale figure while
-the public price moves. The site prints these numbers as literals in
+All three move together, so no phase is left at a stale figure while another
+moves. The site prints these numbers as literals in
 `site/index.html` and `site/assets/app.js` — change them there too, or the page
 quotes a price the contract will reject.
 
-## 3. Allowlist
+## 3. Opening and closing
 
-The leaf is `keccak256(abi.encodePacked(msg.sender))` and pairs hash in sorted
-order, which is what OpenZeppelin's `MerkleProof` verifies. `contracts/allowlist.js`
-produces both the root and each address's proof, and it is the same code
-`test-keys.js` checks against the on-chain verifier — do not generate the root
-with anything else.
+Three phases, every one of them public. There is no allowlist: anybody can mint
+in any open phase, and the only thing that changes between them is the price.
 
 ```bash
-node contracts/keys.js allowlist-root allowlist.txt --confirm
-# -> out/proofs.json, and setAllowlistRoot on-chain
-```
-
-Then point the engine at that file:
-
-```
-ALLOWLIST_PROOFS=/opt/proof/signal-engine/proofs.json
-```
-
-The site asks `/api/keys/state?address=…` and is handed that address's proof if
-it has one. An address not in the file cannot mint, and a proof from one address
-does not work for another — the leaf is the caller, not an argument. If the file
-and the on-chain root disagree, the panel refuses and says so rather than
-handing out a proof that would fail in the wallet.
-
-Changing the root revokes the old list immediately. There is no way to add one
-address without republishing the whole root.
-
-## 4. Opening and closing
-
-```bash
-node contracts/keys.js phase allowlist --confirm
-node contracts/keys.js phase public --confirm
+node contracts/keys.js phase 1 --confirm   # ~$2
+node contracts/keys.js phase 2 --confirm   # ~$5
+node contracts/keys.js phase 3 --confirm   # ~$10
 node contracts/keys.js phase closed --confirm
-node contracts/keys.js state              # what the chain actually says
+node contracts/keys.js state               # what the chain actually says
 ```
+
+You decide when each one opens; nothing moves on its own. The supply figures on
+the site (111 / 222 / 333) are the plan, not a rule the contract enforces —
+watch `state` and open the next phase when you want to.
+
+Phases only climb. Going back to a cheaper one after the dearer one has run
+would let whoever waited buy under the people who showed up first, so the
+contract refuses it. Closing is always allowed, so a mint can be paused.
 
 `seasonCap` starts at 666 and bounds **every** mint path, the treasury's
 included. Raising it is `openSeason(newCap)`, one direction only, never past
@@ -226,7 +208,6 @@ KEYS_CONTRACT=0x…
 KEYS_RPC=https://rpc.mainnet.chain.robinhood.com
 KEYS_CHAIN_ID=4663
 KEYS_EXPLORER=https://robinhoodchain.blockscout.com
-ALLOWLIST_PROOFS=/opt/proof/signal-engine/proofs.json
 ```
 
 On the testnet those are `46630` and
@@ -245,7 +226,7 @@ public queue, so alert on it.
 ## What is still unproven
 
 `contracts/test-deploy.js` runs every command above — deploy, phase, prices,
-allowlist-root, commit, reveal, withdraw — against a JSON-RPC node over a real
+commit, reveal, withdraw — against a JSON-RPC node over a real
 socket backed by a real EVM, with a second node standing in for Ethereum
 mainnet, including a reveal a hundred thousand blocks after the commit. So the
 commands work. What that cannot cover:
@@ -258,7 +239,7 @@ commands work. What that cannot cover:
 - `bestTierOf` gas is measured on a local EVM at a 661-token season.
 - The mint page has been tested against a stubbed wallet, not MetaMask.
 
-**Robinhood Chain testnet (46630) first, the whole cycle** — deploy, allowlist,
-mint, close, reveal — with a real Ethereum block as the seed's third ingredient.
+**Robinhood Chain testnet (46630) first, the whole cycle** — deploy, open each
+phase, mint, close, reveal — with a real Ethereum block as the seed's third ingredient.
 It costs a testnet faucet and an evening, and it is the only thing that turns
 the list above into experience.
