@@ -8,6 +8,12 @@
  * Convert to PNG with resvg-js if the platform needs a raster.
  */
 const esc = s => String(s ?? "").replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+
+/* Where a reader goes next, in one place. A card is a screenshot the moment it
+   is posted — it cannot be corrected afterwards the way a page can — so the
+   handles on it live here rather than being retyped into four layouts. */
+const SOCIAL = { site: "nekara.xyz", x: "@Nekaraxyz", tg: "t.me/nekaraxyz" };
+const handles = `${SOCIAL.site}  \u00b7  ${SOCIAL.x}  \u00b7  ${SOCIAL.tg}`;
 /* Some tokens are listed with the dollar already in the symbol — "$TAP" — and
    every surface here prefixes one of its own. Written as "$$TAP" on a social
    card, that is the first thing a reader notices, and it is the last thing you
@@ -80,7 +86,7 @@ export function siteCard(s, returnPct) {
   ${figs.map(([k, v], i) => `
   <text x="${64 + i * 272}" y="530" font-family="sans-serif" font-size="52" font-weight="700" fill="#F3F4F6">${esc(v)}</text>
   <text x="${64 + i * 272}" y="566" font-family="monospace" font-size="16" letter-spacing="2" fill="#585E68">${esc(k)}</text>`).join("")}
-  <text x="1136" y="566" text-anchor="end" font-family="monospace" font-size="18" fill="#585E68">nekara.xyz</text>
+  <text x="1136" y="566" text-anchor="end" font-family="monospace" font-size="16" fill="#585E68">${handles}</text>
 </svg>`;
 }
 
@@ -169,7 +175,7 @@ export function bannerCard(row) {
   ${reasons.length ? `<text x="1144" y="556" text-anchor="end" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">WHY IT FIRED \u00b7 ${row.score ?? 0}/100</text>
   <text x="1144" y="580" text-anchor="end" font-family="sans-serif" font-size="17" fill="#8C929C">${esc(reasons[0])}</text>` : ""}
   <text x="1144" y="608" text-anchor="end" font-family="monospace" font-size="13" fill="#4A5058">nekara.xyz/call/${row.seq ?? ""}</text>
-  <text x="56" y="608" font-family="monospace" font-size="13" fill="#4A5058">${s.observed ? `${s.points} observed marks \u00b7 peak is not a realised return` : "entry, peak and now \u2014 no series kept"}</text>
+  <text x="56" y="608" font-family="monospace" font-size="13" fill="#4A5058">${s.observed ? `${s.points} observed marks \u00b7 peak is not a realised return` : "entry, peak and now \u2014 no series kept"}  \u00b7  ${SOCIAL.x}  \u00b7  ${SOCIAL.tg}</text>
 </svg>`;
 }
 
@@ -245,7 +251,7 @@ export function digestCard(rows, s, { days = 7, cols = 3, max = 6 } = {}) {
   ${shown.map(tile).join("")}
 
   <text x="${PAD}" y="612" font-family="monospace" font-size="14" fill="#585E68">Every call is published with the conditions that fired it. Failed calls are never removed.</text>
-  <text x="1144" y="612" text-anchor="end" font-family="monospace" font-size="15" fill="#8C929C">nekara.xyz</text>
+  <text x="1144" y="612" text-anchor="end" font-family="monospace" font-size="13.5" fill="#8C929C">${handles}</text>
 </svg>`;
 }
 
@@ -358,7 +364,7 @@ export function boardCard(list, s, { days = 7, max = 10, title = "Highest ATH re
   ${shown.map(line).join("")}
 
   <text x="${PAD}" y="606" font-family="monospace" font-size="12.5" fill="#4A5058">Ranked on the high each call reached \u00b7 an ATH is not a realised return \u00b7 nothing is removed from the register</text>
-  <text x="1144" y="606" text-anchor="end" font-family="monospace" font-size="14" fill="#8C929C">nekara.xyz</text>
+  <text x="1144" y="606" text-anchor="end" font-family="monospace" font-size="13.5" fill="#8C929C">${handles}</text>
 </svg>`;
 }
 

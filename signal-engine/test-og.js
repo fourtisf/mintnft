@@ -12,7 +12,7 @@
  * no card — the preview is a leak of the same kind as an early feed row.
  */
 import { rmSync } from "node:fs";
-import { podiumCard, boardCard } from "./og.js";
+import { podiumCard, boardCard, bannerCard, digestCard } from "./og.js";
 import { FileStore } from "./store.js";
 import { start } from "./index.js";
 
@@ -196,6 +196,21 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
   ok(/nothing is removed from the register/.test(board),
     "the footer still points at the record the selection came out of");
   ok(/nekara\.xyz/.test(board), "with the address that reaches it");
+  /* A card is a screenshot the moment it is posted and cannot be corrected the
+     way a page can, so the handles are defined once and every layout draws the
+     same string. A stale handle on a card that has already been shared is not
+     recoverable. */
+  ok(/@Nekaraxyz/.test(board) && /t\.me\/nekaraxyz/.test(board),
+    "and both handles, so a reader who sees the image has somewhere to go");
+  const everywhere = [
+    ["board", board],
+    ["banner", bannerCard({ symbol: "X", chain: "solana", entryMc: 1e5, peakMc: 2e5, nowMc: 2e5,
+      peakX: 2, nowX: 2, verdict: "win", state: "settled", spark: [1e5, 2e5] })],
+    ["digest", digestCard(many.slice(0, 3), { calls: 20 }, { days: 7 })],
+  ];
+  for (const [name, svg] of everywhere)
+    ok(/@Nekaraxyz/.test(svg) && /t\.me\/nekaraxyz/.test(svg),
+      `the ${name} carries both handles too — one source, every layout`);
   ok(/an ATH is not a realised return/.test(board), "and the footer says what an ATH is not");
 
   /* The span has to match the figure too. "2× in 18m" on a card that ranks on

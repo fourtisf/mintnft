@@ -350,6 +350,19 @@ await waitFor("signing out drops back to public", () => feed.rooms[0].size >= 1)
 ok(feed.rooms[3].size === 0, "signing out gives the latency back");
 ok(btn.textContent === "Connect", "and offers the way in again");
 
+/* ── the brand links, which pointed at "#" on a live site ─────────────────── */
+console.log("\nTAUTAN MEREK");
+{
+  const links = [...doc.querySelectorAll("[data-social]")];
+  ok(links.length >= 2, `the header and footer carry social links (${links.length})`);
+  const shown = links.filter(a => !a.classList.contains("hide"));
+  ok(shown.length === links.length, "and none of them are hidden now the URLs are set");
+  ok(shown.every(a => /^https:\/\//.test(a.href)),
+    "each points at a real address rather than at \"#\", which teaches a reader the page is unfinished");
+  ok(shown.every(a => a.rel.includes("noopener")),
+    "opened without handing the destination a reference back to this window");
+}
+
 /* ── 9. the keys page may not sell what does not exist ──────────────────── */
 console.log("\nKEYS BELUM DIBUKA");
 doc.querySelector('#navLinks a[data-v="mint"]').dispatchEvent(new win.MouseEvent("click", { bubbles: true }));

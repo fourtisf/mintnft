@@ -1893,7 +1893,7 @@ if(readUrl()||deepCall)go("reg");
 /* The brand links, in one place. They pointed at "#" on a live site, which is
    worse than no icon: a reader who clicks one learns the page is unfinished.
    Fill these in and they work; leave one empty and it does not appear. */
-const SOCIAL={x:"",tg:""};
+const SOCIAL={x:"https://x.com/Nekaraxyz",tg:"https://t.me/nekaraxyz"};
 document.querySelectorAll("[data-social]").forEach(a=>{
   const url=SOCIAL[a.dataset.social];
   if(url){a.href=url;a.target="_blank";a.rel="noopener noreferrer"}
