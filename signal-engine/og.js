@@ -252,8 +252,16 @@ export function digestCard(rows, s, { days = 7, cols = 3, max = 6 } = {}) {
  * in the window, never over the ten drawn, and the subtitle says which of
  * which. A leaderboard is allowed to rank; it is not allowed to quietly become
  * the denominator.
+ *
+ * It ranks on the all-time high and carries no per-row death marker, which is
+ * only honest because the title says ATH rather than profit. "The ones that
+ * paid" with the deaths stripped out would be a claim the rows cannot back —
+ * a token that touched 97× and went to 4% did not pay anybody who held. The
+ * high it reached is a fact; that the money is still there is not, and the
+ * title, the header's dead count and the footer all say so. Retitle this and
+ * the marker has to come back.
  */
-export function boardCard(list, s, { days = 7, max = 10, title = "The ones that paid" } = {}) {
+export function boardCard(list, s, { days = 7, max = 10, title = "Highest ATH reached" } = {}) {
   const shown = list.slice(0, max);
   const PAD = 56, COLW = 520, GAP = 48;
   const per = Math.ceil(shown.length / 2) || 1;
@@ -266,16 +274,19 @@ export function boardCard(list, s, { days = 7, max = 10, title = "The ones that 
     const k = i - col * per;
     const x = PAD + col * (COLW + GAP);
     const y = 182 + k * RH;
-    /* Ranked on peak, so peak is the figure printed. Showing the now multiple
-       on a dead row instead put 0.04× at rank five above a 2.19× at rank six,
-       which reads as a broken sort rather than as a warning. The warning has
-       its own line underneath, carrying the multiple it fell to. */
-    const mult = r.peakX ?? 1;
-    const now = r.nowX ?? 1;
+    /* The all-time high, which is what this card claims to rank. peakX stops
+       at settle by design, so a call that ran further afterwards was being
+       under-reported; peakAllMc is the highest value ever observed and is kept
+       for exactly this. Ranked and printed on the same figure — printing the
+       now multiple instead put 0.04× at rank five above a 2.19× at rank six,
+       which reads as a broken sort rather than as a warning.
+       There is no per-row death marker: this card's claim is the high each
+       call reached, which stays true whatever happened next. What it must not
+       do is imply the money is still there, and that is the title's job and
+       the header's — see the note on boardCard. */
+    const mult = r.peakAllX ?? r.peakX ?? 1;
     const c = mult >= 1.02 ? "url(#g)" : mult <= 0.98 ? "#E5606B" : "#8C929C";
-    const fell = r.isDead ? `DIED AFTER \u00b7 NOW ${now.toFixed(2)}\u00d7`
-               : now < 1 ? `NOW ${now.toFixed(2)}\u00d7` : null;
-    const sp = series(r, { x: x + COLW - 246, y: y + 8, w: 116, h: 34 });
+    const sp = series(r, { x: x + COLW - 246, y: y + 10, w: 116, h: 32 });
     const took = dur(r.secondsTo2x);
     return `
   <g>
@@ -285,7 +296,6 @@ export function boardCard(list, s, { days = 7, max = 10, title = "The ones that 
     <path d="${sp.line}" fill="none" stroke="${c}" stroke-width="3.4" filter="url(#glow)" opacity=".7"/>
     <path d="${sp.line}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
     <text x="${x + COLW}" y="${y + 34}" text-anchor="end" font-family="sans-serif" font-size="27" font-weight="700" letter-spacing="-.8" fill="${c}">${mult.toFixed(2)}\u00d7</text>
-    ${fell ? `<text x="${x + COLW}" y="${y + 50}" text-anchor="end" font-family="monospace" font-size="9.5" letter-spacing="1.3" fill="${r.isDead ? "#E5606B" : "#8C929C"}">${fell}</text>` : ""}
     ${k < per - 1 && i !== shown.length - 1 ? `<line x1="${x}" y1="${y + RH - 8}" x2="${x + COLW}" y2="${y + RH - 8}" stroke="rgba(255,255,255,.055)"/>` : ""}
   </g>`;
   };
@@ -323,7 +333,7 @@ export function boardCard(list, s, { days = 7, max = 10, title = "The ones that 
 
   ${shown.map(line).join("")}
 
-  <text x="${PAD}" y="606" font-family="monospace" font-size="12.5" fill="#4A5058">Ranked on peak \u00b7 sold at 2× is the published rule \u00b7 every failed call stays on the register</text>
+  <text x="${PAD}" y="606" font-family="monospace" font-size="12.5" fill="#4A5058">Ranked on the high each call reached \u00b7 an ATH is not a realised return \u00b7 nothing is removed from the register</text>
   <text x="1144" y="606" text-anchor="end" font-family="monospace" font-size="14" fill="#8C929C">nekara.xyz</text>
 </svg>`;
 }

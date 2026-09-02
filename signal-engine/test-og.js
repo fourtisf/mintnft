@@ -177,11 +177,22 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
   }));
   const board = podiumCard(many, { calls: 20, hitRate: 0.45, dead: 3 }, { days: 7, max: 10 });
   ok(/T0[\s\S]*T8/.test(board), "all nine are on the board");
-  ok(board.includes("9.00\u00d7"), "ranked and printed on peak");
-  ok(/DIED AFTER \u00b7 NOW 0\.04\u00d7/.test(board),
-    "and the one that died carries where it fell to, on its own line");
-  ok(!/>0\.04\u00d7<\/text>[\s\S]{0,40}font-size="27"/.test(board),
-    "never as the ranked figure itself, which would read as a broken sort");
+  ok(board.includes("9.00\u00d7"), "ranked and printed on the same figure");
+  ok(!board.includes("0.04\u00d7"),
+    "the board prints highs, not where a call ended — a 0.04× among ranked ATHs reads as a broken sort");
+
+  /* The board carries no per-row death marker, and that is only honest while
+     its title says ATH rather than profit. These three are what stand in for
+     it, and a change that drops any of them has to bring the marker back. */
+  ok(/Highest ATH reached/.test(board), "its title claims a high, not a return");
+  ok(/>3</.test(board) && /DEAD/.test(board), "the dead count is on the card");
+  ok(/an ATH is not a realised return/.test(board), "and the footer says what an ATH is not");
+  ok(/9 of 20 calls/.test(board), "with the denominator, as everywhere else");
+
+  // The hero layout does say "the ones that paid", so there the marker stays.
+  const heroCard = podiumCard(many.slice(0, 5), { calls: 20, hitRate: 0.45, dead: 3 }, { days: 7, max: 5 });
+  ok(/The ones that paid/.test(heroCard) && /DIED AFTER/.test(heroCard),
+    "a card that claims profit still marks the win that died");
 }
 
 console.log("\nKARTU SITUS");

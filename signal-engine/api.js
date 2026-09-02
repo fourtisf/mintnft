@@ -259,8 +259,10 @@ export function serve(store, {
       const n = Math.min(10, Math.max(1, Number(url.searchParams.get("n")) || 5));
       const cut = Date.now() - days * 864e5;
       const inWindow = rows.filter(r => Date.parse(r.firedAt) > cut);
-      const wins = inWindow.filter(r => r.verdict === "win")
-        .sort((a, b) => (b.peakX ?? 0) - (a.peakX ?? 0));
+      // Ranked on the all-time high, which is what the card prints. peakX stops
+      // at settle; peakAllX is the highest value ever observed.
+      const ath = r => r.peakAllX ?? r.peakX ?? 0;
+      const wins = inWindow.filter(r => r.verdict === "win").sort((a, b) => ath(b) - ath(a));
       const svg = podiumCard(wins, stats(inWindow, days), { days, max: n });
       const cache = "public, max-age=300";
       if (p.endsWith(".png")) {
