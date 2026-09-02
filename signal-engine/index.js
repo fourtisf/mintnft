@@ -58,8 +58,9 @@ export function start({ store = new FileStore(), port = 8787,
                         secret = process.env.SESSION_SECRET,
                         domain = process.env.AUTH_DOMAIN ?? "localhost",
                         // No key contract configured means nobody is above public.
-                        tierSource = process.env.KEYS_CONTRACT && process.env.BASE_RPC
-                          ? new ChainTierSource({ rpcUrl: process.env.BASE_RPC,
+                        tierSource = process.env.KEYS_CONTRACT
+                                     && (process.env.KEYS_RPC || process.env.BASE_RPC)
+                          ? new ChainTierSource({ rpcUrl: process.env.KEYS_RPC || process.env.BASE_RPC,
                                                   contract: process.env.KEYS_CONTRACT, log })
                           : new StaticTierSource(),
                         // The paid ladder is the promise and stays where it is: Tier III as

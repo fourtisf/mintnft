@@ -9,7 +9,11 @@
  * minutes wide on Base, and a dry run you can read in ten seconds is what lets
  * you send the real one without hesitating.
  *
- *   DEPLOY_RPC=https://…  DEPLOY_PK=0x…  node contracts/keys.js state
+ *   DEPLOY_RPC=https://rpc.mainnet.chain.robinhood.com  DEPLOY_PK=0x…
+ *   ETH_RPC=https://…      an Ethereum mainnet endpoint, for the seed's second
+ *                          ingredient. Read-only; nothing is ever sent to it.
+ *
+ *   node contracts/keys.js state
  *   … node contracts/keys.js deploy --owner 0x… --confirm
  *   … node contracts/keys.js phase public --confirm
  *
@@ -44,6 +48,42 @@ function wallet() {
   if (!pk) return { provider, signer: null };
   if (!/^0x[0-9a-fA-F]{64}$/.test(pk)) die('DEPLOY_PK bukan private key 32 byte');
   return { provider, signer: new ethers.Wallet(pk, provider) };
+}
+
+/* ─────────── Ethereum mainnet, read only ─────────── */
+
+/**
+ * The season seed mixes in the hash of an Ethereum mainnet block whose number
+ * was fixed before that block existed. Robinhood Chain cannot read it — Nitro's
+ * blockhash() is not sourced from L1 and its own documentation calls it
+ * cryptographically insecure — so the value is fetched here and submitted at
+ * reveal, and the contract stores it for anyone to check against any Ethereum
+ * node. This function is the operator's half of that; the reader's half is one
+ * eth_getBlockByNumber away and needs nothing from us.
+ */
+async function ethMainnet() {
+  const url = env('ETH_RPC');
+  if (!url) die('ETH_RPC belum diisi — seed musim butuh satu blok Ethereum mainnet, '
+    + 'dan tanpa endpoint itu tidak ada yang bisa dibaca');
+  const call = async (method, params) => {
+    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message);
+    return j.result;
+  };
+  const chainId = Number(await call('eth_chainId', []));
+  if (chainId !== 1) {
+    die(`ETH_RPC menunjuk ke chain ${chainId}, bukan Ethereum mainnet (1). `
+      + 'Seed harus berpegang pada rantai yang bisa dicek siapa pun.');
+  }
+  return {
+    head: async () => Number(await call('eth_blockNumber', [])),
+    hashOf: async n => {
+      const b = await call('eth_getBlockByNumber', ['0x' + Number(n).toString(16), false]);
+      return b ? b.hash : null;
+    },
+  };
 }
 
 /* ─────────── artifacts ─────────── */
@@ -178,10 +218,11 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
 
 async function cmdState({ provider, signer }, chainId, argv) {
   const c = await keysContract(provider, null, chainId, argv.at);
-  const [phase, price, allowPrice, minted, cap, revealed, root, commit, revealBlock, recommits] =
+  const [phase, price, allowPrice, minted, cap, revealed, root, commit, ethBlock, entropy, recommits] =
     await Promise.all([
       c.phase(), c.price(), c.allowlistPrice(), c.totalMinted(), c.seasonCap(),
-      c.revealed(), c.allowlistRoot(), c.seedCommit(), c.revealBlock(), c.recommitCount(),
+      c.revealed(), c.allowlistRoot(), c.seedCommit(), c.entropyBlock(),
+      c.mintEntropy(), c.recommitCount(),
     ]);
   const head = await provider.getBlockNumber();
 
@@ -193,16 +234,48 @@ async function cmdState({ provider, signer }, chainId, argv) {
   console.log(`  allowlist root   ${root === ethers.constants.HashZero ? 'belum diset' : root}`);
   console.log(`  saldo kontrak    ${eth(await provider.getBalance(c.address))} ETH`);
 
-  if (revealed) {
-    console.log(`  seed             sudah terbit (${await c.seed()})`);
-  } else if (commit === ethers.constants.HashZero) {
+  console.log(`  entropi mint     ${entropy}`);
+
+  if (commit === ethers.constants.HashZero) {
     console.log('  seed             belum ada komitmen');
+  } else if (!revealed) {
+    console.log(`  seed             dikomitkan, menunggu blok Ethereum ${ethBlock}`);
+    // Whether that block exists yet is the only thing standing between here and
+    // a reveal, and it is a fact, so read it rather than describe it.
+    if (env('ETH_RPC')) {
+      try {
+        const eth = await ethMainnet();
+        const now = await eth.head();
+        console.log(ethBlock.lte(now)
+          ? `  blok Ethereum    sudah ada (head ${now}) — reveal bisa dijalankan`
+          : `  blok Ethereum    belum ada (head ${now}, kurang ${ethBlock.sub(now)} blok, `
+            + `~${(ethBlock.sub(now).toNumber() * 12 / 60).toFixed(0)} menit)`);
+      } catch (e) { console.log(`  blok Ethereum    tidak terbaca — ${e.message}`); }
+    } else {
+      console.log('  blok Ethereum    ETH_RPC belum diisi, jadi belum diperiksa — bukan berarti siap');
+    }
   } else {
-    const left = revealBlock.add(256).sub(head).toNumber();
-    console.log(`  seed             dikomitkan, reveal di blok ${revealBlock}`);
-    console.log(`  jendela          ${left > 0 ? `${left} blok tersisa (~${(left * 2 / 60).toFixed(1)} menit di Base)` : 'SUDAH LEWAT — perlu recommitSeed'}`);
+    const [seed, secret, ethHash] = await Promise.all([c.seed(), c.seedSecret(), c.entropyHash()]);
+    console.log(`  seed             ${seed}`);
+    console.log(`  rahasia          ${secret}`);
+    console.log(`  blok Ethereum    ${ethBlock}`);
+    console.log(`  hash blok itu    ${ethHash}`);
+
+    // The audit anyone else can run, run here so a mismatch is found by us first.
+    const want = ethers.utils.solidityKeccak256(['bytes32', 'bytes32', 'bytes32'],
+      [secret, entropy, ethHash]);
+    console.log(`  hitung ulang     ${want === seed ? 'cocok' : 'TIDAK COCOK — seed bukan hasil bahan-bahan ini'}`);
+    console.log(`  komitmen         ${ethers.utils.keccak256(secret) === commit ? 'cocok' : 'TIDAK COCOK'}`);
+    if (env('ETH_RPC')) {
+      try {
+        const real = await (await ethMainnet()).hashOf(ethBlock.toNumber());
+        console.log(`  hash on-chain    ${real === ethHash ? 'cocok dengan Ethereum mainnet' : `TIDAK COCOK — Ethereum bilang ${real}`}`);
+      } catch (e) { console.log(`  hash on-chain    tidak terbaca — ${e.message}`); }
+    } else {
+      console.log('  hash on-chain    ETH_RPC belum diisi — belum diperiksa, dan itu bukan lulus');
+    }
   }
-  if (recommits.gt(0)) console.log(`  recommitCount    ${recommits}  (jendela pernah terlewat — ini terlihat publik)`);
+  if (recommits.gt(0)) console.log(`  recommitCount    ${recommits}  (komitmen pernah diganti, sebelum ada yang mint)`);
 }
 
 async function cmdAllowlistRoot(argv, ctx, chainId, confirm) {
@@ -244,16 +317,19 @@ function parseArgv(a) {
 const USAGE = `
   node contracts/keys.js <perintah> [--confirm]
 
-    state                          baca fase, harga, suplai, jendela reveal
+    state                          fase, harga, suplai, dan seed — termasuk
+                                   menghitung ulang seed yang sudah terbit
     deploy --owner 0x…             ProofParts -> ProofRenderer -> ProofKeys
     phase closed|allowlist|public  buka atau tutup mint
     prices <allowlistEth> <publicEth>
     allowlist-root addresses.txt   hitung root, tulis out/proofs.json, kirim
-    commit <secret> [--delay 10]   komitkan seed musim
+    commit <secret> [--ahead 600]  komitkan seed musim, dipatok ke satu blok
+                                   Ethereum mainnet yang belum ada
     reveal <secret>                buka seed (fase harus Closed)
     withdraw <alamat>              kirim seluruh saldo kontrak
 
-  env: DEPLOY_RPC (wajib), DEPLOY_PK (untuk mengirim), KEYS_CONTRACT (opsional)
+  env: DEPLOY_RPC (wajib), DEPLOY_PK (untuk mengirim), KEYS_CONTRACT (opsional),
+       ETH_RPC (Ethereum mainnet, hanya dibaca, untuk commit dan reveal)
   Tanpa --confirm setiap perintah hanya mencetak apa yang akan dikirim.
 `;
 
@@ -289,30 +365,61 @@ const USAGE = `
 
   if (cmd === 'commit') {
     const secret = argv._[1];
-    if (!secret) die('usage: keys.js commit <secret> [--delay 10]');
-    const delay = Number(argv.delay ?? 10);
+    if (!secret) die('usage: keys.js commit <secret> [--ahead 600]');
     const h = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(secret));
     const commitment = ethers.utils.keccak256(h);
+
+    // Far enough ahead that the block is still unmined when this lands, and
+    // that nobody can reorg their way to choosing it. 600 blocks is ~2 hours.
+    const ahead = Number(argv.ahead ?? 600);
+    if (!Number.isFinite(ahead) || ahead < 100) die('--ahead minimal 100 blok (~20 menit)');
+    const eth = await ethMainnet();
+    const target = (await eth.head()) + ahead;
+
     console.log('SIMPAN rahasia ini di luar repo. Tanpa itu seed tidak bisa dibuka,');
     console.log('dan koleksi tidak akan pernah punya tier.\n');
-    console.log(`  secret     ${secret}`);
-    console.log(`  komitmen   ${commitment}`);
-    console.log(`  delay      ${delay} blok (~${(delay * 2)} detik di Base)\n`);
-    return void await send('commitSeed', c, 'commitSeed', [commitment, delay], { confirm });
+    console.log(`  rahasia          ${secret}`);
+    console.log(`  komitmen         ${commitment}`);
+    console.log(`  blok Ethereum    ${target}  (~${(ahead * 12 / 3600).toFixed(1)} jam lagi)`);
+    console.log('\nSeed nanti = keccak(rahasia, entropi mint, hash blok Ethereum itu).');
+    console.log('Blok itu belum ada, jadi tidak ada yang bisa digiling di muka —');
+    console.log('dan setelah terbit, siapa pun bisa mencocokkannya ke node Ethereum.\n');
+    return void await send('commitSeed', c, 'commitSeed', [commitment, target], { confirm });
   }
 
   if (cmd === 'reveal') {
     const secret = argv._[1];
     if (!secret) die('usage: keys.js reveal <secret>');
     const h = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(secret));
+
+    const commit = await c.seedCommit();
+    if (commit === ethers.constants.HashZero) die('belum ada komitmen — jalankan commit dulu');
+    if (ethers.utils.keccak256(h) !== commit)
+      die('rahasia ini tidak cocok dengan komitmen yang ada di chain. Salah kalimat?');
+
     const phase = await c.phase();
     if (phase !== 0) die(`fase masih ${PHASE_NAME[phase]} — tutup mint dulu: keys.js phase closed --confirm`);
-    const head = await ctx.provider.getBlockNumber();
-    const rb = (await c.revealBlock()).toNumber();
-    if (head <= rb) die(`terlalu awal — tunggu sampai blok ${rb} (sekarang ${head})`);
-    if (head > rb + 256) die(`jendela sudah lewat di blok ${rb + 256} (sekarang ${head}) — perlu recommitSeed`);
-    console.log(`jendela: ${rb + 256 - head} blok tersisa\n`);
-    return void await send('reveal', c, 'reveal', [h], { confirm });
+
+    const target = (await c.entropyBlock()).toNumber();
+    const eth = await ethMainnet();
+    const now = await eth.head();
+    if (target > now) {
+      die(`blok Ethereum ${target} belum ada (head ${now}). `
+        + `Kurang ${target - now} blok, sekitar ${((target - now) * 12 / 60).toFixed(0)} menit.`);
+    }
+    const ethHash = await eth.hashOf(target);
+    if (!ethHash) die(`node Ethereum tidak punya blok ${target} — coba endpoint arsip`);
+
+    const entropy = await c.mintEntropy();
+    const willBe = ethers.utils.solidityKeccak256(['bytes32', 'bytes32', 'bytes32'],
+      [h, entropy, ethHash]);
+    console.log(`  blok Ethereum    ${target}`);
+    console.log(`  hash blok itu    ${ethHash}`);
+    console.log(`  entropi mint     ${entropy}`);
+    console.log(`  seed jadinya     ${willBe}`);
+    console.log('\nKetiga bahan itu tersimpan on-chain setelah ini, jadi siapa pun bisa');
+    console.log('menghitung ulang baris di atas dan mencocokkan hash-nya ke Ethereum.\n');
+    return void await send('reveal', c, 'reveal', [h, ethHash], { confirm });
   }
 
   if (cmd === 'withdraw') {

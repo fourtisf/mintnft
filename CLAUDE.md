@@ -192,14 +192,15 @@ continuing. Everything else is recoverable; that one is not.
 6. **The contracts have never touched a real chain.** Same shape of gap as #1
    and just as load-bearing. The tooling is now complete and tested —
    `contracts/keys.js` deploys and administers, `contracts/test-deploy.js` runs
-   every one of its commands against a JSON-RPC node over a real socket, and
-   `site/test-mint.mjs` proves the calldata the page hands a wallet is what the
-   compiled ABI encodes. All of it against `@ethereumjs/vm`: a real EVM, not a
-   real network. Block times, fee markets, reorgs and RPC failures are absent,
-   and the reveal window — about eight and a half minutes on Base — is the one
-   deadline none of it has met for real. **Base Sepolia, the whole cycle, before
-   mainnet.** `recommitCount` is now read by `/api/keys/state`, but the Keys page
-   does not print it yet.
+   every one of its commands against a JSON-RPC node over a real socket — with a
+   second node standing in for Ethereum mainnet, since the seed depends on it —
+   and `site/test-mint.mjs` proves the calldata the page hands a wallet is what
+   the compiled ABI encodes. All of it against `@ethereumjs/vm`: a real EVM, not
+   a real network. Block times, fee markets, reorgs, RPC failures and Robinhood
+   Chain's own sequencer are absent. **Robinhood Chain testnet (46630), the whole
+   cycle, before mainnet.** `recommitCount` is read by `/api/keys/state`, but the
+   Keys page does not print it, and neither are the seed's published ingredients
+   shown there yet — today verifying the tier draw means reading the contract.
 7. **Nothing is anchored.** The chain is internally consistent and has never
    been published, so it is not independently verifiable — `/api/verify` says
    exactly that and the site now repeats it rather than printing an anchor date
@@ -240,8 +241,23 @@ continuing. Everything else is recoverable; that one is not.
 - Tier distribution is **probabilistic with published odds** (9.91 / 30.03 /
   60.06), not fixed counts. Site copy must say odds. Fixed counts would need a
   shuffle and the two claims together are a contradiction.
-- The season seed mixes the committed secret with `blockhash(revealBlock)`.
-  Commit-reveal alone lets a deployer grind outcomes offline before committing.
+- **The chain is Robinhood Chain** (mainnet 4663, testnet 46630), which runs
+  Arbitrum Nitro. That is not a deployment detail: on Nitro `block.number` is an
+  estimate of the *Ethereum* block number and `blockhash()` is documented as
+  cryptographically insecure and not sourced from L1. Anything resting on either
+  is wrong here even though it is right on Ethereum and on the OP Stack.
+- The season seed is `keccak256(secret, mintEntropy, entropyHash)`. Commit-reveal
+  alone lets a deployer grind outcomes offline before committing, so two things
+  they cannot have at commit time are mixed in: `mintEntropy`, folded forward by
+  every mint, and the hash of an Ethereum mainnet block whose *number* is fixed
+  in the commitment before that block exists. The chain cannot read Ethereum, so
+  that hash is submitted at reveal and stored along with the secret — the
+  contract cannot check it and **anyone else can**, with one call to any
+  Ethereum node, which is the same shape as the rest of this product. There is
+  no reveal deadline: nothing in the seed decays.
+- `recommitSeed` works only while `totalMinted == 0`. After the first mint the
+  deployer can compute what the seed would be, so a second commitment there is a
+  reroll whatever it was meant for.
 - **One supply number, `seasonCap`, bounds every mint path** — public,
   allowlist and treasury alike. It starts at 666 and only `openSeason()` raises
   it, never past `MAX_SUPPLY`, always with an event. `mintReserved` used to

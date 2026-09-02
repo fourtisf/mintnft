@@ -34,9 +34,18 @@ const ROOT = path.join(__dirname, '..');
   const treasury = ethers.Wallet.createRandom();
 
   const rpc = await startTestRpc({
-    chainId: 84532,                                   // Base Sepolia's id
+    chainId: 46630,                                   // Robinhood Chain testnet
     fund: [owner, buyer, listed].map(w => ({ address: w.address, balance: 10n ** 19n })),
   });
+  // The seed's second ingredient is an Ethereum mainnet block, which this chain
+  // cannot read. keys.js fetches it over ETH_RPC, so the test needs one that
+  // answers like mainnet — including "that block does not exist yet".
+  const l1 = await startTestRpc({ chainId: 1 });
+  const l1Get = async (method, params = []) => {
+    const r = await fetch(l1.url, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+    return (await r.json()).result;
+  };
   const provider = new ethers.providers.JsonRpcProvider(rpc.url);
   provider.pollingInterval = 10;
 
@@ -46,13 +55,13 @@ const ROOT = path.join(__dirname, '..');
     execFile('node', [path.join(__dirname, 'keys.js'), ...args], {
       cwd: ROOT,
       env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
-             DEPLOY_POLL_MS: '10', KEYS_OUT: OUT, KEYS_CONTRACT: '' },
+             ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT, KEYS_CONTRACT: '' },
     }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
   });
 
   const abi = artifact(compile(['ProofKeys.sol', 'ProofParts.sol', 'ProofRenderer.sol']),
     'ProofKeys.sol', 'ProofKeys').abi;
-  const deployedPath = path.join(OUT, 'keys.84532.json');
+  const deployedPath = path.join(OUT, 'keys.46630.json');
   const at = who => new ethers.Contract(JSON.parse(fs.readFileSync(deployedPath, 'utf8')).keys,
     abi, who.connect(provider));
 
@@ -83,7 +92,7 @@ const ROOT = path.join(__dirname, '..');
   {
     const r = await keys('deploy', '--owner', owner.address, '--confirm');
     ok(r.code === 0, 'deploy --confirm berhasil');
-    ok(fs.existsSync(deployedPath), `alamat tersimpan di keys.84532.json`);
+    ok(fs.existsSync(deployedPath), 'alamat tersimpan di keys.46630.json');
     const rec = JSON.parse(fs.readFileSync(deployedPath, 'utf8'));
     keysAddr = rec.keys;
     ok(/^0x[0-9a-fA-F]{40}$/.test(rec.parts) && /^0x[0-9a-fA-F]{40}$/.test(rec.renderer)
@@ -190,28 +199,66 @@ const ROOT = path.join(__dirname, '..');
   head('commit dan reveal');
   {
     const secret = 'musim-satu-rahasia';
-    const dry = await keys('commit', secret, '--delay', '5');
+    const c = at(owner);
+
+    const dry = await keys('commit', secret, '--ahead', '600');
     ok(dry.code === 0 && /SIMPAN rahasia/.test(dry.out),
       'commit memperingatkan untuk menyimpan rahasianya sebelum mengirim apa pun');
+    ok(/blok Ethereum\s+\d+/.test(dry.out),
+      'dan menyebut blok Ethereum mana yang akan dipatok, sebelum blok itu ada');
 
-    await keys('commit', secret, '--delay', '5', '--confirm');
-    const c = at(owner);
+    ok((await keys('commit', secret, '--ahead', '10')).code !== 0,
+      '--ahead terlalu dekat ditolak: blok yang hampir ada bukan blok yang tak terduga');
+
+    await keys('commit', secret, '--ahead', '600', '--confirm');
     ok(await c.seedCommit() !== ethers.constants.HashZero, 'komitmen tersimpan di chain');
+    const target = (await c.entropyBlock()).toNumber();
+    ok(target > Number(await l1Get('eth_blockNumber')),
+      `blok Ethereum ${target} masih di masa depan saat dikomitkan`);
+
+    ok((await keys('commit', secret, '--ahead', '600', '--confirm')).code !== 0,
+      'commit kedua ditolak');
 
     const early = await keys('reveal', secret, '--confirm');
     ok(early.code !== 0 && /fase masih Allowlist/.test(early.out),
       'reveal ditolak selagi mint terbuka — dan CLI menyebut perintah untuk menutupnya');
 
     await keys('phase', 'closed', '--confirm');
-    const tooSoon = await keys('reveal', secret, '--confirm');
-    ok(tooSoon.code !== 0 && /terlalu awal/.test(tooSoon.out), 'reveal sebelum blok-nya ditolak');
 
-    rpc.mine(6);
+    const notYet = await keys('reveal', secret, '--confirm');
+    ok(notYet.code !== 0 && /belum ada/.test(notYet.out),
+      'reveal ditolak selagi blok Ethereum-nya belum ada, dan menyebut kurang berapa');
+
+    const wrong = await keys('reveal', 'rahasia-yang-salah', '--confirm');
+    ok(wrong.code !== 0 && /tidak cocok dengan komitmen/.test(wrong.out),
+      'rahasia salah ditolak sebelum menyentuh jaringan');
+
     const st = await keys('state');
-    ok(/jendela\s+\d+ blok tersisa/.test(st.out), 'state menghitung sisa jendela reveal');
+    ok(/blok Ethereum\s+belum ada/.test(st.out), 'state mengatakan blok itu belum ada');
+
+    l1.mine(700);                                  // Ethereum moves on
+    const ready = await keys('state');
+    ok(/reveal bisa dijalankan/.test(ready.out), 'setelah bloknya ada, state bilang siap');
 
     const r = await keys('reveal', secret, '--confirm');
-    ok(r.code === 0 && await c.revealed(), 'reveal berhasil di dalam jendela');
+    ok(r.code === 0 && await c.revealed(), 'reveal berhasil');
+
+    // The audit an outsider runs, run here against the same two sources.
+    const [seed, storedSecret, ethHash, entropy] =
+      await Promise.all([c.seed(), c.seedSecret(), c.entropyHash(), c.mintEntropy()]);
+    const real = (await l1Get('eth_getBlockByNumber', ['0x' + target.toString(16), false])).hash;
+    ok(ethHash === real, 'hash yang tersimpan sama dengan yang Ethereum sebut untuk blok itu');
+    ok(seed === ethers.utils.solidityKeccak256(['bytes32', 'bytes32', 'bytes32'],
+      [storedSecret, entropy, ethHash]),
+      'seed = keccak(rahasia, entropi mint, hash blok Ethereum) — dihitung ulang di luar kontrak');
+    ok(ethers.utils.keccak256(storedSecret) === await c.seedCommit(),
+      'dan rahasia yang diterbitkan memang yang dikomitkan sebelum mint dibuka');
+
+    const audit = await keys('state');
+    ok(/hitung ulang\s+cocok/.test(audit.out), 'state menghitung ulang seed-nya sendiri dan cocok');
+    ok(/hash on-chain\s+cocok dengan Ethereum mainnet/.test(audit.out),
+      'dan mencocokkan hash itu ke Ethereum, bukan mempercayainya');
+
     const tier = await c.tierOf(1);
     ok(tier >= 1 && tier <= 3, `tier token #1 bisa dibaca setelah reveal (${tier})`);
 
@@ -220,25 +267,27 @@ const ROOT = path.join(__dirname, '..');
       'CLI menolak membuka mint lagi setelah seed terbit');
   }
 
-  /* ═══════ the missed window, as the operator would meet it ═══════ */
-  head('jendela terlewat');
+  /* ═══════ no deadline left to miss ═══════ */
+  head('tidak ada tenggat lagi');
   {
+    // The old design had 256 blocks to reveal in — about eight minutes on Base,
+    // and the scariest line in the runbook. Nothing in the seed decays now.
     const OUT2 = fs.mkdtempSync(path.join(os.tmpdir(), 'nekara-keys2-'));
     const keys2 = (...args) => new Promise(resolve => {
       execFile('node', [path.join(__dirname, 'keys.js'), ...args], {
         cwd: ROOT,
         env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
-               DEPLOY_POLL_MS: '10', KEYS_OUT: OUT2, KEYS_CONTRACT: '' },
+               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT2, KEYS_CONTRACT: '' },
       }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
     });
     await keys2('deploy', '--owner', owner.address, '--confirm');
-    await keys2('commit', 'rahasia-kedua', '--delay', '5', '--confirm');
-    rpc.mine(300);
-    const st = await keys2('state');
-    ok(/SUDAH LEWAT/.test(st.out), 'state mengatakan jendela sudah lewat, tidak diam');
+    await keys2('commit', 'rahasia-kedua', '--ahead', '600', '--confirm');
+    l1.mine(100000);                              // ~two weeks of Ethereum
+    rpc.mine(100000);
     const r = await keys2('reveal', 'rahasia-kedua', '--confirm');
-    ok(r.code !== 0 && /jendela sudah lewat/.test(r.out) && /recommitSeed/.test(r.out),
-      'reveal menolak dan menyebut jalan keluarnya');
+    ok(r.code === 0, 'reveal seratus ribu blok kemudian tetap berhasil');
+    const rec = JSON.parse(fs.readFileSync(path.join(OUT2, 'keys.46630.json'), 'utf8'));
+    ok(await new ethers.Contract(rec.keys, abi, provider).revealed(), 'dan seed-nya terbit');
     fs.rmSync(OUT2, { recursive: true, force: true });
   }
 
@@ -259,6 +308,7 @@ const ROOT = path.join(__dirname, '..');
   }
 
   await rpc.close();
+  await l1.close();
   fs.rmSync(OUT, { recursive: true, force: true });
   console.log(`\n${failures ? failures + ' GAGAL' : 'semua lulus'}`);
   process.exit(failures ? 1 : 0);

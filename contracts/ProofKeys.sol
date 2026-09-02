@@ -58,16 +58,37 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     /// @dev Commit-reveal alone is not enough. A deployer who knows the secret
     ///      can grind millions of candidates offline, pick the one that hands
     ///      them the Tier III tokens they intend to buy, and only then commit.
+    ///      So the seed mixes the committed secret with two things the deployer
+    ///      does not have at commit time.
     ///
-    ///      So the final seed also mixes in the hash of a block that did not
-    ///      exist at commit time. At commit the deployer cannot know it; by
-    ///      reveal it is already fixed. Grinding buys nothing.
+    ///      The first is who actually mints. mintEntropy folds in every mint as
+    ///      it happens, and at commit the mint has not opened, so there is
+    ///      nothing to grind against.
     ///
-    ///      blockhash() only reaches back 256 blocks, so reveal has a window.
-    ///      Miss it and the commitment must be replaced and re-opened — which
-    ///      is visible on-chain, so it cannot be used quietly to reroll.
+    ///      The second is a block on Ethereum mainnet, whose number is fixed in
+    ///      the commitment and whose hash does not exist yet. That block is not
+    ///      readable from this chain, so it is submitted at reveal and stored —
+    ///      along with the secret — for anyone to check against any Ethereum
+    ///      node, forever. This contract cannot verify it; the point is that
+    ///      everybody else can, in one call, and a deployer who submitted a
+    ///      value that is not that block's hash is caught by arithmetic rather
+    ///      than trusted not to.
+    ///
+    ///      An earlier version used blockhash() on this chain instead. That is
+    ///      correct on Ethereum and on the OP Stack, and wrong here: Arbitrum
+    ///      Nitro — which Robinhood Chain runs — documents blockhash() as
+    ///      cryptographically insecure and not sourced from L1, and reports the
+    ///      L1 block number from block.number. A promise resting on it would
+    ///      have been a promise this chain does not keep.
     bytes32 public seedCommit;
-    uint256 public revealBlock;
+    /// @notice Ethereum mainnet block whose hash goes into the seed. Fixed at
+    ///         commit, before it exists.
+    uint256 public entropyBlock;
+    /// @notice Folded forward by every mint. Nobody knows it at commit time.
+    bytes32 public mintEntropy;
+    /// @notice Published at reveal so the whole seed can be recomputed by hand.
+    bytes32 public seedSecret;
+    bytes32 public entropyHash;
     uint256 public recommitCount;
     bytes32 public seed;
     bool    public revealed;
@@ -81,8 +102,9 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     /* ─────────── events ─────────── */
 
     event Minted(address indexed to, uint256 indexed tokenId, uint256 quantity);
-    event SeedCommitted(bytes32 commitment, uint256 revealBlock);
-    event Revealed(bytes32 seed, uint256 revealBlock, bytes32 blockHash);
+    event SeedCommitted(bytes32 commitment, uint256 entropyBlock);
+    event Revealed(bytes32 seed, bytes32 secret, bytes32 mintEntropy,
+                   uint256 entropyBlock, bytes32 entropyHash);
     event PhaseSet(Phase phase);
     event SeasonOpened(uint256 seasonCap);
     event PricesSet(uint256 allowlistPrice, uint256 publicPrice);
@@ -96,10 +118,8 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     error BadPayment();
     error NotAllowlisted();
     error AlreadyCommitted();
-    error BadDelay();
-    error TooEarly();
-    error WindowMissed();
-    error WindowStillOpen();
+    error BadBlock();
+    error MintingStarted();
     error AlreadyRevealed();
     error BadSeed();
     error NotRevealed();
@@ -145,6 +165,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
         mintedBy[to] += qty;
         uint256 first = totalMinted + 1;
         totalMinted += qty;
+        _fold(to, first, qty);
 
         for (uint256 i = 0; i < qty; i++) {
             _safeMint(to, first + i);
@@ -163,6 +184,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
 
         uint256 first = totalMinted + 1;
         totalMinted += qty;
+        _fold(to, first, qty);
 
         for (uint256 i = 0; i < qty; i++) _safeMint(to, first + i);
 
@@ -171,51 +193,72 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
 
     /* ─────────── reveal ─────────── */
 
-    /// @param commitment keccak256(abi.encodePacked(secret))
-    /// @param delay       blocks to wait before reveal becomes possible
-    function commitSeed(bytes32 commitment, uint256 delay) external onlyOwner {
+    /// @dev One line, called by every mint path. The values are cheap and none
+    ///      of them is chosen by the caller alone: the address is theirs, the
+    ///      position in the sequence is not.
+    function _fold(address to, uint256 first, uint256 qty) internal {
+        mintEntropy = keccak256(abi.encodePacked(
+            mintEntropy, to, first, qty, block.number, block.timestamp));
+    }
+
+    /// @param commitment   keccak256(abi.encodePacked(secret))
+    /// @param ethBlock     an Ethereum mainnet block number that has not been
+    ///                     produced yet. Choose it far enough ahead that it is
+    ///                     still in the future when this transaction lands.
+    function commitSeed(bytes32 commitment, uint256 ethBlock) external onlyOwner {
         if (seedCommit != bytes32(0)) revert AlreadyCommitted();
-        if (delay < 5) revert BadDelay();
+        if (ethBlock == 0) revert BadBlock();
         seedCommit = commitment;
-        revealBlock = block.number + delay;
-        emit SeedCommitted(commitment, revealBlock);
+        entropyBlock = ethBlock;
+        emit SeedCommitted(commitment, ethBlock);
     }
 
-    /// @notice Only usable if the 256-block window lapsed without a reveal.
-    ///         Emits an event, and recommitCount is public, so a deployer
-    ///         cannot reroll repeatedly without everyone seeing the counter.
-    function recommitSeed(bytes32 commitment, uint256 delay) external onlyOwner {
+    /// @notice Replaces a commitment that was made wrongly. Allowed only while
+    ///         nothing has been minted: after the first mint the deployer can
+    ///         compute what the seed would be, so a second commitment there
+    ///         would be a reroll, whatever it was meant for. recommitCount is
+    ///         public either way.
+    function recommitSeed(bytes32 commitment, uint256 ethBlock) external onlyOwner {
         if (revealed) revert AlreadyRevealed();
-        if (block.number <= revealBlock + 256) revert WindowStillOpen();
-        if (delay < 5) revert BadDelay();
+        if (totalMinted != 0) revert MintingStarted();
+        if (ethBlock == 0) revert BadBlock();
         seedCommit = commitment;
-        revealBlock = block.number + delay;
+        entropyBlock = ethBlock;
         recommitCount++;
-        emit SeedCommitted(commitment, revealBlock);
+        emit SeedCommitted(commitment, ethBlock);
     }
 
-    /// @notice Reveals the season seed. The secret is checked against the
-    ///         commitment, then mixed with a blockhash nobody could predict
-    ///         when that commitment was published.
+    /// @notice Reveals the season seed, and publishes every ingredient so the
+    ///         result can be recomputed by anyone:
+    ///
+    ///           seed = keccak256(secret, mintEntropy, entropyHash)
+    ///
+    ///         keccak256(secret) must equal the commitment made before the mint
+    ///         opened; mintEntropy is on this chain already; entropyHash is the
+    ///         hash of Ethereum mainnet block `entropyBlock`, which any node
+    ///         will confirm. This contract cannot check that last one — no
+    ///         contract here can — so it stores it instead of trusting it, and
+    ///         a wrong value is something a reader disproves rather than has to
+    ///         take on faith.
+    ///
     ///         Minting must already be closed. Once the seed is public every
     ///         token's tier is computable, so a mint left open after reveal
     ///         would let anyone — the treasury included — time a transaction
     ///         onto the id they want. That is the exact thing the commitment
     ///         exists to prevent, so the contract refuses rather than relying
     ///         on the operator remembering the order.
-    function reveal(bytes32 secret) external onlyOwner {
+    function reveal(bytes32 secret, bytes32 ethBlockHash) external onlyOwner {
         if (revealed) revert AlreadyRevealed();
         if (phase != Phase.Closed) revert WrongPhase();
-        if (block.number <= revealBlock) revert TooEarly();
-        if (block.number > revealBlock + 256) revert WindowMissed();
+        if (seedCommit == bytes32(0)) revert BadSeed();
         if (keccak256(abi.encodePacked(secret)) != seedCommit) revert BadSeed();
+        if (ethBlockHash == bytes32(0)) revert BadBlock();
 
-        bytes32 bh = blockhash(revealBlock);
-        if (bh == bytes32(0)) revert WindowMissed();
-
-        seed = keccak256(abi.encodePacked(secret, bh));
+        seedSecret = secret;
+        entropyHash = ethBlockHash;
+        seed = keccak256(abi.encodePacked(secret, mintEntropy, ethBlockHash));
         revealed = true;
-        emit Revealed(seed, revealBlock, bh);
+        emit Revealed(seed, secret, mintEntropy, entropyBlock, ethBlockHash);
     }
 
     /* ─────────── reads ─────────── */

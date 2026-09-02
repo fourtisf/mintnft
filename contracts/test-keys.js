@@ -325,44 +325,68 @@ async function main() {
     const k = await fresh();
     const secret = keccak256(Buffer.from('rahasia musim satu'));
     const commitment = keccak256(secret);
+    const ETH_BLOCK = 23500000n;                       // a mainnet block, later
+    const ETH_HASH = keccak256(Buffer.from('hash blok ethereum'));
 
-    ok((await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(4)]))).err === 'BadDelay',
-      'delay di bawah 5 blok ditolak');
-    ok((await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(10)]), { from: ALICE })).err === 'OwnableUnauthorizedAccount',
-      'commitSeed hanya untuk owner');
+    ok((await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(0)]))).err === 'BadBlock',
+      'blok Ethereum nol ditolak');
+    ok((await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(ETH_BLOCK)]), { from: ALICE }))
+      .err === 'OwnableUnauthorizedAccount', 'commitSeed hanya untuk owner');
 
-    const c = await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(10)]));
+    const c = await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(ETH_BLOCK)]));
     ok(c.ok && has(c.logs, 'SeedCommitted(bytes32,uint256)'), 'commitSeed memancarkan SeedCommitted');
-    const revealBlock = num(await send(k, 'revealBlock()'));
-    ok(revealBlock === 1010n, `revealBlock = blok sekarang + delay (${revealBlock})`);
-    ok((await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(10)]))).err === 'AlreadyCommitted',
-      'commit kedua ditolak — mengganti komitmen harus lewat recommitSeed yang terhitung');
+    ok(num(await send(k, 'entropyBlock()')) === ETH_BLOCK,
+      'nomor blok Ethereum terkunci di dalam komitmen, sebelum blok itu ada');
+    ok((await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(ETH_BLOCK)]))).err === 'AlreadyCommitted',
+      'commit kedua ditolak');
 
-    ok((await send(k, 'reveal(bytes32)', b32(secret))).err === 'TooEarly', 'reveal sebelum jendela ditolak');
+    // A commitment made wrongly can be replaced, but only before anyone mints.
+    const c2 = await send(k, 'recommitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(ETH_BLOCK + 10n)]));
+    ok(c2.ok && num(await send(k, 'recommitCount()')) === 1n,
+      'recommit sebelum ada yang mint diperbolehkan, dan terhitung publik');
 
-    block = at(1011);
-    ok((await send(k, 'reveal(bytes32)', b32(keccak256(Buffer.from('tebakan'))))).err === 'BadSeed',
-      'rahasia yang salah ditolak');
-    ok((await send(k, 'reveal(bytes32)', b32(secret), { from: ALICE })).err === 'OwnableUnauthorizedAccount',
-      'reveal hanya untuk owner');
-
-    // The new rule: minting must be shut before the seed is public.
     await send(k, 'setPhase(uint8)', u(2));
-    ok((await send(k, 'reveal(bytes32)', b32(secret))).err === 'WrongPhase',
+    await send(k, 'mintPublic(uint256)', u(2), { from: ALICE, value: PUBLIC * 2n });
+    ok((await send(k, 'recommitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(ETH_BLOCK)]))).err === 'MintingStarted',
+      'setelah key pertama tercetak, recommit adalah lempar ulang dadu — dan ditolak');
+
+    const entropyAfterMint = num(await send(k, 'mintEntropy()'));
+    ok(entropyAfterMint !== 0n, 'mint mengaduk entropi, jadi tidak ada yang bisa digiling di muka');
+
+    ok((await send(k, 'reveal(bytes32,bytes32)', Buffer.concat([b32(secret), b32(ETH_HASH)]))).err === 'WrongPhase',
       'reveal ditolak selama mint masih terbuka — kalau tidak, id Tier III bisa dipilih');
     await send(k, 'setPhase(uint8)', u(0));
 
-    ok((await send(k, 'recommitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(10)]))).err === 'WindowStillOpen',
-      'recommit selagi jendela terbuka ditolak');
+    ok((await send(k, 'reveal(bytes32,bytes32)',
+      Buffer.concat([b32(keccak256(Buffer.from('tebakan'))), b32(ETH_HASH)]))).err === 'BadSeed',
+      'rahasia yang salah ditolak');
+    ok((await send(k, 'reveal(bytes32,bytes32)', Buffer.concat([b32(secret), b32(Buffer.alloc(32))]))).err === 'BadBlock',
+      'hash blok kosong ditolak — reveal tanpa bahan kedua bukan reveal');
+    ok((await send(k, 'reveal(bytes32,bytes32)', Buffer.concat([b32(secret), b32(ETH_HASH)]), { from: ALICE }))
+      .err === 'OwnableUnauthorizedAccount', 'reveal hanya untuk owner');
 
-    const r = await send(k, 'reveal(bytes32)', b32(secret));
-    ok(r.ok && has(r.logs, 'Revealed(bytes32,uint256,bytes32)'), 'reveal berhasil di dalam jendela');
-    const seed = Buffer.from(num(await send(k, 'seed()')).toString(16).padStart(64, '0'), 'hex');
-    const want = keccak256(Buffer.concat([secret, blockHashOf(1010)]));
-    ok(seed.equals(want), 'seed = keccak(rahasia, blockhash(revealBlock)) — bukan rahasia saja');
-    ok(num(await send(k, 'revealed()')) === 1n, 'revealed = true');
-    ok((await send(k, 'reveal(bytes32)', b32(secret))).err === 'AlreadyRevealed', 'reveal kedua ditolak');
+    // No window, and that is the point: on this chain there is no deadline to
+    // miss, because nothing in the seed decays.
+    block = at(1000 + 5000);
+    const r = await send(k, 'reveal(bytes32,bytes32)', Buffer.concat([b32(secret), b32(ETH_HASH)]));
+    ok(r.ok && has(r.logs, 'Revealed(bytes32,bytes32,bytes32,uint256,bytes32)'),
+      'reveal berhasil ribuan blok setelah commit — tidak ada tenggat untuk terlewat');
 
+    const entropy = Buffer.from(entropyAfterMint.toString(16).padStart(64, '0'), 'hex');
+    const want = keccak256(Buffer.concat([secret, entropy, ETH_HASH]));
+    const got = Buffer.from(num(await send(k, 'seed()')).toString(16).padStart(64, '0'), 'hex');
+    ok(got.equals(want), 'seed = keccak(rahasia, entropi mint, hash blok Ethereum)');
+
+    // Everything needed to recompute that line is on-chain and public.
+    ok(Buffer.from(num(await send(k, 'seedSecret()')).toString(16).padStart(64, '0'), 'hex').equals(secret),
+      'rahasianya diterbitkan, jadi siapa pun bisa menghitung ulang');
+    ok(Buffer.from(num(await send(k, 'entropyHash()')).toString(16).padStart(64, '0'), 'hex').equals(ETH_HASH),
+      'hash blok Ethereum tersimpan, jadi siapa pun bisa mencocokkannya ke node mana pun');
+    ok(num(await send(k, 'entropyBlock()')) === ETH_BLOCK + 10n,
+      'dan nomor bloknya, yang dikunci sebelum blok itu ada');
+
+    ok((await send(k, 'reveal(bytes32,bytes32)', Buffer.concat([b32(secret), b32(ETH_HASH)]))).err === 'AlreadyRevealed',
+      'reveal kedua ditolak');
     ok((await send(k, 'setPhase(uint8)', u(2))).err === 'AlreadyRevealed',
       'mint tidak bisa dibuka lagi setelah seed terbit');
     ok((await send(k, 'setPhase(uint8)', u(0))).ok, 'setPhase ke Closed tetap boleh setelah reveal');
@@ -370,31 +394,38 @@ async function main() {
       'treasury pun tidak bisa mencetak setelah tier bisa dihitung');
   }
 
-  /* ═══════════════ the missed window ═══════════════ */
-  head('jendela 256 blok yang terlewat');
+  /* ═══════════════ the same secret, a different mint ═══════════════ */
+  head('entropi dari siapa yang mint');
   {
-    block = at(2000);
-    const k = await fresh();
-    const s1 = keccak256(Buffer.from('rahasia pertama'));
-    await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(keccak256(s1)), u(10)]));
+    // The whole reason the seed does not rest on this chain's blockhash: two
+    // seasons with the identical committed secret and the identical Ethereum
+    // block must still land on different seeds, because different people
+    // minted. That is what a deployer cannot know when they commit.
+    const secret = keccak256(Buffer.from('rahasia yang sama persis'));
+    const commitment = keccak256(secret);
+    const ETH_HASH = keccak256(Buffer.from('hash yang sama persis'));
 
-    block = at(2010 + 257);
-    ok((await send(k, 'reveal(bytes32)', b32(s1))).err === 'WindowMissed',
-      'reveal setelah 256 blok ditolak — blockhash sudah hilang');
+    const run = async buyers => {
+      block = at(6000);
+      const k = await fresh();
+      await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(commitment), u(23500000)]));
+      await send(k, 'setPhase(uint8)', u(2));
+      for (const [who, n] of buyers) {
+        await send(k, 'mintPublic(uint256)', u(n), { from: who, value: PUBLIC * BigInt(n) });
+      }
+      await send(k, 'setPhase(uint8)', u(0));
+      await send(k, 'reveal(bytes32,bytes32)', Buffer.concat([b32(secret), b32(ETH_HASH)]));
+      return num(await send(k, 'seed()'));
+    };
 
-    const s2 = keccak256(Buffer.from('rahasia kedua'));
-    ok((await send(k, 'recommitSeed(bytes32,uint256)', Buffer.concat([b32(keccak256(s2)), u(10)]), { from: ALICE }))
-      .err === 'OwnableUnauthorizedAccount', 'recommitSeed hanya untuk owner');
-    const rc = await send(k, 'recommitSeed(bytes32,uint256)', Buffer.concat([b32(keccak256(s2)), u(10)]));
-    ok(rc.ok && has(rc.logs, 'SeedCommitted(bytes32,uint256)'), 'recommit setelah jendela lewat diperbolehkan');
-    ok(num(await send(k, 'recommitCount()')) === 1n,
-      'recommitCount naik — deployer tidak bisa mengulang lempar dadu tanpa terlihat');
+    const a = await run([[ALICE, 2], [BOB, 1]]);
+    const b = await run([[CAROL, 2], [BOB, 1]]);
+    const c = await run([[ALICE, 1], [BOB, 2]]);
+    ok(a !== b, 'pembeli yang berbeda menghasilkan seed yang berbeda');
+    ok(a !== c, 'urutan dan jumlah yang berbeda juga');
 
-    block = at(2010 + 257 + 11);
-    ok((await send(k, 'reveal(bytes32)', b32(s1))).err === 'BadSeed', 'rahasia lama tidak lagi berlaku');
-    ok((await send(k, 'reveal(bytes32)', b32(s2))).ok, 'rahasia baru berhasil dibuka');
-    ok((await send(k, 'recommitSeed(bytes32,uint256)', Buffer.concat([b32(keccak256(s1)), u(10)]))).err === 'AlreadyRevealed',
-      'recommit setelah reveal ditolak');
+    const d = await run([[ALICE, 2], [BOB, 1]]);
+    ok(a === d, 'dan mint yang identik menghasilkan seed yang identik — bukan acak yang tidak bisa dihitung ulang');
   }
 
   /* ═══════════════ tier reads, the index, and gas ═══════════════ */
@@ -431,9 +462,9 @@ async function main() {
     ok(num(await send(k, 'totalMinted()')) === 661n, 'season hampir penuh (661)');
 
     const secret = keccak256(Buffer.from('musim tier'));
-    await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(keccak256(secret)), u(10)]));
-    block = at(3011);
-    ok((await send(k, 'reveal(bytes32)', b32(secret))).ok, 'seed terbit');
+    await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(keccak256(secret)), u(23500000)]));
+    ok((await send(k, 'reveal(bytes32,bytes32)',
+      Buffer.concat([b32(secret), b32(keccak256(Buffer.from('eth blok tier')))]))).ok, 'seed terbit');
 
     const seed = Buffer.from(num(await send(k, 'seed()')).toString(16).padStart(64, '0'), 'hex');
     const tierOfId = async id => {
@@ -509,9 +540,9 @@ async function main() {
 
     await send(k, 'setPhase(uint8)', u(0));
     const secret = keccak256(Buffer.from('uri'));
-    await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(keccak256(secret)), u(10)]));
-    block = at(4011);
-    await send(k, 'reveal(bytes32)', b32(secret));
+    await send(k, 'commitSeed(bytes32,uint256)', Buffer.concat([b32(keccak256(secret)), u(23500000)]));
+    await send(k, 'reveal(bytes32,bytes32)',
+      Buffer.concat([b32(secret), b32(keccak256(Buffer.from('eth blok uri')))]));
     const open = await read(1);
     ok(open.s && open.s.startsWith('data:application/json;base64,') && !open.s.includes('SEALED'),
       'setelah reveal token menyerahkan artwork sungguhan');

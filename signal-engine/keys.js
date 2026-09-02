@@ -68,9 +68,11 @@ export function loadProofs(file, log = console.log) {
 export class KeysReader {
   constructor({
     contract = process.env.KEYS_CONTRACT,
-    rpcUrl = process.env.BASE_RPC,
-    chainId = Number(process.env.KEYS_CHAIN_ID ?? 8453),
-    explorer = process.env.KEYS_EXPLORER ?? "https://basescan.org",
+    // KEYS_RPC is the name; BASE_RPC still works because it is what is already
+    // written in every .env this project has ever had.
+    rpcUrl = process.env.KEYS_RPC ?? process.env.BASE_RPC,
+    chainId = Number(process.env.KEYS_CHAIN_ID ?? 4663),
+    explorer = process.env.KEYS_EXPLORER ?? "https://robinhoodchain.blockscout.com",
     proofs = loadProofs(process.env.ALLOWLIST_PROOFS),
     fetchImpl = fetch,
     timeoutMs = 6000,

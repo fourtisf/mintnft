@@ -184,8 +184,10 @@ head("rute");
   const get = async p => { const r = await fetch(base + p); return { status: r.status, body: await r.json() }; };
 
   const id = await get("/api/keys");
-  ok(id.status === 200 && id.body.contract === CONTRACT && id.body.chainId === 8453,
+  ok(id.status === 200 && id.body.contract === CONTRACT && id.body.chainId === 4663,
     "/api/keys memberi alamat dan chain, supaya situs tidak menebaknya");
+  ok(id.body.selectors?.public && id.body.selectors?.allowlist,
+    "berikut selektor mint, diturunkan di sini dan tidak pernah diketik di browser");
 
   const st = await get(`/api/keys/state?address=${HOLDER}`);
   ok(st.status === 200 && st.body.state.canMint === true, "/api/keys/state menjawab untuk satu alamat");

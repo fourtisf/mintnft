@@ -107,7 +107,13 @@ async function startTestRpc({ chainId = 8453, fund = [], gasLimit = 60000000n } 
     net_version: () => String(chainId),
     eth_blockNumber: () => hex(height),
     eth_gasPrice: () => hex(GAS_PRICE),
-    eth_getBlockByNumber: ([tag]) => blockAt(tag === 'latest' || tag === 'pending' ? height : Number(tag)),
+    // null for a block that does not exist yet, the way a node answers. The
+    // seed's second ingredient is a future Ethereum block, and "not yet" has to
+    // be distinguishable from "here it is".
+    eth_getBlockByNumber: ([tag]) => {
+      const n = tag === 'latest' || tag === 'pending' ? height : Number(tag);
+      return n > height ? null : blockAt(n);
+    },
     eth_getBlockByHash: () => blockAt(height),
     eth_getBalance: async ([a]) => hex((await account(a)).balance),
     eth_getTransactionCount: async ([a]) => hex((await account(a)).nonce),

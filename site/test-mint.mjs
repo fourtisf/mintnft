@@ -33,7 +33,7 @@ const WALLET = "0x" + "11".repeat(20);
 const PRICE = "1500000000000000";        // 0.0015 ETH
 const ALLOW_PRICE = "500000000000000";   // 0.0005
 const PROOF = ["0x" + "aa".repeat(32), "0x" + "bb".repeat(32)];
-const CHAIN = 8453;
+const CHAIN = 4663;                      // Robinhood Chain
 
 /* The selectors the page is given come from the engine, which derives them. */
 const { MINT_SELECTORS } = await import("../signal-engine/keys.js");
@@ -44,7 +44,7 @@ const iface = new ethers.utils.Interface(
     "ProofKeys.sol", "ProofKeys").abi);
 
 const IDENTITY = { configured: true, contract: CONTRACT, chainId: CHAIN,
-                   explorer: "https://basescan.org", selectors: MINT_SELECTORS };
+                   explorer: "https://robinhoodchain.blockscout.com", selectors: MINT_SELECTORS };
 
 const baseState = over => ({
   phase: 2, phaseName: "public", price: PRICE, allowlistPrice: ALLOW_PRICE,
@@ -159,7 +159,7 @@ head("mint publik");
   ok(BigInt(tx.value) === BigInt(PRICE), "nilai = harga satuan");
   ok(tx.data === iface.encodeFunctionData("mintPublic", [1]).toLowerCase(),
     "calldata identik dengan encoder ABI kontrak yang dikompilasi");
-  ok(/Sent —/.test(p.msg()) && /basescan\.org/.test(p.el("mintMsg").innerHTML),
+  ok(/Sent —/.test(p.msg()) && /blockscout/.test(p.el("mintMsg").innerHTML),
     "hash-nya ditautkan ke explorer");
 }
 
@@ -222,7 +222,7 @@ head("jaringan salah, pindahnya ditolak");
   const p = await boot({ chainId: 1, switchFails: true });
   await p.mint();
   ok(p.sent.length === 0, "tidak ada transaksi yang dikirim ke jaringan yang salah");
-  ok(/Switch your wallet to chain 8453/.test(p.msg()), "dan pembacanya diberi tahu harus apa");
+  ok(/Switch your wallet to chain 4663/.test(p.msg()), "dan pembacanya diberi tahu harus apa");
 }
 
 /* ═══════════════ the reader says no ═══════════════ */
