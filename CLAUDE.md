@@ -123,6 +123,9 @@ node check-chain.js  # not a test: points the gates at a real token with a real 
                      # so wiring one is watched rather than assumed
 node test-hashversion.js  # rows written under an older hash scheme still verify
 node test-anchor.js  # what is built, published, refused, and provable to a third party
+node test-exits.js   # what an exit rule would really have returned, and that a
+                     # trailing stop is walked over observed prices rather than
+                     # handed 75% of a peak nobody sold at
 node test-mint.js    # what the mint panel is told, and what it is never told
 node test-pg.js      # the Postgres driver, if TEST_DATABASE_URL is set; skips loudly otherwise
 node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgres

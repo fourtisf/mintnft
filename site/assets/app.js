@@ -1208,17 +1208,35 @@ function openCall(id){
    round-trip cost, so the number on screen is what a person would have kept. */
 const FEE=0.05;
 let simX="2x",simSize=100;
+/* A trailing stop walked over the observed samples, not 75% of the final peak
+   handed out on every call — which is what this used to do, and which turned a
+   losing register into +426% on the page that says peak is a ceiling nobody
+   sold at. No series means no simulated exit, so the call falls back to where
+   it actually ended. */
+const TRAIL_DROP=.25;
+function trailExit(c,drop=TRAIL_DROP){
+  const now=nx(c),entry=c.entryMc,path=Array.isArray(c.spark)?c.spark:null;
+  if(!entry||!path||path.length<2)return{x:now,simulated:false};
+  let high=1;
+  for(const mc of path){
+    const x=mc/entry;
+    if(x>high)high=x;
+    if(x<=high*(1-drop))return{x,simulated:true};
+  }
+  return{x:now,simulated:true};
+}
 function exitMultiple(c,rule){
   const p=mult(c),n=nx(c);
   if(rule==="hold")  return n;
   if(rule==="2x")    return p>=2   ? 2   : n;
   if(rule==="1.5x")  return p>=1.5 ? 1.5 : n;
-  return n < p*0.75 ? p*0.75 : n;    // stopped out 25% off the peak
+  return trailExit(c).x;
 }
 function simulate(rule,size){
   const rows=[...calls].sort((a,b)=>a.at-b.at);
-  let eq=0,peak=0,dd=0; const curve=[0],pnl=[];
+  let eq=0,peak=0,dd=0,simulated=0; const curve=[0],pnl=[];
   for(const c of rows){
+    if(rule==="trail"&&trailExit(c).simulated)simulated++;
     const net=size*exitMultiple(c,rule)*(1-FEE)-size;
     eq+=net; pnl.push({c,net}); curve.push(eq);
     if(eq>peak)peak=eq;
@@ -1226,6 +1244,7 @@ function simulate(rule,size){
   }
   const invested=size*pnl.length;
   return {curve,result:eq,drawdown:dd,wins:pnl.filter(x=>x.net>0).length,n:pnl.length,
+          simulated:rule==="trail"?simulated:null,
           invested,returnPct:invested?eq/invested:0,
           avgPeak:rows.length?rows.reduce((a,c)=>a+mult(c),0)/rows.length:0};
 }

@@ -74,12 +74,50 @@ export function scoreBands(rows, width = 10) {
  */
 export const ROUND_TRIP_COST = 0.05;
 
+export const TRAIL_DROP = 0.25;
+
+/**
+ * A trailing stop, walked forward over the prices that were actually observed.
+ *
+ * It used to return max(now, peak * 0.75): three quarters of the highest value
+ * ever seen, credited on every call whether or not the price ever passed
+ * through that level on the way down. On a register whose average peak is 7x
+ * that turned a losing set of calls into +426%, on the page whose own subtitle
+ * says peak is a ceiling nobody sold at.
+ *
+ * The peak is now only known as it happens. The stop starts at entry, follows
+ * the running high, and fills at the first observed sample at or below it —
+ * which also means losers are stopped out near -25% instead of running to zero,
+ * because that is what a trailing stop does.
+ *
+ * Two honest limits. The series is sampled, not continuous, so a token that
+ * spiked and collapsed between two polls offers an exit here that nobody could
+ * have taken; and the fill is the sample we saw, with no slippage, on pairs
+ * where the exit itself moves the price. This is an upper bound on a trailing
+ * stop, not a backtest of one.
+ */
+export function trailExit(row, drop = TRAIL_DROP) {
+  const now = row.nowX ?? 1;
+  const entry = row.entryMc;
+  const path = Array.isArray(row.spark) ? row.spark : null;
+  // No series, no simulation. An exit we cannot evidence is never credited.
+  if (!entry || !path || path.length < 2) return { x: now, simulated: false };
+
+  let high = 1;
+  for (const mc of path) {
+    const x = mc / entry;
+    if (x > high) high = x;
+    if (x <= high * (1 - drop)) return { x, simulated: true };
+  }
+  return { x: now, simulated: true };            // never stopped out; still held
+}
+
 export function exitMultiple(row, rule = "2x") {
   const peak = row.peakX ?? 1, now = row.nowX ?? 1;
   if (rule === "hold") return now;
   if (rule === "2x") return peak >= 2 ? 2 : now;
   if (rule === "1.5x") return peak >= 1.5 ? 1.5 : now;
-  return now < peak * 0.75 ? peak * 0.75 : now;   // trailing stop, a quarter off the peak
+  return trailExit(row).x;
 }
 
 /** One call, one unit staked, after costs. Negative is a loss and says so. */
@@ -88,9 +126,13 @@ export const realised = (row, rule = "2x", cost = ROUND_TRIP_COST) =>
 
 export function exitSimulation(rows, { rule = "2x", size = 100, cost = ROUND_TRIP_COST } = {}) {
   const order = [...rows].sort((a, b) => Date.parse(a.firedAt) - Date.parse(b.firedAt));
-  let eq = 0, high = 0, drawdown = 0, wins = 0;
+  let eq = 0, high = 0, drawdown = 0, wins = 0, simulated = 0;
   const curve = [0];
   for (const r of order) {
+    // The trailing stop is the only rule that needs a price series, and it is
+    // the only one that can fail to have one. Counted, so the page can say on
+    // how many calls the exit was actually walked rather than assumed.
+    if (rule === "trail" && trailExit(r).simulated) simulated++;
     const net = size * realised(r, rule, cost);
     if (net > 0) wins++;
     eq += net;
@@ -101,6 +143,8 @@ export function exitSimulation(rows, { rule = "2x", size = 100, cost = ROUND_TRI
   const invested = size * order.length;
   return {
     rule, size, cost, n: order.length, wins, invested,
+    // For every other rule the question does not arise, so it is not answered.
+    simulated: rule === "trail" ? simulated : null,
     result: eq, drawdown, returnPct: invested ? eq / invested : 0,
     avgPeak: order.length ? order.reduce((a, r) => a + (r.peakX ?? 1), 0) / order.length : 0,
     curve,
