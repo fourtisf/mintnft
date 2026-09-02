@@ -291,6 +291,10 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .supbar i{display:block;height:100%;background:var(--grad);transition:width .6s cubic-bezier(.2,.8,.3,1)}
 .supmeta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--tx-3)}
 .mintnote{font-size:11.8px;color:var(--tx-3);line-height:1.65;margin-top:14px;text-align:center}
+.mintmsg{font-size:12.2px;line-height:1.6;margin-top:12px;text-align:center;color:var(--tx-2);font-family:var(--mono);word-break:break-word}
+.mintmsg.bad{color:var(--dead)}
+.mintmsg.good{color:var(--win)}
+.mintmsg a{color:inherit}
 
 .odds{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .odd{position:relative;border:1px solid var(--border);border-radius:var(--r);padding:22px;overflow:hidden;
@@ -951,12 +955,13 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 
     <div class="abord mintpanel"><div class="inner">
       <div class="top"><div class="phase">Phase 2 · Public</div><span class="live">OPEN</span></div>
-      <div class="prow" style="border-top:none"><span class="k">Price per key</span><span class="v big">0.0015 <small style="font-size:13px;color:var(--tx-3)">ETH</small></span></div>
+      <div class="prow" style="border-top:none"><span class="k">Price per key</span><span class="v big"><span id="unitPrice">0.0015</span> <small style="font-size:13px;color:var(--tx-3)">ETH</small></span></div>
       <div class="prow"><span class="k">Quantity</span>
         <span class="qty"><button id="qMinus">−</button><span id="qVal">1</span><button id="qPlus">+</button></span></div>
       <div class="prow"><span class="k">Total</span><span class="v" id="total">0.0015 ETH</span></div>
       <div class="prow"><span class="k">Max per wallet</span><span class="v">5</span></div>
       <button class="btn btn-p btn-lg btn-full" style="margin-top:18px" id="mintBtn">Claim key</button>
+      <div class="mintmsg" id="mintMsg" hidden></div>
       <div class="supply">
         <div class="supmeta"><span id="supTxt">412 / 666 minted</span><span id="supPct">62%</span></div>
         <div class="supbar"><i id="supBar" style="width:62%"></i></div>

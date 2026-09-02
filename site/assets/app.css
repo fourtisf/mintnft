@@ -291,6 +291,10 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .supbar i{display:block;height:100%;background:var(--grad);transition:width .6s cubic-bezier(.2,.8,.3,1)}
 .supmeta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--tx-3)}
 .mintnote{font-size:11.8px;color:var(--tx-3);line-height:1.65;margin-top:14px;text-align:center}
+.mintmsg{font-size:12.2px;line-height:1.6;margin-top:12px;text-align:center;color:var(--tx-2);font-family:var(--mono);word-break:break-word}
+.mintmsg.bad{color:var(--dead)}
+.mintmsg.good{color:var(--win)}
+.mintmsg a{color:inherit}
 
 .odds{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .odd{position:relative;border:1px solid var(--border);border-radius:var(--r);padding:22px;overflow:hidden;

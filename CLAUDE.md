@@ -100,7 +100,9 @@ Deploy on a small VPS; Postgres and Redis in Docker.
 | Path | State |
 |---|---|
 | `signal-engine/` | Working JS. Screener, scorer, integrity chain, API, analytics, notifier. Tested against fixtures and a simulated market. **Never run against live data.** |
-| `contracts/` | Compile clean. 666/666 trait parity with the prototype, 1.61M gas worst case. `ProofKeys` now has `test-keys.js` — 111 assertions on a real EVM, covering the mint paths, the merkle allowlist, the supply cap and the reveal window. **Nothing has been sent to a real network.** |
+| `contracts/` | Compile clean. 666/666 trait parity with the prototype, 1.61M gas worst case. `test-keys.js` is 111 assertions on a real EVM; `keys.js` is the deploy and admin CLI, and `test-deploy.js` drives it as a command against a JSON-RPC node over a real socket. **Nothing has been sent to a real network.** |
+| `contracts/keys.js` | The only thing here that sends a transaction. Every subcommand is a dry run until `--confirm`. Key from the environment, never an argument. |
+| Mint on the site | `/api/keys` and `/api/keys/state` read the chain; the page builds the calldata and the visitor's wallet signs it. This process never holds a key. |
 | `schema.sql` | Postgres DDL. It now runs; it did not before — an index expression over a `timestamptz` is only STABLE and Postgres rejected the file outright, which is what "structurally verified" had been standing in for. |
 | `signal-engine/pgstore.js` | The Postgres driver, behind the same interface as `FileStore`. `migrate-pg.js` moves a file register across without recomputing a hash. |
 | `prototype/proof.html` | Design reference. Single file, mock data, seven pages. |
@@ -121,6 +123,7 @@ node check-chain.js  # not a test: points the gates at a real token with a real 
                      # so wiring one is watched rather than assumed
 node test-hashversion.js  # rows written under an older hash scheme still verify
 node test-anchor.js  # what is built, published, refused, and provable to a third party
+node test-mint.js    # what the mint panel is told, and what it is never told
 node test-pg.js      # the Postgres driver, if TEST_DATABASE_URL is set; skips loudly otherwise
 node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgres
 
@@ -132,10 +135,15 @@ node contracts/test-keys.js  # the mint, the allowlist, the cap, the reveal, the
                              # more because the season got bigger
 node test-tier.js    # the backend's tier read reaches the real function
 node test-anchor.js  # the anchor and one proof, inside a deployed ProofAnchor
+node contracts/test-deploy.js  # contracts/keys.js driven as the command it is,
+                               # against a JSON-RPC node over a real socket
 node site/test-live.mjs   # the site against a real engine: offline, connected,
                           # a signal arriving on the socket, its marks moving
 node site/test-hang.mjs   # a host that accepts and never answers still reads
                           # offline — 10s of wall clock, and worth it
+node site/test-mint.mjs   # the mint panel: nothing deployed, a chain it cannot
+                          # reach and an open mint all read differently, and the
+                          # calldata it hands a wallet matches the compiled ABI
 ```
 
 If `parity.js` prints anything other than 666/666, stop and fix it before
@@ -182,13 +190,16 @@ continuing. Everything else is recoverable; that one is not.
    one that is settable — with no keys minted it is an hour nobody has paid to
    skip. The paid ladder is the promise and does not move.
 6. **The contracts have never touched a real chain.** Same shape of gap as #1
-   and just as load-bearing: `contracts/test-keys.js` runs against
-   `@ethereumjs/vm`, which is a real EVM but not a real network. Two things in
-   `contracts/DEPLOY.md` have deadlines, and the reveal window is about eight
-   and a half minutes wide on Base. Read that file before sending anything.
-   `recommitCount` — the counter that makes a missed window impossible to hide
-   — is public on-chain but is **not** shown on the Keys page yet, so today it
-   protects only a reader who goes looking.
+   and just as load-bearing. The tooling is now complete and tested —
+   `contracts/keys.js` deploys and administers, `contracts/test-deploy.js` runs
+   every one of its commands against a JSON-RPC node over a real socket, and
+   `site/test-mint.mjs` proves the calldata the page hands a wallet is what the
+   compiled ABI encodes. All of it against `@ethereumjs/vm`: a real EVM, not a
+   real network. Block times, fee markets, reorgs and RPC failures are absent,
+   and the reveal window — about eight and a half minutes on Base — is the one
+   deadline none of it has met for real. **Base Sepolia, the whole cycle, before
+   mainnet.** `recommitCount` is now read by `/api/keys/state`, but the Keys page
+   does not print it yet.
 7. **Nothing is anchored.** The chain is internally consistent and has never
    been published, so it is not independently verifiable — `/api/verify` says
    exactly that and the site now repeats it rather than printing an anchor date

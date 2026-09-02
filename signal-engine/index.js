@@ -18,6 +18,7 @@ import { serve } from "./api.js";
 import { attachFeed } from "./ws.js";
 import { publishAnchor } from "./anchor.js";
 import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
+import { KeysReader } from "./keys.js";
 import { TIER_DELAY_S } from "./gating.js";
 import { Telegram, formatSignal, formatOutcome } from "./notify.js";
 
@@ -180,7 +181,9 @@ export function start({ store = new FileStore(), port = 8787,
      pass runs now instead of in sixty seconds. */
   engine.tick().catch(e => log("discovery failed", String(e)));
 
-  const server = serve(store, { port, secret, domain, tierSource, delays, triage, cfg: engine.cfg, log });
+  const keys = new KeysReader({ log });
+  const server = serve(store, { port, secret, domain, tierSource, delays, triage,
+                                cfg: engine.cfg, keys, log });
   const feed = attachFeed(server, {
     log, delays,
     // The tier comes from the signed session and nothing else the client sends.
@@ -189,6 +192,12 @@ export function start({ store = new FileStore(), port = 8787,
 
   log(`register api on :${port}  ·  discovery ${DISCOVER/1000}s  hot ${HOT/1000}s  warm ${WARM/1000}s`);
   log(`tier latency  III ${delays[3]}s · II ${delays[2]}s · I ${delays[1]}s · public ${delays[0]}s`);
+  // Both states, out loud. Reading the absence of a line is not something an
+  // operator can do, and "no mint panel" and "mint panel reading a dead RPC"
+  // look identical from the page.
+  log(keys.configured
+    ? `[keys] mint reads ${keys.contract} on chain ${keys.chainId}`
+    : `[keys] mint not wired — ${keys.identity().why}; the panel will say so`);
   if (!publishAnchorTx) log("anchoring is not wired — /api/verify will report the register as unanchored");
   return { stop() { timers.forEach(clearInterval); feed.close(); server.close(); },
            store, engine, triage, feed, server, refresh };

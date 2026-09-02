@@ -733,33 +733,180 @@ function tick(){
 if(DEMO)setInterval(tick,2600);
 
 /* ═══════ mint panel ═══════ */
-/* Nothing has been minted, because nothing can be: no contract is deployed and
-   the header says the CA is coming. The page used to open on "Phase 2 · OPEN",
-   "412 / 666 minted, 62%", and a Claim button that waited a second and reported
-   success — a sale that never happened, for a thing that does not exist yet, on
-   the site whose entire argument is that it does not fake numbers. When minting
-   is real this reads the supply off the contract; until then it reads zero. */
-let qty=1,minted=0,preview=Math.floor(Math.random()*666)+1;
-// Public mint price. The contract carries the figure that binds — this one
-// only has to agree with it, so it is a literal in one place rather than
-// arithmetic in four.
-const PRICE=.0015;
-function syncMint(){
-  document.getElementById("qVal").textContent=qty;
-  document.getElementById("total").textContent=(qty*PRICE).toFixed(4)+" ETH";
-  document.getElementById("qMinus").disabled=qty<=1;
-  document.getElementById("qPlus").disabled=qty>=5;
-  const pct=Math.round(minted/666*100);
-  document.getElementById("supTxt").textContent=minted+" / 666 minted";
-  document.getElementById("supPct").textContent=pct+"%";
-  document.getElementById("supBar").style.width=pct+"%";
-  document.getElementById("ksMinted").textContent=minted;
+/* Every number here comes off the chain through /api/keys/state. The page used
+   to open on "Phase 2 · OPEN", "412 / 666 minted, 62%", and a Claim button that
+   waited a second and reported success — a sale that never happened, for a
+   thing that did not exist. So the rule in this block is: when we do not know,
+   say we do not know. No contract, a dead RPC and a real "0 minted" must never
+   render the same way, because a reader cannot tell them apart and one of them
+   would have them signing a transaction that cannot succeed. */
+
+let qty=1,preview=Math.floor(Math.random()*666)+1;
+const MINT={id:null,state:null,busy:false};
+
+const wei=v=>{try{return BigInt(v)}catch{return 0n}};
+/* Wei is 18 digits; a double loses the tail. Format from the string so the
+   figure on the button is the figure in the transaction. */
+function eth(v,dp=4){
+  const n=wei(v),whole=n/10n**18n,frac=(n%10n**18n).toString().padStart(18,"0").slice(0,dp);
+  return dp?`${whole}.${frac}`:String(whole);
 }
+const hexQ=n=>"0x"+BigInt(n).toString(16);
+const w256=v=>BigInt(v).toString(16).padStart(64,"0");
+const b32=h=>String(h).replace(/^0x/,"").padStart(64,"0");
+
+/* mintPublic(uint256) and mintAllowlist(uint256,bytes32[]). The selectors come
+   from the engine, which derives them from the signatures — a selector typed
+   in here would go on matching a function after it was renamed. */
+function calldata(sel,q,proof){
+  if(!proof)return sel+w256(q);
+  return sel+w256(q)+w256(0x40)+w256(proof.length)+proof.map(b32).join("");
+}
+
+function paintMsg(text,kind){
+  const el=document.getElementById("mintMsg");
+  if(!el)return;
+  el.className="mintmsg"+(kind?" "+kind:"");
+  el.innerHTML=text??"";
+  el.hidden=!text;
+}
+/* A line about a transaction has to outlive the next re-render. "Sent — 0x…"
+   was being wiped by the refresh that followed it, a tenth of a second after
+   the only moment it mattered, so the reader saw their key vanish. */
+function notice(text,kind){MINT.notice=text?{text,kind}:null;paintMsg(text,kind)}
+/* Anything derived from state yields to a notice that is still standing. */
+function derived(text,kind){if(!MINT.notice)paintMsg(text,kind)}
+
+const PHASE_LABEL={closed:"NOT OPEN",allowlist:"ALLOWLIST",public:"OPEN"};
+
+function syncMint(){
+  const st=MINT.state,cfg=MINT.id;
+  const cap=st?.seasonCap??666,minted=st?.totalMinted??0;
+  const max=st?.remaining??st?.maxPerWallet??5;
+  if(qty>Math.max(1,max))qty=Math.max(1,max);
+
+  const unit=st?wei(st.unitPrice??st.price):wei("1500000000000000");
+  document.getElementById("qVal").textContent=qty;
+  document.getElementById("unitPrice").textContent=eth(unit);
+  document.getElementById("total").textContent=eth(unit*BigInt(qty))+" ETH";
+  document.getElementById("qMinus").disabled=qty<=1;
+  document.getElementById("qPlus").disabled=qty>=max;
+
+  // Three cases, and they must not look alike. Deployed and read: the real
+  // numbers. Not deployed: nothing exists, so nothing is minted — 0 is a fact,
+  // not a guess. Deployed but unreadable: we do not know, and saying zero
+  // there would be inventing a sold-nothing mint out of a dead RPC.
+  const unknown=cfg?.configured&&!st;
+  const pct=cap?Math.round(minted/cap*100):0;
+  document.getElementById("supTxt").textContent=unknown?"supply unknown":`${minted} / ${cap} minted`;
+  document.getElementById("supPct").textContent=unknown?"—":pct+"%";
+  document.getElementById("supBar").style.width=(unknown?0:pct)+"%";
+  document.getElementById("ksMinted").textContent=unknown?"—":minted;
+
+  const pill=document.getElementById("mintState");
+  if(pill)pill.textContent=st?(PHASE_LABEL[st.phaseName]??"UNKNOWN"):"NOT OPEN";
+
+  const btn=document.getElementById("mintBtn");
+  if(!btn)return;
+  if(!cfg||!cfg.configured){
+    btn.disabled=true;btn.textContent="Minting is not open";
+    return derived(cfg?"No contract is deployed yet. Nothing here can be bought.":"");
+  }
+  if(!st){
+    btn.disabled=true;btn.textContent="Can't reach the chain";
+    return derived("The mint contract could not be read just now, so this panel is showing nothing rather than guessing. Try again in a moment.","bad");
+  }
+  // canMint is only present when the engine was told which address to answer
+  // for. Its absence means nobody has connected — not that nobody may mint.
+  if(st.canMint===undefined){
+    btn.disabled=false;btn.textContent="Connect a wallet";
+    return derived(st.phaseName==="closed"?"Minting is closed.":"");
+  }
+  if(st.canMint){
+    btn.disabled=MINT.busy;
+    btn.textContent=MINT.busy?"Confirm in your wallet…":`Mint ${qty} · ${eth(unit*BigInt(qty))} ETH`;
+    if(!MINT.busy)derived(st.method==="allowlist"?"This wallet is on the allowlist.":"");
+    return;
+  }
+  btn.disabled=true;btn.textContent="Can't mint";
+  derived(st.why?st.why[0].toUpperCase()+st.why.slice(1)+".":"");
+}
+
+async function loadMintState(){
+  if(DEMO)return;
+  try{
+    if(!MINT.id)MINT.id=await(await fetch(API+"/keys",noStore())).json();
+    if(!MINT.id?.configured){MINT.state=null;return syncMint()}
+    const who=MINT.wallet??SESSION.address;
+    const r=await fetch(API+"/keys/state"+(who?"?address="+who:""),noStore());
+    const j=await r.json();
+    MINT.state=j.state??null;
+  }catch{
+    // Unreachable is a state, not a zero.
+    MINT.state=null;
+  }
+  syncMint();
+}
+
+/* The wallet has to be on the right chain before anything is signed. Sending a
+   Base transaction to whatever network happens to be selected is how people
+   lose gas on a chain where the contract does not exist. */
+async function onRightChain(eth_){
+  const want=hexQ(MINT.id.chainId);
+  const have=await eth_.request({method:"eth_chainId"});
+  if(have===want)return true;
+  try{
+    await eth_.request({method:"wallet_switchEthereumChain",params:[{chainId:want}]});
+    return true;
+  }catch(e){
+    notice(`Switch your wallet to chain ${MINT.id.chainId} to mint.`,"bad");
+    return false;
+  }
+}
+
+async function doMint(){
+  const eth_=window.ethereum;
+  if(!eth_)return notice("No wallet found in this browser.","bad");
+  if(MINT.busy)return;
+  notice(null);
+  try{
+    const [addr]=await eth_.request({method:"eth_requestAccounts"});
+    if(!addr)return notice("No account.","bad");
+    MINT.wallet=addr.toLowerCase();
+    await loadMintState();
+    const st=MINT.state;
+    if(!st)return;
+    if(!st.canMint)return;
+    if(!await onRightChain(eth_))return;
+
+    const unit=wei(st.unitPrice);
+    const data=calldata(MINT.id.selectors[st.method],qty,st.method==="allowlist"?st.proof:null);
+
+    MINT.busy=true;syncMint();
+    notice("Waiting for your wallet…");
+    const hash=await eth_.request({method:"eth_sendTransaction",params:[{
+      from:addr,to:MINT.id.contract,value:hexQ(unit*BigInt(qty)),data,
+    }]});
+    const link=MINT.id.explorer?`<a href="${MINT.id.explorer}/tx/${hash}" target="_blank" rel="noopener">${hash.slice(0,10)}…</a>`:hash.slice(0,10)+"…";
+    notice(`Sent — ${link}. The key appears once it confirms.`,"good");
+  }catch(e){
+    const m=String(e?.message??e);
+    notice(/denied|reject/i.test(m)?"Cancelled.":m.slice(0,180),"bad");
+  }finally{
+    MINT.busy=false;
+    // Re-read rather than assume it landed: the chain decides, not this page.
+    setTimeout(loadMintState,4000);
+    syncMint();
+  }
+}
+
 document.getElementById("qMinus").addEventListener("click",()=>{if(qty>1){qty--;syncMint()}});
-document.getElementById("qPlus").addEventListener("click",()=>{if(qty<5){qty++;syncMint()}});
+document.getElementById("qPlus").addEventListener("click",()=>{qty++;syncMint()});
 document.getElementById("reroll").addEventListener("click",()=>{preview=Math.floor(Math.random()*666)+1;drawKey(preview)});
-// No handler: there is nothing to claim. The button stays disabled until a
-// deployed contract can answer for what a click would do.
+document.getElementById("mintBtn").addEventListener("click",doMint);
+// The first read is booted at the bottom of this file, not here: API and
+// SESSION are declared further down and a const is not readable before its
+// own line runs.
 
 /* ═══════ collection grid — lazy, paged ═══════ */
 const COLL_PAGE=48;
@@ -2028,6 +2175,7 @@ renderAll();
 drawKey(preview);renderMarquee();syncMint();renderColl(true);reveal();
 if(!DEMO){
   connectFeed();
+  loadMintState(); setInterval(loadMintState,30000);
   pullLive();  setInterval(pullLive,20000);
   pullTriage();setInterval(pullTriage,20000);
   pullVerify();setInterval(pullVerify,60000);

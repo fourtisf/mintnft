@@ -426,12 +426,13 @@
 
     <div class="abord mintpanel"><div class="inner">
       <div class="top"><div class="phase">Public mint</div><span class="live" id="mintState">NOT OPEN</span></div>
-      <div class="prow" style="border-top:none"><span class="k">Price per key</span><span class="v big">0.0015 <small style="font-size:13px;color:var(--tx-3)">ETH</small></span></div>
+      <div class="prow" style="border-top:none"><span class="k">Price per key</span><span class="v big"><span id="unitPrice">0.0015</span> <small style="font-size:13px;color:var(--tx-3)">ETH</small></span></div>
       <div class="prow"><span class="k">Quantity</span>
         <span class="qty"><button id="qMinus">−</button><span id="qVal">1</span><button id="qPlus">+</button></span></div>
       <div class="prow"><span class="k">Total</span><span class="v" id="total">0.0015 ETH</span></div>
       <div class="prow"><span class="k">Max per wallet</span><span class="v">5</span></div>
       <button class="btn btn-p btn-lg btn-full" style="margin-top:18px" id="mintBtn" disabled>Minting is not open</button>
+      <div class="mintmsg" id="mintMsg" hidden></div>
       <div class="supply">
         <div class="supmeta"><span id="supTxt">0 / 666 minted</span><span id="supPct">0%</span></div>
         <div class="supbar"><i id="supBar" style="width:0%"></i></div>

@@ -1,0 +1,265 @@
+/**
+ * contracts/keys.js, driven as the command it actually is.
+ *
+ * This is the only tool in the repository that sends a transaction, so testing
+ * it against an injected fake provider would prove the argument parsing and
+ * nothing else: the ABI encoding, the constructor ordering, the nonces, the
+ * receipts and the revert messages all live in the part a fake would replace.
+ * So every case below runs `node contracts/keys.js …` as a child process,
+ * against a JSON-RPC node over a real socket, backed by a real EVM.
+ *
+ * What it cannot prove: that a real network behaves like this one. Block times,
+ * reorgs, fee markets and RPC failure modes are all absent. Base Sepolia is the
+ * next step, not this file.
+ */
+const { execFile } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { ethers } = require('ethers');
+const { startTestRpc } = require('./testrpc.js');
+const { compile, artifact } = require('./build.js');
+
+let failures = 0;
+const ok = (cond, msg) => { console.log(`  ${cond ? 'ok   ' : 'GAGAL'}  ${msg}`); if (!cond) failures++; };
+const head = t => console.log(`\n${t}`);
+
+const ROOT = path.join(__dirname, '..');
+
+(async () => {
+  const OUT = fs.mkdtempSync(path.join(os.tmpdir(), 'nekara-keys-'));
+  const owner = ethers.Wallet.createRandom();
+  const buyer = ethers.Wallet.createRandom();
+  const listed = ethers.Wallet.createRandom();
+  const treasury = ethers.Wallet.createRandom();
+
+  const rpc = await startTestRpc({
+    chainId: 84532,                                   // Base Sepolia's id
+    fund: [owner, buyer, listed].map(w => ({ address: w.address, balance: 10n ** 19n })),
+  });
+  const provider = new ethers.providers.JsonRpcProvider(rpc.url);
+  provider.pollingInterval = 10;
+
+  /** Runs the real CLI. Never throws on a non-zero exit — the refusals are
+   *  half of what is being tested. */
+  const keys = (...args) => new Promise(resolve => {
+    execFile('node', [path.join(__dirname, 'keys.js'), ...args], {
+      cwd: ROOT,
+      env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
+             DEPLOY_POLL_MS: '10', KEYS_OUT: OUT, KEYS_CONTRACT: '' },
+    }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+  });
+
+  const abi = artifact(compile(['ProofKeys.sol', 'ProofParts.sol', 'ProofRenderer.sol']),
+    'ProofKeys.sol', 'ProofKeys').abi;
+  const deployedPath = path.join(OUT, 'keys.84532.json');
+  const at = who => new ethers.Contract(JSON.parse(fs.readFileSync(deployedPath, 'utf8')).keys,
+    abi, who.connect(provider));
+
+  /* ═══════ before anything exists ═══════ */
+  head('sebelum ada apa-apa');
+  {
+    const r = await keys('state');
+    ok(r.code !== 0 && /belum ada alamat/.test(r.out),
+      'state tanpa kontrak berhenti dan bilang kenapa, bukan mencetak nol');
+    ok(!fs.existsSync(deployedPath), 'dan tidak menulis file apa pun');
+  }
+
+  /* ═══════ dry run ═══════ */
+  head('dry run');
+  {
+    const before = await provider.getBlockNumber();
+    const r = await keys('deploy', '--owner', owner.address);
+    ok(r.code === 0 && /DRY RUN/.test(r.out), 'deploy tanpa --confirm berhenti di DRY RUN');
+    ok(/ProofParts/.test(r.out) && /ProofRenderer/.test(r.out) && /ProofKeys/.test(r.out),
+      'dan mencetak ketiga kontrak yang akan dikirim');
+    ok(await provider.getBlockNumber() === before, 'tidak ada satu pun blok bertambah');
+    ok(!fs.existsSync(deployedPath), 'tidak ada alamat yang ditulis');
+  }
+
+  /* ═══════ the deploy ═══════ */
+  head('deploy');
+  let keysAddr;
+  {
+    const r = await keys('deploy', '--owner', owner.address, '--confirm');
+    ok(r.code === 0, 'deploy --confirm berhasil');
+    ok(fs.existsSync(deployedPath), `alamat tersimpan di keys.84532.json`);
+    const rec = JSON.parse(fs.readFileSync(deployedPath, 'utf8'));
+    keysAddr = rec.keys;
+    ok(/^0x[0-9a-fA-F]{40}$/.test(rec.parts) && /^0x[0-9a-fA-F]{40}$/.test(rec.renderer)
+      && /^0x[0-9a-fA-F]{40}$/.test(rec.keys), 'ketiganya punya alamat');
+    ok((await provider.getCode(rec.keys)).length > 2, 'ProofKeys benar-benar punya kode on-chain');
+
+    const c = at(owner);
+    ok(await c.owner() === owner.address, 'owner terpasang seperti yang diminta');
+    ok(await c.renderer() === rec.renderer, 'ProofKeys menunjuk ke ProofRenderer yang baru di-deploy');
+    ok((await c.seasonCap()).toNumber() === 666, 'seasonCap 666');
+    ok((await c.phase()) === 0, 'mint mulai tertutup');
+
+    // The renderer wiring is the thing a deploy gets wrong silently, so read a
+    // token URI through it rather than trusting the address matched.
+    await (await c.setPhase(2)).wait();
+    await (await c.mintPublic(1, { value: await c.price() })).wait();
+    const uri = await c.tokenURI(1);
+    ok(uri.includes('SEALED'), 'token pertama terbaca tersegel lewat renderer sungguhan');
+    await (await c.setPhase(0)).wait();
+  }
+
+  head('deploy kedua');
+  {
+    const r = await keys('deploy', '--owner', owner.address, '--confirm');
+    ok(r.code !== 0 && /sudah ada/.test(r.out),
+      'deploy kedua ditolak — itu koleksi kedua, bukan pembaruan');
+  }
+
+  /* ═══════ state ═══════ */
+  head('state');
+  {
+    const r = await keys('state');
+    ok(r.code === 0 && /fase\s+Closed/.test(r.out), 'membaca fase dari chain');
+    ok(/1 \/ 666/.test(r.out), 'membaca suplai dari chain');
+    ok(/harga publik\s+0\.0015 ETH/.test(r.out), 'membaca harga publik dari chain');
+    ok(/belum ada komitmen/.test(r.out), 'mengatakan seed belum dikomitkan, bukan mengarang tanggal');
+  }
+
+  /* ═══════ prices ═══════ */
+  head('harga');
+  {
+    const dry = await keys('prices', '0.001', '0.004');
+    ok(dry.code === 0 && /DRY RUN/.test(dry.out), 'prices tanpa --confirm tidak mengirim');
+    ok((await at(owner).price()).eq(ethers.utils.parseEther('0.0015')), 'harga belum berubah');
+
+    await keys('prices', '0.001', '0.004', '--confirm');
+    const c = at(owner);
+    ok((await c.allowlistPrice()).eq(ethers.utils.parseEther('0.001'))
+      && (await c.price()).eq(ethers.utils.parseEther('0.004')), 'keduanya bergerak bersama');
+    await keys('prices', '0.0005', '0.0015', '--confirm');
+  }
+
+  /* ═══════ opening the public mint ═══════ */
+  head('mint publik');
+  {
+    await keys('phase', 'public', '--confirm');
+    const c = at(buyer);
+    ok((await c.phase()) === 2, 'CLI benar-benar membuka fase Public');
+
+    const price = await c.price();
+    await (await c.mintPublic(2, { value: price.mul(2) })).wait();
+    ok((await c.balanceOf(buyer.address)).toNumber() === 2,
+      'dompet lain berhasil mint dua key dengan harga yang dibaca dari kontrak');
+
+    let refused = null;
+    try { await c.callStatic.mintPublic(1, { value: price.sub(1) }); }
+    catch (e) { refused = e; }
+    ok(refused !== null, 'bayar kurang satu wei ditolak');
+  }
+
+  /* ═══════ the allowlist, end to end ═══════ */
+  head('whitelist');
+  {
+    const listFile = path.join(OUT, 'allowlist.txt');
+    fs.writeFileSync(listFile, [listed.address, treasury.address, buyer.address].join('\n') + '\n');
+
+    const r = await keys('allowlist-root', listFile, '--confirm');
+    ok(r.code === 0, 'allowlist-root berjalan');
+    const proofsFile = path.join(OUT, 'proofs.json');
+    ok(fs.existsSync(proofsFile), 'bukti per alamat ditulis ke proofs.json');
+    const { root, proofs } = JSON.parse(fs.readFileSync(proofsFile, 'utf8'));
+    ok(await at(owner).allowlistRoot() === root, 'root yang ditulis sama dengan yang ada di chain');
+
+    await keys('phase', 'allowlist', '--confirm');
+    const c = at(listed);
+    const proof = proofs[listed.address.toLowerCase()];
+    ok(Array.isArray(proof), 'alamat terdaftar punya bukti di file');
+
+    await (await c.mintAllowlist(1, proof, { value: await c.allowlistPrice() })).wait();
+    ok((await c.balanceOf(listed.address)).toNumber() === 1,
+      'bukti dari file itu diterima kontrak — root, bukti dan situs sepakat');
+
+    const outsider = ethers.Wallet.createRandom().connect(provider);
+    await (await owner.connect(provider).sendTransaction({ to: outsider.address, value: 10n ** 17n })).wait();
+    let refused = null;
+    try {
+      await new ethers.Contract(at(owner).address, abi, outsider)
+        .callStatic.mintAllowlist(1, proof, { value: await c.allowlistPrice() });
+    } catch (e) { refused = e; }
+    ok(refused !== null, 'bukti orang lain tidak berlaku untuk dompet yang tidak terdaftar');
+  }
+
+  /* ═══════ commit and reveal ═══════ */
+  head('commit dan reveal');
+  {
+    const secret = 'musim-satu-rahasia';
+    const dry = await keys('commit', secret, '--delay', '5');
+    ok(dry.code === 0 && /SIMPAN rahasia/.test(dry.out),
+      'commit memperingatkan untuk menyimpan rahasianya sebelum mengirim apa pun');
+
+    await keys('commit', secret, '--delay', '5', '--confirm');
+    const c = at(owner);
+    ok(await c.seedCommit() !== ethers.constants.HashZero, 'komitmen tersimpan di chain');
+
+    const early = await keys('reveal', secret, '--confirm');
+    ok(early.code !== 0 && /fase masih Allowlist/.test(early.out),
+      'reveal ditolak selagi mint terbuka — dan CLI menyebut perintah untuk menutupnya');
+
+    await keys('phase', 'closed', '--confirm');
+    const tooSoon = await keys('reveal', secret, '--confirm');
+    ok(tooSoon.code !== 0 && /terlalu awal/.test(tooSoon.out), 'reveal sebelum blok-nya ditolak');
+
+    rpc.mine(6);
+    const st = await keys('state');
+    ok(/jendela\s+\d+ blok tersisa/.test(st.out), 'state menghitung sisa jendela reveal');
+
+    const r = await keys('reveal', secret, '--confirm');
+    ok(r.code === 0 && await c.revealed(), 'reveal berhasil di dalam jendela');
+    const tier = await c.tierOf(1);
+    ok(tier >= 1 && tier <= 3, `tier token #1 bisa dibaca setelah reveal (${tier})`);
+
+    const reopen = await keys('phase', 'public', '--confirm');
+    ok(reopen.code !== 0 && /tidak bisa dibuka lagi/.test(reopen.out),
+      'CLI menolak membuka mint lagi setelah seed terbit');
+  }
+
+  /* ═══════ the missed window, as the operator would meet it ═══════ */
+  head('jendela terlewat');
+  {
+    const OUT2 = fs.mkdtempSync(path.join(os.tmpdir(), 'nekara-keys2-'));
+    const keys2 = (...args) => new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), ...args], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
+               DEPLOY_POLL_MS: '10', KEYS_OUT: OUT2, KEYS_CONTRACT: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+    await keys2('deploy', '--owner', owner.address, '--confirm');
+    await keys2('commit', 'rahasia-kedua', '--delay', '5', '--confirm');
+    rpc.mine(300);
+    const st = await keys2('state');
+    ok(/SUDAH LEWAT/.test(st.out), 'state mengatakan jendela sudah lewat, tidak diam');
+    const r = await keys2('reveal', 'rahasia-kedua', '--confirm');
+    ok(r.code !== 0 && /jendela sudah lewat/.test(r.out) && /recommitSeed/.test(r.out),
+      'reveal menolak dan menyebut jalan keluarnya');
+    fs.rmSync(OUT2, { recursive: true, force: true });
+  }
+
+  /* ═══════ money out ═══════ */
+  head('withdraw');
+  {
+    const c = at(owner);
+    const held = await provider.getBalance(c.address);
+    ok(held.gt(0), `kontrak memegang ${ethers.utils.formatEther(held)} ETH dari mint di atas`);
+
+    const dry = await keys('withdraw', treasury.address);
+    ok(dry.code === 0 && /DRY RUN/.test(dry.out), 'withdraw tanpa --confirm tidak mengirim');
+    ok((await provider.getBalance(treasury.address)).eq(0), 'tujuan masih kosong');
+
+    await keys('withdraw', treasury.address, '--confirm');
+    ok((await provider.getBalance(treasury.address)).eq(held), 'seluruh saldo sampai ke tujuan');
+    ok((await provider.getBalance(c.address)).eq(0), 'kontrak kosong');
+  }
+
+  await rpc.close();
+  fs.rmSync(OUT, { recursive: true, force: true });
+  console.log(`\n${failures ? failures + ' GAGAL' : 'semua lulus'}`);
+  process.exit(failures ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });

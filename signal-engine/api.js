@@ -17,6 +17,7 @@ import { readFileSync, statSync } from "node:fs";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
 import { NonceStore, issueSession, readSession, verifySiwe, StaticTierSource } from "./auth.js";
+import { KeysReader } from "./keys.js";
 
 const readBody = req => new Promise((resolve, reject) => {
   let b = ""; let over = false;
@@ -35,6 +36,7 @@ export function serve(store, {
   feed = null,
   triage = null,
   cfg = null,
+  keys = new KeysReader({ log: console.log }),
   log = console.log,
 } = {}) {
   if (!secret) {
@@ -136,6 +138,20 @@ export function serve(store, {
       if (!claims) return json(res, 401, { error: "no session" });
       const tier = await tierSource.bestTierOf(claims.addr);
       return json(res, 200, { token: issueSession({ address: claims.addr, tier }, secret), tier, address: claims.addr });
+    }
+
+    /* ── the mint ──
+       Reads only. Whether an address may mint is decided here rather than in
+       the browser, because the allowlist proof lives here — but nothing about
+       this is a gate: the contract refuses a wallet that is not entitled, and
+       this route only saves the visitor from paying gas to find that out. */
+    if (p === "/api/keys") return json(res, 200, keys.identity());
+
+    if (p === "/api/keys/state") {
+      const a = url.searchParams.get("address");
+      if (a !== null && !/^0x[0-9a-fA-F]{40}$/.test(a))
+        return json(res, 400, { error: "address must be 0x and 40 hex characters" });
+      return json(res, 200, await keys.state(a));
     }
 
     /* ── register, all tier-filtered ── */
