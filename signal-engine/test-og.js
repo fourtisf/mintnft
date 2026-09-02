@@ -185,24 +185,15 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
      its title says ATH rather than profit. These three are what stand in for
      it, and a change that drops any of them has to bring the marker back. */
   ok(/Highest ATH reached/.test(board), "its title claims a high, not a return");
-  ok(/>3</.test(board) && /DEAD/.test(board), "the dead count is on the card");
-
-  /* The lead figure is the return per call over every call in the window, not
-     the hit rate. It is the number a reader is actually asking for, and it is
-     the one figure on the card that cannot be improved by choosing what to
-     draw: every loss in the window is inside it, pushing it down. */
-  const led = (rows, st) => boardCard(rows, st, { days: 7 })
-    .match(/font-size="40"[^>]*>([^<]+)</)?.[1] ?? null;
-  ok(led(many, { calls: 20, hitRate: 0.45, dead: 3, returnPct: 0.11 }) === "+11%",
-    "the return per call leads the header");
-  ok(/PER CALL \u00b7 20 CALLS/.test(boardCard(many, { calls: 20, returnPct: 0.11 }, { days: 7 })),
-    "labelled with the count it was computed over, so it cannot read as the ten drawn");
-  ok(led(many, { calls: 20, hitRate: 0.1, dead: 12, returnPct: -0.34 }) === "\u221234%",
-    "a losing window shows a loss — the figure is not filtered, only reported");
-  ok(led(many, { calls: 20, hitRate: 0.45, dead: 3 }) === "\u2014",
-    "and with nothing computed it prints a dash, never a zero");
+  /* The stat tiles are gone, so this one line is all that holds the card down.
+     It has to be readable, not merely present — ten winners with the base rate
+     technically included in 10px grey is the highlight reel with a fig leaf. */
+  ok(/>3 died</.test(board), "the number that died is on the card, and in the dead colour");
+  ok(/#F3F4F6[^>]*>9 of 20</.test(board),
+    "the denominator is set bright rather than dimmed into the background");
+  ok(!/HIT \u2265/.test(board) && !/PER CALL/.test(board),
+    "the three stat tiles are gone, as asked");
   ok(/an ATH is not a realised return/.test(board), "and the footer says what an ATH is not");
-  ok(/9 of 20 calls/.test(board), "with the denominator, as everywhere else");
 
   /* The span has to match the figure too. "2× in 18m" on a card that ranks on
      the all-time high answers a question the card is not asking. */
