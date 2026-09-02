@@ -254,7 +254,9 @@ export function serve(store, {
        these do: the selection is what is drawn, never what is counted. */
     if (p === "/og/wins.png" || p === "/og/wins.svg") {
       const days = Math.min(90, Math.max(1, Number(url.searchParams.get("days")) || 7));
-      const n = Math.min(5, Math.max(1, Number(url.searchParams.get("n")) || 5));
+      // Up to five gets the hero layout; past that podiumCard hands over to the
+      // board, because the runners-up become slivers long before ten.
+      const n = Math.min(10, Math.max(1, Number(url.searchParams.get("n")) || 5));
       const cut = Date.now() - days * 864e5;
       const inWindow = rows.filter(r => Date.parse(r.firedAt) > cut);
       const wins = inWindow.filter(r => r.verdict === "win")

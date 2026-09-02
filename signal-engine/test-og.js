@@ -166,6 +166,22 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
   ok(/DIED AFTER/.test(died), "a win that later died carries that on the card, not only in the header");
   const raster = await fetch(`${B}/og/wins.png?days=7`);
   ok(raster.status === 200 && png(Buffer.from(await raster.arrayBuffer())), "and rasterises");
+
+  // Past five the hero layout gives way to the board, and the board prints the
+  // figure it ranks on. Showing the now multiple on a dead row put 0.04× above
+  // a 2.19× and read as a broken sort rather than as a warning.
+  const many = Array.from({ length: 9 }, (_, i) => ({
+    symbol: "T" + i, chain: "solana", entryMc: 1e5, peakMc: 1e5 * (9 - i),
+    nowMc: i === 4 ? 4e3 : 2e5, peakX: 9 - i, nowX: i === 4 ? 0.04 : 2,
+    verdict: "win", isDead: i === 4, state: "settled", spark: [1e5, 1e5 * (9 - i), 2e5],
+  }));
+  const board = podiumCard(many, { calls: 20, hitRate: 0.45, dead: 3 }, { days: 7, max: 10 });
+  ok(/T0[\s\S]*T8/.test(board), "all nine are on the board");
+  ok(board.includes("9.00\u00d7"), "ranked and printed on peak");
+  ok(/DIED AFTER \u00b7 NOW 0\.04\u00d7/.test(board),
+    "and the one that died carries where it fell to, on its own line");
+  ok(!/>0\.04\u00d7<\/text>[\s\S]{0,40}font-size="27"/.test(board),
+    "never as the ranked figure itself, which would read as a broken sort");
 }
 
 console.log("\nKARTU SITUS");

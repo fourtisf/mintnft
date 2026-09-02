@@ -240,7 +240,97 @@ export function digestCard(rows, s, { days = 7, cols = 3, max = 6 } = {}) {
  * Non-negotiable 2 forbids computing a statistic that excludes misses. Nothing
  * here does — the selection is what is drawn, never what is counted.
  */
+/**
+ * Many tokens on one card, ranked.
+ *
+ * The hero layout carries five at most before the runners-up become slivers.
+ * Past that the shape has to change: two columns of clean rows, a rank, an
+ * inline series, the multiple. No boxes — at ten rows the borders are what you
+ * see instead of the numbers.
+ *
+ * Same rule as every other card here. The header figures are over every call
+ * in the window, never over the ten drawn, and the subtitle says which of
+ * which. A leaderboard is allowed to rank; it is not allowed to quietly become
+ * the denominator.
+ */
+export function boardCard(list, s, { days = 7, max = 10, title = "The ones that paid" } = {}) {
+  const shown = list.slice(0, max);
+  const PAD = 56, COLW = 520, GAP = 48;
+  const per = Math.ceil(shown.length / 2) || 1;
+  const RH = Math.min(80, 400 / Math.max(1, per));
+  const dur = sec => !sec ? null
+    : sec < 3600 ? Math.round(sec / 60) + "m" : (sec / 3600).toFixed(1) + "h";
+
+  const line = (r, i) => {
+    const col = i < per ? 0 : 1;
+    const k = i - col * per;
+    const x = PAD + col * (COLW + GAP);
+    const y = 182 + k * RH;
+    /* Ranked on peak, so peak is the figure printed. Showing the now multiple
+       on a dead row instead put 0.04× at rank five above a 2.19× at rank six,
+       which reads as a broken sort rather than as a warning. The warning has
+       its own line underneath, carrying the multiple it fell to. */
+    const mult = r.peakX ?? 1;
+    const now = r.nowX ?? 1;
+    const c = mult >= 1.02 ? "url(#g)" : mult <= 0.98 ? "#E5606B" : "#8C929C";
+    const fell = r.isDead ? `DIED AFTER \u00b7 NOW ${now.toFixed(2)}\u00d7`
+               : now < 1 ? `NOW ${now.toFixed(2)}\u00d7` : null;
+    const sp = series(r, { x: x + COLW - 246, y: y + 8, w: 116, h: 34 });
+    const took = dur(r.secondsTo2x);
+    return `
+  <g>
+    <text x="${x}" y="${y + 30}" font-family="monospace" font-size="13" fill="#3E444C">${String(i + 1).padStart(2, "0")}</text>
+    <text x="${x + 34}" y="${y + 26}" font-family="sans-serif" font-size="22" font-weight="700" letter-spacing="-.5" fill="#F3F4F6">${esc(ticker(r.symbol))}</text>
+    <text x="${x + 34}" y="${y + 46}" font-family="monospace" font-size="11.5" fill="#6E747E">${usd(r.entryMc)} \u2192 ${usd(r.peakMc)}${took ? "  \u00b7  2\u00d7 in " + took : ""}</text>
+    <path d="${sp.line}" fill="none" stroke="${c}" stroke-width="3.4" filter="url(#glow)" opacity=".7"/>
+    <path d="${sp.line}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>
+    <text x="${x + COLW}" y="${y + 34}" text-anchor="end" font-family="sans-serif" font-size="27" font-weight="700" letter-spacing="-.8" fill="${c}">${mult.toFixed(2)}\u00d7</text>
+    ${fell ? `<text x="${x + COLW}" y="${y + 50}" text-anchor="end" font-family="monospace" font-size="9.5" letter-spacing="1.3" fill="${r.isDead ? "#E5606B" : "#8C929C"}">${fell}</text>` : ""}
+    ${k < per - 1 && i !== shown.length - 1 ? `<line x1="${x}" y1="${y + RH - 8}" x2="${x + COLW}" y2="${y + RH - 8}" stroke="rgba(255,255,255,.055)"/>` : ""}
+  </g>`;
+  };
+
+  const stats3 = [["HIT \u2265 2\u00d7", Math.round((s?.hitRate ?? 0) * 100) + "%", "#F3F4F6"],
+                  ["ALL CALLS", String(s?.calls ?? 0), "#F3F4F6"],
+                  ["DEAD", String(s?.dead ?? 0), (s?.dead ?? 0) > 0 ? "#E5606B" : "#F3F4F6"]];
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient>
+    <radialGradient id="aura" cx="86%" cy="-10%" r="74%">
+      <stop offset="0" stop-color="#9B6DFF" stop-opacity=".24"/><stop offset="1" stop-color="#9B6DFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="aura2" cx="4%" cy="108%" r="58%">
+      <stop offset="0" stop-color="#5B7CFA" stop-opacity=".16"/><stop offset="1" stop-color="#5B7CFA" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-30%" y="-90%" width="160%" height="280%"><feGaussianBlur stdDeviation="5"/></filter>
+  </defs>
+  <rect width="1200" height="630" fill="#08090B"/>
+  <rect width="1200" height="630" fill="url(#aura)"/>
+  <rect width="1200" height="630" fill="url(#aura2)"/>
+
+  <text x="${PAD}" y="58" font-family="monospace" font-size="16" letter-spacing="7" fill="#8C929C">NEKARA</text>
+  <rect x="${PAD}" y="72" width="42" height="2" rx="1" fill="url(#g)"/>
+  <text x="${PAD}" y="124" font-family="sans-serif" font-size="45" font-weight="700" letter-spacing="-1.8" fill="#F3F4F6">${esc(title)}</text>
+  <text x="${PAD}" y="152" font-family="monospace" font-size="13.5" fill="#8C929C">Last ${days} days \u00b7 ${shown.length} of ${s?.calls ?? shown.length} calls \u00b7 the rest are on the register too${(s?.dead ?? 0) ? ", and " + s.dead + " died" : ""}</text>
+
+  ${stats3.map(([k, v, c], i) => `
+  <text x="${1144 - (2 - i) * 136}" y="70" text-anchor="end" font-family="sans-serif" font-size="35" font-weight="700" letter-spacing="-1" fill="${c}">${v}</text>
+  <text x="${1144 - (2 - i) * 136}" y="92" text-anchor="end" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">${k}</text>`).join("")}
+
+  <line x1="${PAD}" y1="166" x2="1144" y2="166" stroke="rgba(255,255,255,.09)"/>
+  <line x1="${PAD + COLW + GAP / 2}" y1="182" x2="${PAD + COLW + GAP / 2}" y2="${182 + per * RH - 24}" stroke="rgba(255,255,255,.06)"/>
+
+  ${shown.map(line).join("")}
+
+  <text x="${PAD}" y="606" font-family="monospace" font-size="12.5" fill="#4A5058">Ranked on peak \u00b7 sold at 2× is the published rule \u00b7 every failed call stays on the register</text>
+  <text x="1144" y="606" text-anchor="end" font-family="monospace" font-size="14" fill="#8C929C">nekara.xyz</text>
+</svg>`;
+}
+
 export function podiumCard(wins, s, { days = 7, max = 5 } = {}) {
+  // Past five the runners-up become slivers; the board layout takes over.
+  if (max > 5 || wins.length > 5) return boardCard(wins, s, { days, max });
   const shown = wins.slice(0, max);
   const hero = shown[0];
   const rest = shown.slice(1, 5);
