@@ -2,6 +2,16 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# The deploy key. contracts/keys.js reads DEPLOY_PK from the environment and
+# never from an argument, so it lands in a file — and .env.* does not match a
+# name like .keys.env, which is the sort of near-miss that puts a private key
+# in a public repository. Match the shape, not one filename.
+*.env
+*.env.*
+.keys.env
+keys.env
+out/keys.*.json
 data/
 *.log
 out/
