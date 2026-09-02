@@ -336,6 +336,7 @@ printf '\n== what this box is running, read back from the engine ==\n'
 printf '  discovery   %s\n' "$(said discovery)"
 printf '  on-chain    %s\n' "$(said chain)"
 printf '  storage     %s\n' "$(said store)"
+printf '  mint        %s\n' "$(said keys)"
 printf '  anchoring   off — no publisher is wired, so /api/verify reports the\n'
 printf '              register as unanchored, and it is\n'
 
@@ -348,4 +349,11 @@ Two of those are worth reading again in a few hours rather than now:
   - with the on-chain gates armed, calls carry what the chain said when they
     fired. A line reading "not checked" on a call page was never established
     and is not a pass.
+
+The mint line above is read back from the engine, not from what you set. Until
+a contract is deployed it says so, and the Keys page says so too — the button
+stays dead and the panel reads "0 / 666 minted", which is a fact rather than a
+guess. Wiring it is KEYS_CONTRACT, BASE_RPC, KEYS_CHAIN_ID and, if there is a
+whitelist, ALLOWLIST_PROOFS. See contracts/DEPLOY.md; the reveal window is the
+part with a deadline.
 NOTES2
