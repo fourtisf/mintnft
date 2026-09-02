@@ -43,11 +43,12 @@ const api = {
 };
 
 const engine = start({ store, api, port: PORT, log: () => {} });
-pairs = [{
+const pair = (priceUsd, liquidityUsd = 55_000) => ({
   chainId: "solana", dexId: "meteora", pairAddress: "FIRED",
   baseToken: { address: "TOK", symbol: "$TAP", name: "Tapcoin" },
-  priceUsd: String(ENTRY * 3), liquidity: { usd: 55_000 },
-}];
+  priceUsd: String(priceUsd), liquidity: { usd: liquidityUsd },
+});
+pairs = [pair(ENTRY * 3)];
 await engine.refresh(store.liveCalls());
 
 const B = `http://127.0.0.1:${PORT}`;
@@ -69,15 +70,40 @@ ok(raster.status === 200 && png(rbuf),
 
 console.log("\nBANNER PREMIUM");
 {
+  // Walk the call down off its peak, so now and peak are different numbers and
+  // the assertion can actually tell them apart. The old fixture had both at 3x,
+  // which meant "headlines now, not peak" could never have failed.
+  pairs = [pair(ENTRY * 1.2)];
+  await engine.refresh(store.liveCalls());
+  const mark = store.mark(call.seq);
+  ok(Math.abs(mark.peakX - 3) < 0.01 && Math.abs(mark.nowX - 1.2) < 0.01,
+    `peak ${mark.peakX.toFixed(2)}× and now ${mark.nowX.toFixed(2)}× are now different`);
+
   const b = await fetch(`${B}/og/banner/${call.seq}.svg`);
   const txt = await b.text();
   ok(b.status === 200, `the banner is served (${b.status})`);
   ok(txt.includes("$TAP") && !txt.includes("$$TAP"), "with one dollar on the ticker");
-  // The call is live and up 3x, so now is what gets headlined and the line
-  // reads in the brand gradient rather than in --dead.
-  ok(/font-size="128"[^>]*>3\.00×/.test(txt), "headlined on where it is now, not on a peak it left");
+  // The headline is whichever text is set largest on the card.
+  const sizes = [...txt.matchAll(/font-size="(\d+)"[^>]*>([^<]*×)</g)]
+    .map(m => [Number(m[1]), m[2]]).sort((a, b2) => b2[0] - a[0]);
+  ok(sizes[0]?.[1] === "1.20×",
+    `the largest figure on the card is where it is now, not the peak it left (${sizes[0]?.[1]})`);
+  ok(txt.includes("PEAK 3.00×"), "with the peak kept beside it, in small type");
   ok(txt.includes("#5B7CFA"), "and drawn in the gradient, because it is above entry");
   ok(!txt.includes("#E5606B"), "not in the dead colour");
+
+  // And a call below entry flips both, so the picture can never argue with
+  // the number it is printing.
+  pairs = [pair(ENTRY * 0.3)];
+  await engine.refresh(store.liveCalls());
+  const down = await (await fetch(`${B}/og/banner/${call.seq}.svg`)).text();
+  const grad = down.match(/<linearGradient id="g"[^>]*><stop stop-color="([^"]+)"/)?.[1];
+  ok(grad === "#E5606B",
+    `a call that fell below entry is drawn in the dead colour (${grad})`);
+  // The badge does not follow it, and should not: the register still calls
+  // this a win, because it reached 2× and that fact does not expire. Two
+  // signals saying two true things — the failure would be one of them lying.
+  ok(down.includes("WIN"), "while the badge still says what the register calls it");
 
   const raster = await fetch(`${B}/og/banner/${call.seq}.png`);
   const rbuf = Buffer.from(await raster.arrayBuffer());

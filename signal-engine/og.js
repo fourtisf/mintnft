@@ -72,75 +72,77 @@ export function siteCard(s, returnPct) {
  * the thing this register was built to replace.
  */
 export function bannerCard(row) {
-  const key = row.isDead ? "dead" : row.verdict;
-  const t = THEME[key] ?? THEME.miss;
-  /* The badge says what the register calls it; the line says where the price
-     actually is. A live call sitting at 27% of entry drawn in the win gradient
-     is a picture that argues with its own number, and the number is the one
-     that is true. Above entry it reads in the brand gradient, below it in
-     --dead, and a win that later died keeps its badge either way. */
-  const nx = row.nowX ?? 1;
-  const line = nx >= 1.02 ? { a: "#5B7CFA", b: "#9B6DFF" }
-             : nx <= 0.98 ? { a: "#E5606B", b: "#B5715A" }
-             : { a: "#6E7BFF", b: "#8C929C" };
-  const s = series(row, { x: -40, y: 170, w: 1280, h: 400 });
-  // Where it is, unless it is settled and won. The site headlines a live or
-  // dead call at now for a reason: a token sitting at 27% of entry with 1.12×
-  // across the top is the misreading this register exists to remove, and it
-  // does not become acceptable because the picture is going on a timeline.
+  const t = THEME[row.isDead ? "dead" : row.verdict] ?? THEME.miss;
   const live = row.state !== "settled";
+  /* Where it is, unless it is settled and won. A token sitting at 27% of entry
+     with 1.12× across the top is the misreading this register exists to
+     remove, and it does not become acceptable because the picture is going on
+     a timeline. The line follows the same figure, so a card can never argue
+     with its own number — the reader believes the colour first. */
   const x = (live || row.isDead) ? (row.nowX ?? 1) : (row.peakX ?? 1);
-  const under = `${(live || row.isDead) ? "NOW" : "PEAK"} · ${(live || row.isDead) ? "PEAK " + (row.peakX ?? 1).toFixed(2) : "NOW " + (row.nowX ?? 1).toFixed(2)}×`;
+  const c = x >= 1.02 ? { a: "#5B7CFA", b: "#9B6DFF" }
+          : x <= 0.98 ? { a: "#E5606B", b: "#B5715A" }
+          : { a: "#6E7BFF", b: "#8C929C" };
+  const under = (live || row.isDead)
+    ? `NOW \u00b7 PEAK ${(row.peakX ?? 1).toFixed(2)}\u00d7`
+    : `PEAK \u00b7 NOW ${(row.nowX ?? 1).toFixed(2)}\u00d7`;
+  const dur = sec => !sec ? null
+    : sec < 3600 ? Math.round(sec / 60) + "m" : (sec / 3600).toFixed(1) + "h";
+  const took = dur(row.secondsTo2x);
   const reasons = (row.reasons ?? []).slice(0, 2);
+  // Sized to the number: 97.31× is five glyphs where 3.90× is four, and a
+  // single size makes one of them either cramped or timid.
+  const big = x >= 100 ? 118 : x >= 10 ? 132 : 150;
+  const s = series(row, { x: -60, y: 250, w: 1320, h: 300 });
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop stop-color="${line.a}"/><stop offset="1" stop-color="${line.b}"/></linearGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop stop-color="${c.a}"/><stop offset="1" stop-color="${c.b}"/></linearGradient>
     <linearGradient id="wash" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${line.a}" stop-opacity=".40"/>
-      <stop offset="1" stop-color="${line.a}" stop-opacity="0"/>
+      <stop offset="0" stop-color="${c.a}" stop-opacity=".55"/><stop offset="1" stop-color="${c.a}" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="veil" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#08090B" stop-opacity=".88"/>
-      <stop offset=".5" stop-color="#08090B" stop-opacity=".42"/>
-      <stop offset="1" stop-color="#08090B" stop-opacity=".90"/>
+    <radialGradient id="aura" cx="84%" cy="-8%" r="76%">
+      <stop offset="0" stop-color="${c.b}" stop-opacity=".26"/><stop offset="1" stop-color="${c.b}" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#08090B" stop-opacity="0"/><stop offset=".62" stop-color="#08090B" stop-opacity=".88"/>
+      <stop offset="1" stop-color="#08090B" stop-opacity=".97"/>
     </linearGradient>
+    <filter id="glow" x="-20%" y="-80%" width="140%" height="260%"><feGaussianBlur stdDeviation="13"/></filter>
   </defs>
 
   <rect width="1200" height="630" fill="#08090B"/>
-  <path d="${s.area}" fill="url(#wash)"/>
-  <path d="${s.line}" fill="none" stroke="url(#g)" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
-  ${s.twoInFrame ? `<line x1="0" y1="${s.twoY}" x2="1200" y2="${s.twoY}" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="6 8" opacity=".26"/>
-  <text x="1180" y="${Number(s.twoY) - 12}" text-anchor="end" font-family="monospace" font-size="15" letter-spacing="2" fill="#8C929C">2×</text>` : ""}
-  <rect width="1200" height="630" fill="url(#veil)"/>
-  <!-- Once more over the veil, so the line the card is built around survives
-       the darkening that makes the text readable. -->
-  <path d="${s.line}" fill="none" stroke="url(#g)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity=".85"/>
+  <rect width="1200" height="630" fill="url(#aura)"/>
+  <path d="${s.area}" fill="url(#wash)" opacity=".30"/>
+  <path d="${s.line}" fill="none" stroke="url(#g)" stroke-width="7" filter="url(#glow)" opacity=".9"/>
+  <path d="${s.line}" fill="none" stroke="url(#g)" stroke-width="3.6" stroke-linejoin="round" stroke-linecap="round"/>
+  ${s.twoInFrame ? `<line x1="0" y1="${s.twoY}" x2="1200" y2="${s.twoY}" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="6 9" opacity=".24"/>
+  <text x="1176" y="${Number(s.twoY) - 12}" text-anchor="end" font-family="monospace" font-size="14" letter-spacing="2" fill="#8C929C">2\u00d7</text>` : ""}
+  <rect y="330" width="1200" height="300" fill="url(#floor)"/>
 
-  <text x="64" y="82" font-family="monospace" font-size="18" letter-spacing="6" fill="#8C929C">NEKARA</text>
-  <rect x="${1136 - 150}" y="52" width="150" height="42" rx="9" fill="${t.a}" opacity=".16" stroke="${t.a}" stroke-width="1.3"/>
-  <text x="${1136 - 75}" y="80" text-anchor="middle" font-family="monospace" font-size="19" font-weight="700" letter-spacing="4" fill="${t.a}">${t.label}</text>
+  <text x="56" y="62" font-family="monospace" font-size="16" letter-spacing="7" fill="#8C929C">NEKARA</text>
+  <rect x="56" y="76" width="42" height="2" rx="1" fill="url(#g)"/>
+  <rect x="${1144 - 154}" y="40" width="154" height="44" rx="10" fill="${t.a}" opacity=".15" stroke="${t.a}" stroke-width="1.3"/>
+  <text x="${1144 - 77}" y="69" text-anchor="middle" font-family="monospace" font-size="19" font-weight="700" letter-spacing="4" fill="${t.a}">${t.label}</text>
 
-  <text x="64" y="330" font-family="sans-serif" font-size="112" font-weight="700" letter-spacing="-4" fill="#F3F4F6">${esc(ticker(row.symbol))}</text>
-  <text x="64" y="380" font-family="monospace" font-size="21" fill="#8C929C">${esc(row.name ?? "")}${row.name ? " · " : ""}${esc(row.chain)} · ${esc(row.dex ?? "")}</text>
+  <text x="56" y="${big >= 150 ? 452 : 448}" font-family="sans-serif" font-size="${big}" font-weight="700" letter-spacing="-6" fill="url(#g)">${x.toFixed(2)}\u00d7</text>
+  <text x="58" y="${big >= 150 ? 492 : 488}" font-family="monospace" font-size="17" letter-spacing="3" fill="#8C929C">${under}</text>
 
-  <text x="1136" y="330" text-anchor="end" font-family="sans-serif" font-size="128" font-weight="700" letter-spacing="-5" fill="url(#g)">${x.toFixed(2)}×</text>
-  <text x="1136" y="378" text-anchor="end" font-family="monospace" font-size="19" letter-spacing="2" fill="#8C929C">${under}</text>
+  <text x="1144" y="428" text-anchor="end" font-family="sans-serif" font-size="62" font-weight="700" letter-spacing="-2.4" fill="#F3F4F6">${esc(ticker(row.symbol))}</text>
+  <text x="1144" y="462" text-anchor="end" font-family="monospace" font-size="16" fill="#8C929C">${esc(row.name ?? "")}${row.name ? " \u00b7 " : ""}${esc(row.chain)} \u00b7 ${esc(row.dex ?? "")}</text>
+  ${took ? `<text x="1144" y="492" text-anchor="end" font-family="monospace" font-size="16" fill="${t.a}">2\u00d7 in ${took}</text>` : ""}
 
-  ${reasons.map((r, i) => `
-  <rect x="64" y="${430 + i * 46}" width="${Math.min(1072, 26 + esc(r).length * 11)}" height="36" rx="8" fill="#FFFFFF" opacity=".05"/>
-  <text x="80" y="${455 + i * 46}" font-family="sans-serif" font-size="19" fill="#C9CDD4">${esc(r)}</text>`).join("")}
-
-  <line x1="64" y1="556" x2="1136" y2="556" stroke="#FFFFFF" opacity=".09"/>
-  ${[["ENTRY MC", usd(row.entryMc)], ["NOW MC", usd(row.nowMc)],
-     ["SCORE", `${row.score ?? 0}/100`],
-     ["2× IN", row.secondsTo2x ? Math.round(row.secondsTo2x / 60) + "m" : "never"]]
+  <line x1="56" y1="524" x2="1144" y2="524" stroke="rgba(255,255,255,.10)"/>
+  ${[["ENTRY MC", usd(row.entryMc)], ["PEAK MC", usd(row.peakMc)], ["NOW MC", usd(row.nowMc)],
+     ["SCORE", `${row.score ?? 0}/100`]]
     .map(([k, v], i) => `
-  <text x="${64 + i * 190}" y="586" font-family="monospace" font-size="14" letter-spacing="2" fill="#585E68">${k}</text>
-  <text x="${64 + i * 190}" y="612" font-family="monospace" font-size="25" font-weight="600" fill="#F3F4F6">${v}</text>`).join("")}
+  <text x="${56 + i * 148}" y="554" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">${k}</text>
+  <text x="${56 + i * 148}" y="582" font-family="monospace" font-size="23" font-weight="600" fill="#F3F4F6">${v}</text>`).join("")}
 
-  <text x="1136" y="612" text-anchor="end" font-family="monospace" font-size="17" fill="#585E68">nekara.xyz/call/${row.seq ?? ""}</text>
-  <text x="1136" y="586" text-anchor="end" font-family="monospace" font-size="13" letter-spacing="1" fill="#3E444C">${s.observed ? `${s.points} OBSERVED MARKS` : "ENTRY, PEAK AND NOW — NO SERIES KEPT"}</text>
+  ${reasons.length ? `<text x="1144" y="556" text-anchor="end" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">WHY IT FIRED \u00b7 ${row.score ?? 0}/100</text>
+  <text x="1144" y="580" text-anchor="end" font-family="sans-serif" font-size="17" fill="#8C929C">${esc(reasons[0])}</text>` : ""}
+  <text x="1144" y="608" text-anchor="end" font-family="monospace" font-size="13" fill="#4A5058">nekara.xyz/call/${row.seq ?? ""}</text>
+  <text x="56" y="608" font-family="monospace" font-size="13" fill="#4A5058">${s.observed ? `${s.points} observed marks \u00b7 peak is not a realised return` : "entry, peak and now \u2014 no series kept"}</text>
 </svg>`;
 }
 
