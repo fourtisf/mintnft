@@ -159,7 +159,11 @@ async function keysContract(provider, signerOrNull, chainId, override) {
 
 /* ─────────── sending ─────────── */
 
-const eth = w => ethers.utils.formatEther(w);
+const eth = (w, dp = 6) => {
+  const s = ethers.utils.formatEther(w);
+  const [i, f = ''] = s.split('.');
+  return dp ? `${i}.${f.padEnd(dp, '0').slice(0, dp)}` : i;
+};
 
 /**
  * Estimates first and always. A revert surfaces here, before a wallet is
@@ -231,14 +235,57 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
       + 'Kalau memang belum ada kontrak di sana, ulangi dengan --again.');
   }
 
+  // Measured on a local EVM (out/gas.mjs). Only used when the node refuses to
+  // estimate — which it does when the account cannot pay for the gas it is
+  // asking about, i.e. exactly when someone is trying to find out how much to
+  // send. A floor, and labelled as one.
+  const MEASURED = { ProofParts: 3306219n, ProofRenderer: 3245679n, ProofKeys: 2361979n };
+  const ADMIN_GAS = 420780n;   // prices, allowlist root, commit, phases, reveal, withdraw
+
+  // A stand-in for the address the previous step will produce. Both
+  // constructors only store it, so the gas is the same as the real one.
+  const soon = '0x' + '11'.repeat(20);
+  const args = (types, vals) => ethers.utils.defaultAbiCoder.encode(types, vals).slice(2);
   const plan = [
-    ['ProofParts', b.parts, []],
-    ['ProofRenderer', b.renderer, ['<ProofParts>']],
-    ['ProofKeys', b.keys, ['<ProofRenderer>', owner]],
+    ['ProofParts', b.parts, [], ''],
+    ['ProofRenderer', b.renderer, ['<ProofParts>'], args(['address'], [soon])],
+    ['ProofKeys', b.keys, ['<ProofRenderer>', owner], args(['address', 'address'], [soon, owner])],
   ];
+
   console.log('yang akan dikirim:');
-  for (const [name, art, args] of plan) {
-    console.log(`  ${name.padEnd(14)} ${(art.deployedSize / 1024).toFixed(1)} KB  arg: ${args.join(', ') || '-'}`);
+  let gas = 0n, estimated = true;
+  for (const [name, art, shown, ctorHex] of plan) {
+    let g;
+    try {
+      g = (await retry(() => signer.estimateGas({ data: '0x' + art.bytecode + ctorHex }),
+        `estimasi ${name}`, 2)).toBigInt();
+    } catch {
+      g = MEASURED[name];
+      estimated = false;
+    }
+    gas += g;
+    console.log(`  ${name.padEnd(14)} ${(art.deployedSize / 1024).toFixed(1)} KB  `
+      + `${g.toString().padStart(9)} gas  arg: ${shown.join(', ') || '-'}`);
+  }
+  gas += ADMIN_GAS;
+
+  const price = await retry(() => provider.getGasPrice(), 'harga gas');
+  const cost = price.toBigInt() * gas;
+  console.log(`  ${'+ admin'.padEnd(14)} ${' '.repeat(7)}${ADMIN_GAS.toString().padStart(9)} gas  `
+    + 'harga, allowlist, commit, fase, reveal, withdraw');
+  console.log(`\n  total     ${gas} gas @ ${ethers.utils.formatUnits(price, 'gwei')} gwei`);
+  console.log(`  perkiraan biaya  ${eth(cost, 8)} ETH${estimated ? '' : '   (dari pengukuran lokal — node menolak mengestimasi)'}`);
+  console.log(`  saldo Anda       ${eth(balance, 8)} ETH`);
+
+  // On Nitro the fee also carries the cost of posting this data to Ethereum,
+  // which a local measurement cannot see. Say so rather than let the number
+  // read as complete.
+  console.log('\n  Ini biaya eksekusi. Di chain ini biayanya juga memuat ongkos');
+  console.log('  mengirim data kontrak ke Ethereum, yang tidak terlihat dari sini.');
+  console.log('  Kirim lebih dari angka di atas, jangan pas-pasan.');
+
+  if (balance.toBigInt() < cost) {
+    console.log(`\n  SALDO KURANG — butuh sekitar ${eth(cost - balance.toBigInt(), 8)} ETH lagi, di chain ${chainId}.`);
   }
 
   if (!confirm) {

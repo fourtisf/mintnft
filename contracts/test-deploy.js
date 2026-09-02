@@ -153,6 +153,13 @@ const ROOT = path.join(__dirname, '..');
     ok(r.code === 0 && /DRY RUN/.test(r.out), 'deploy tanpa --confirm berhenti di DRY RUN');
     ok(/ProofParts/.test(r.out) && /ProofRenderer/.test(r.out) && /ProofKeys/.test(r.out),
       'dan mencetak ketiga kontrak yang akan dikirim');
+    // "how much ETH do I need" is the question a dry run exists to answer, and
+    // it used to print contract sizes instead of a cost.
+    ok(/total\s+\d+ gas @ [\d.]+ gwei/.test(r.out), 'beserta total gas dan harga gas dari chain');
+    ok(/perkiraan biaya\s+[\d.]+ ETH/.test(r.out) && /saldo Anda\s+[\d.]+ ETH/.test(r.out),
+      'perkiraan biaya dan saldo, berdampingan');
+    ok(/mengirim data kontrak ke Ethereum/.test(r.out),
+      'dan mengaku bahwa angka itu belum memuat ongkos posting data ke Ethereum');
     ok(await provider.getBlockNumber() === before, 'tidak ada satu pun blok bertambah');
     ok(!fs.existsSync(deployedPath), 'tidak ada alamat yang ditulis');
   }
@@ -213,7 +220,7 @@ const ROOT = path.join(__dirname, '..');
     const r = await keys('state');
     ok(r.code === 0 && /fase\s+Closed/.test(r.out), 'membaca fase dari chain');
     ok(/1 \/ 666/.test(r.out), 'membaca suplai dari chain');
-    ok(/harga publik\s+0\.0015 ETH/.test(r.out), 'membaca harga publik dari chain');
+    ok(/harga publik\s+0\.0015\d* ETH/.test(r.out), 'membaca harga publik dari chain');
     ok(/belum ada komitmen/.test(r.out), 'mengatakan seed belum dikomitkan, bukan mengarang tanggal');
   }
 
