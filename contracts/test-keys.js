@@ -131,27 +131,35 @@ async function main() {
 
   const fresh = () => deploy(keys.bytecode, Buffer.concat([addr32(rendAddr), addr32(OWNER)]));
 
-  const PUBLIC = 1500000000000000n;   // 0.0015 ether
-  const ALLOW = 500000000000000n;     // 0.0005 ether
+  const ALLOW = 700000000000000n;    // 0.0007 ether, ~$2
+  const PUBLIC = 1700000000000000n;  // 0.0017 ether, ~$5
+  const LATE = 3300000000000000n;    // 0.0033 ether, ~$10
+  const STEP = 333n;
 
   /* ═══════════════ price ═══════════════ */
   head('harga');
   {
     const k = await fresh();
-    const p = num(await send(k, 'price()'));
     const ap = num(await send(k, 'allowlistPrice()'));
-    ok(p === PUBLIC, `harga publik ${Number(p) / 1e18} ETH`);
-    ok(ap === ALLOW, `harga allowlist ${Number(ap) / 1e18} ETH`);
-    ok(ap < p, 'allowlist lebih murah daripada publik');
-    // $1-$10 at ETH between $2,000 and $6,500 — the band the owner asked for.
-    ok(ap * 2000n / ETH * 1000n >= 1000n && p * 6500n / ETH <= 10n,
-      'kedua harga jatuh di dalam $1-$10 untuk ETH $2,000-$6,500');
+    const p = num(await send(k, 'price()'));
+    const lp = num(await send(k, 'priceLate()'));
+    ok(ap === ALLOW && p === PUBLIC && lp === LATE,
+      `tiga harga: ${Number(ap) / 1e18} / ${Number(p) / 1e18} / ${Number(lp) / 1e18} ETH`);
+    ok(ap < p && p < lp, 'menaik: allowlist, publik, lalu tranche terakhir');
+    // ~$2 / $5 / $10 at ETH around $3,000, which is what the schedule promises.
+    ok(ap * 3000n / ETH === 2n && p * 3000n / ETH === 5n && lp * 3000n / ETH === 9n,
+      'pada ETH $3,000 ketiganya jatuh di sekitar $2, $5 dan $10');
+    ok(num(await send(k, 'PUBLIC_STEP()')) === STEP, `harga publik naik setelah ${STEP} key`);
 
-    const r = await send(k, 'setPrices(uint256,uint256)', Buffer.concat([u(7n), u(9n)]));
-    ok(r.ok && has(r.logs, 'PricesSet(uint256,uint256)'), 'setPrices memancarkan PricesSet');
-    ok(num(await send(k, 'price()')) === 9n && num(await send(k, 'allowlistPrice()')) === 7n,
-      'setPrices menggerakkan keduanya sekaligus');
-    ok((await send(k, 'setPrices(uint256,uint256)', Buffer.concat([u(1n), u(1n)]), { from: ALICE }))
+    const r = await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(7n), u(9n), u(11n)]));
+    ok(r.ok && has(r.logs, 'PricesSet(uint256,uint256,uint256)'), 'setPrices memancarkan PricesSet');
+    ok(num(await send(k, 'allowlistPrice()')) === 7n && num(await send(k, 'price()')) === 9n
+      && num(await send(k, 'priceLate()')) === 11n, 'ketiganya bergerak sekaligus');
+    ok((await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(9n), u(9n), u(9n)]))).ok,
+      'tranche terakhir boleh sama dengan publik — itu mint berharga rata, disengaja');
+    ok((await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(9n), u(9n), u(8n)]))).err === 'BadPrice',
+      'tapi tidak boleh lebih murah — kalau turun, yang datang duluan membayar paling mahal');
+    ok((await send(k, 'setPrices(uint256,uint256,uint256)', Buffer.concat([u(1n), u(1n), u(1n)]), { from: ALICE }))
       .err === 'OwnableUnauthorizedAccount', 'setPrices hanya untuk owner');
   }
 
@@ -183,6 +191,9 @@ async function main() {
 
     ok((await send(k, 'mintPublic(uint256)', u(2), { from: ALICE, value: PUBLIC })).err === 'BadPayment',
       'bayar kurang ditolak');
+    ok(num(await send(k, 'currentPrice()')) === PUBLIC, 'currentPrice awalnya harga publik');
+    ok(num(await send(k, 'costFor(uint256,uint256)', Buffer.concat([u(0), u(3)]))) === PUBLIC * 3n,
+      'costFor untuk tiga key di awal season');
     ok((await send(k, 'mintPublic(uint256)', u(1), { from: ALICE, value: PUBLIC * 2n })).err === 'BadPayment',
       'bayar lebih juga ditolak, bukan diterima diam-diam');
     ok((await send(k, 'mintPublic(uint256)', u(0), { from: ALICE, value: 0n })).err === 'SoldOut',
@@ -201,6 +212,36 @@ async function main() {
       'key keenam ditolak');
     ok((await send(k, 'mintPublic(uint256)', u(1), { from: BOB, value: PUBLIC })).ok,
       'batas dihitung per dompet, bukan global');
+  }
+
+  /* ═══════════════ the price schedule ═══════════════ */
+  head('harga bertingkat');
+  {
+    const k = await fresh();
+    await send(k, 'setPhase(uint8)', u(2));
+
+    ok(num(await send(k, 'costFor(uint256,uint256)', Buffer.concat([u(330), u(3)]))) === PUBLIC * 3n,
+      'tiga key terakhir sebelum tangga: harga publik');
+    ok(num(await send(k, 'costFor(uint256,uint256)', Buffer.concat([u(333), u(3)]))) === LATE * 3n,
+      'tiga key pertama sesudahnya: harga tranche terakhir');
+    // The case a per-transaction price would get wrong.
+    ok(num(await send(k, 'costFor(uint256,uint256)', Buffer.concat([u(331), u(4)]))) === PUBLIC * 2n + LATE * 2n,
+      'pembelian yang melangkahi tangga membayar dua di harga lama, dua di harga baru');
+
+    // Walk the supply to the step with the treasury, then buy across it.
+    await send(k, 'mintReserved(address,uint256)', Buffer.concat([addr32(TREASURY), u(331)]), { gas: 900e6 });
+    ok(num(await send(k, 'currentPrice()')) === PUBLIC, 'di 331, key berikutnya masih harga publik');
+
+    ok((await send(k, 'mintPublic(uint256)', u(4), { from: ALICE, value: PUBLIC * 4n })).err === 'BadPayment',
+      'membayar empat di harga publik ditolak — dua di antaranya sudah lewat tangga');
+    ok((await send(k, 'mintPublic(uint256)', u(4), { from: ALICE, value: PUBLIC * 2n + LATE * 2n })).ok,
+      'harga campuran yang benar diterima');
+    ok(num(await send(k, 'totalMinted()')) === 335n, 'dan keempatnya tercetak');
+    ok(num(await send(k, 'currentPrice()')) === LATE, 'sesudah tangga, currentPrice adalah harga terakhir');
+
+    ok((await send(k, 'mintPublic(uint256)', u(1), { from: BOB, value: PUBLIC })).err === 'BadPayment',
+      'harga lama tidak lagi berlaku');
+    ok((await send(k, 'mintPublic(uint256)', u(1), { from: BOB, value: LATE })).ok, 'harga baru berlaku');
   }
 
   /* ═══════════════ allowlist ═══════════════ */
@@ -457,7 +498,8 @@ async function main() {
       'bukan pemilik, daftar kosong');
 
     await send(k, 'mintReserved(address,uint256)', Buffer.concat([addr32(TREASURY), u(652)]), { gas: 900e6 });
-    await send(k, 'mintPublic(uint256)', u(1), { from: DAVE, value: PUBLIC });         // 661
+    // 661: past PUBLIC_STEP, so this one costs the late price
+    await send(k, 'mintPublic(uint256)', u(1), { from: DAVE, value: LATE });            // 661
     await send(k, 'setPhase(uint8)', u(0));
     ok(num(await send(k, 'totalMinted()')) === 661n, 'season hampir penuh (661)');
 

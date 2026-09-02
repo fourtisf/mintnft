@@ -752,6 +752,15 @@ function eth(v,dp=4){
   return dp?`${whole}.${frac}`:String(whole);
 }
 const hexQ=n=>"0x"+BigInt(n).toString(16);
+/* The public price steps up partway through the season, so a basket can cost
+   more than quantity times the price on screen. The contract charges per key
+   and refuses anything else, so the total here is the sum of the actual next
+   prices — never one price multiplied out. */
+function dueFor(st,n,unit){
+  const list=st?.nextPrices;
+  if(!Array.isArray(list)||list.length<n)return unit*BigInt(n);
+  let t=0n;for(let i=0;i<n;i++)t+=wei(list[i]);return t;
+}
 const w256=v=>BigInt(v).toString(16).padStart(64,"0");
 const b32=h=>String(h).replace(/^0x/,"").padStart(64,"0");
 
@@ -785,10 +794,10 @@ function syncMint(){
   const max=st?.remaining??st?.maxPerWallet??5;
   if(qty>Math.max(1,max))qty=Math.max(1,max);
 
-  const unit=st?wei(st.unitPrice??st.price):wei("1500000000000000");
+  const unit=st?wei(st.unitPrice??st.price):wei("1700000000000000");
   document.getElementById("qVal").textContent=qty;
   document.getElementById("unitPrice").textContent=eth(unit);
-  document.getElementById("total").textContent=eth(unit*BigInt(qty))+" ETH";
+  document.getElementById("total").textContent=eth(dueFor(st,qty,unit))+" ETH";
   document.getElementById("qMinus").disabled=qty<=1;
   document.getElementById("qPlus").disabled=qty>=max;
 
@@ -824,7 +833,7 @@ function syncMint(){
   }
   if(st.canMint){
     btn.disabled=MINT.busy;
-    btn.textContent=MINT.busy?"Confirm in your wallet…":`Mint ${qty} · ${eth(unit*BigInt(qty))} ETH`;
+    btn.textContent=MINT.busy?"Confirm in your wallet…":`Mint ${qty} · ${eth(dueFor(st,qty,unit))} ETH`;
     if(!MINT.busy)derived(st.method==="allowlist"?"This wallet is on the allowlist.":"");
     return;
   }
@@ -879,13 +888,13 @@ async function doMint(){
     if(!st.canMint)return;
     if(!await onRightChain(eth_))return;
 
-    const unit=wei(st.unitPrice);
+    const due=dueFor(st,qty,wei(st.unitPrice));
     const data=calldata(MINT.id.selectors[st.method],qty,st.method==="allowlist"?st.proof:null);
 
     MINT.busy=true;syncMint();
     notice("Waiting for your wallet…");
     const hash=await eth_.request({method:"eth_sendTransaction",params:[{
-      from:addr,to:MINT.id.contract,value:hexQ(unit*BigInt(qty)),data,
+      from:addr,to:MINT.id.contract,value:hexQ(due),data,
     }]});
     const link=MINT.id.explorer?`<a href="${MINT.id.explorer}/tx/${hash}" target="_blank" rel="noopener">${hash.slice(0,10)}…</a>`:hash.slice(0,10)+"…";
     notice(`Sent — ${link}. The key appears once it confirms.`,"good");

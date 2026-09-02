@@ -1684,7 +1684,7 @@ let qty=1,minted=412,preview=Math.floor(Math.random()*666)+1;
 // Public mint price. The contract carries the figure that binds — this one
 // only has to agree with it, so it is a literal in one place rather than
 // arithmetic in four.
-const PRICE=.0015;
+const PRICE=.0017;
 function syncMint(){
   document.getElementById("qVal").textContent=qty;
   document.getElementById("total").textContent=(qty*PRICE).toFixed(4)+" ETH";

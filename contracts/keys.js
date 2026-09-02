@@ -427,7 +427,7 @@ const USAGE = `
                                    menghitung ulang seed yang sudah terbit
     deploy --owner 0x…             ProofParts -> ProofRenderer -> ProofKeys
     phase closed|allowlist|public  buka atau tutup mint
-    prices <allowlistEth> <publicEth>
+    prices <allowlistEth> <publicEth> <lateEth>
     allowlist-root addresses.txt   hitung root, tulis out/proofs.json, kirim
     commit <secret> [--ahead 600]  komitkan seed musim, dipatok ke satu blok
                                    Ethereum mainnet yang belum ada
@@ -490,11 +490,16 @@ const USAGE = `
   }
 
   if (cmd === 'prices') {
-    const [a, b] = [argv._[1], argv._[2]];
-    if (!a || !b) die('usage: keys.js prices <allowlistEth> <publicEth>');
-    const wa = ethers.utils.parseEther(a), wb = ethers.utils.parseEther(b);
+    const [a, b, l] = [argv._[1], argv._[2], argv._[3]];
+    if (!a || !b || !l) die('usage: keys.js prices <allowlistEth> <publicEth> <lateEth>\n'
+      + '  allowlist, publik, lalu tranche terakhir setelah PUBLIC_STEP key');
+    const [wa, wb, wl] = [a, b, l].map(v => ethers.utils.parseEther(v));
     if (wa.gt(wb)) console.log('catatan: harga allowlist lebih mahal daripada publik. Sengaja?');
-    return void await send('setPrices', c, 'setPrices', [wa, wb], { confirm });
+    const step = await retry(() => c.PUBLIC_STEP(), 'PUBLIC_STEP');
+    console.log(`  allowlist  ${eth(wa)} ETH`);
+    console.log(`  publik     ${eth(wb)} ETH   untuk ${step} key pertama`);
+    console.log(`  terakhir   ${eth(wl)} ETH   sesudah itu\n`);
+    return void await send('setPrices', c, 'setPrices', [wa, wb, wl], { confirm });
   }
 
   if (cmd === 'commit') {

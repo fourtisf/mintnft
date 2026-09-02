@@ -18,6 +18,8 @@ const CALL = {
   phase: sel("phase()"),
   price: sel("price()"),
   allowlistPrice: sel("allowlistPrice()"),
+  priceLate: sel("priceLate()"),
+  publicStep: sel("PUBLIC_STEP()"),
   totalMinted: sel("totalMinted()"),
   seasonCap: sel("seasonCap()"),
   maxPerWallet: sel("MAX_PER_WALLET()"),
@@ -63,6 +65,23 @@ export function loadProofs(file, log = console.log) {
     log(`[keys] ALLOWLIST NOT LOADED from ${file} — ${String(e.message ?? e)}`);
     return { root: null, proofs: null, error: String(e.message ?? e) };
   }
+}
+
+/**
+ * What the next few keys cost, one at a time.
+ *
+ * The public price steps up after PUBLIC_STEP keys, and a purchase can straddle
+ * that step: buying five at 331 is two at the old price and three at the new
+ * one. The contract charges exactly that, so the page has to send exactly that
+ * — a single unit price multiplied by quantity would be refused by the mint it
+ * was trying to pay for.
+ */
+export function schedule(state, count) {
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    out.push(state.totalMinted + i < state.publicStep ? state.price : state.priceLate);
+  }
+  return out;
 }
 
 export class KeysReader {
@@ -137,6 +156,8 @@ export class KeysReader {
       phaseName: ["closed", "allowlist", "public"][phase] ?? "unknown",
       price: word(raw.price).toString(),
       allowlistPrice: word(raw.allowlistPrice).toString(),
+      priceLate: word(raw.priceLate).toString(),
+      publicStep: Number(word(raw.publicStep)),
       totalMinted: Number(word(raw.totalMinted)),
       seasonCap: Number(word(raw.seasonCap)),
       maxPerWallet: Number(word(raw.maxPerWallet)),
@@ -170,7 +191,10 @@ export class KeysReader {
     if (state.totalMinted >= state.seasonCap) return { canMint: false, why: "the season is sold out" };
     if (state.remaining === 0) return { canMint: false, why: `this wallet already holds its ${state.maxPerWallet}` };
 
-    if (state.phase === 2) return { canMint: true, method: "public", unitPrice: state.price };
+    if (state.phase === 2) {
+      const next = schedule(state, state.maxPerWallet);
+      return { canMint: true, method: "public", unitPrice: next[0], nextPrices: next };
+    }
 
     if (!this.proofs) return { canMint: false, why: "no allowlist has been published" };
     if (this.proofs.proofs === null) {
@@ -183,6 +207,9 @@ export class KeysReader {
     }
     const proof = this.proofs.proofs[a];
     if (!proof) return { canMint: false, why: "this wallet is not on the allowlist" };
-    return { canMint: true, method: "allowlist", unitPrice: state.allowlistPrice, proof };
+    return {
+      canMint: true, method: "allowlist", unitPrice: state.allowlistPrice,
+      nextPrices: Array(state.maxPerWallet).fill(state.allowlistPrice), proof,
+    };
   }
 }

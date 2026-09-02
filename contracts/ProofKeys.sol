@@ -43,11 +43,20 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
 
     Phase   public phase;
 
-    /// @dev Deliberately low. At ETH between $2,000 and $6,500 these sit
-    ///      inside the $1-$10 band the key is priced for; setPrices() moves
-    ///      them if the market leaves that band before the mint opens.
-    uint256 public allowlistPrice = 0.0005 ether;
-    uint256 public price          = 0.0015 ether;
+    /// @notice Where the public price steps up, counted in keys minted. The
+    ///         site publishes three prices — allowlist, then public, then a
+    ///         dearer final tranche — and this is what makes the third one a
+    ///         rule rather than a promise to remember to raise it by hand at
+    ///         the right moment, in the middle of a rush.
+    uint256 public constant PUBLIC_STEP = 333;
+
+    /// @dev Set at ETH around $3,000: roughly $2, $5 and $10. setPrices() moves
+    ///      all three if the market has left that neighbourhood by deploy day —
+    ///      the dollar figures are the promise, the wei are just today's
+    ///      arithmetic.
+    uint256 public allowlistPrice = 0.0007 ether;   // ~$2
+    uint256 public price          = 0.0017 ether;   // ~$5,  first PUBLIC_STEP
+    uint256 public priceLate      = 0.0033 ether;   // ~$10, after that
 
     bytes32 public allowlistRoot;
 
@@ -107,7 +116,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
                    uint256 entropyBlock, bytes32 entropyHash);
     event PhaseSet(Phase phase);
     event SeasonOpened(uint256 seasonCap);
-    event PricesSet(uint256 allowlistPrice, uint256 publicPrice);
+    event PricesSet(uint256 allowlistPrice, uint256 publicPrice, uint256 latePrice);
     event RendererLocked(address renderer);
 
     /* ─────────── errors ─────────── */
@@ -124,6 +133,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     error BadSeed();
     error NotRevealed();
     error BadCap();
+    error BadPrice();
     error Locked();
     error TransferFailed();
 
@@ -144,15 +154,32 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
         if (phase != Phase.Allowlist) revert WrongPhase();
         bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
         if (!MerkleProof.verifyCalldata(proof, allowlistRoot, leaf)) revert NotAllowlisted();
-        _mintMany(msg.sender, qty, allowlistPrice);
+        _mintMany(msg.sender, qty, allowlistPrice * qty);
     }
 
     function mintPublic(uint256 qty) external payable nonReentrant {
         if (phase != Phase.Public) revert WrongPhase();
-        _mintMany(msg.sender, qty, price);
+        _mintMany(msg.sender, qty, costFor(totalMinted, qty));
     }
 
-    function _mintMany(address to, uint256 qty, uint256 unit) internal {
+    /// @notice What the next `qty` public keys cost, starting from `from`
+    ///         already minted. Priced one key at a time rather than by the
+    ///         supply at the top of the transaction, so a purchase that
+    ///         straddles the step pays the step — buying five at 331 does not
+    ///         buy four of them cheap.
+    function costFor(uint256 from, uint256 qty) public view returns (uint256 total) {
+        for (uint256 i = 0; i < qty; i++) {
+            total += (from + i) < PUBLIC_STEP ? price : priceLate;
+        }
+    }
+
+    /// @notice The price of the very next public key, for a page that has to
+    ///         print one number.
+    function currentPrice() external view returns (uint256) {
+        return totalMinted < PUBLIC_STEP ? price : priceLate;
+    }
+
+    function _mintMany(address to, uint256 qty, uint256 due) internal {
         // Unreachable today — setPhase cannot leave Closed once revealed, so
         // both paid paths already fail on phase. It stays because the rule is
         // "no minting after the tiers are computable", and a rule that lives
@@ -160,7 +187,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
         if (revealed) revert AlreadyRevealed();
         if (qty == 0 || totalMinted + qty > seasonCap) revert SoldOut();
         if (mintedBy[to] + qty > MAX_PER_WALLET) revert WalletLimit();
-        if (msg.value != unit * qty) revert BadPayment();
+        if (msg.value != due) revert BadPayment();
 
         mintedBy[to] += qty;
         uint256 first = totalMinted + 1;
@@ -348,12 +375,20 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
         emit PhaseSet(p);
     }
 
-    /// @notice Both prices at once, so the allowlist can never be left at a
-    ///         stale figure while the public one moves.
-    function setPrices(uint256 allowPrice, uint256 publicPrice) external onlyOwner {
+    /// @notice All three at once, so no tranche is ever left at a stale figure
+    ///         while another moves. The late price may equal the public one —
+    ///         that is a flat mint, deliberately — but it may not be lower,
+    ///         because a schedule that falls partway through means whoever
+    ///         bought first paid most for arriving early.
+    function setPrices(uint256 allowPrice, uint256 publicPrice, uint256 latePrice)
+        external
+        onlyOwner
+    {
+        if (latePrice < publicPrice) revert BadPrice();
         allowlistPrice = allowPrice;
         price = publicPrice;
-        emit PricesSet(allowPrice, publicPrice);
+        priceLate = latePrice;
+        emit PricesSet(allowPrice, publicPrice, latePrice);
     }
 
     function setAllowlistRoot(bytes32 r) external onlyOwner { allowlistRoot = r; }

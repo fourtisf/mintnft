@@ -99,15 +99,32 @@ included.
 
 ## 2. Price
 
-The contract ships at **0.0005 ETH allowlist / 0.0015 ETH public**, which is
-roughly $1.50 and $4.50 at ETH $3,000 and stays inside the $1–$10 band anywhere
-between about $2,000 and $6,500. Robinhood Chain's gas token is ETH, so these
-are the same units a buyer already holds. If ETH has left that range, set both before
+Three tranches, and the contract keeps all three:
+
+| | wei | at ETH $3,000 | who |
+|---|---|---|---|
+| `allowlistPrice` | 0.0007 ETH | ~$2 | anyone on the merkle root, in the Allowlist phase |
+| `price` | 0.0017 ETH | ~$5 | public, for the first `PUBLIC_STEP` (333) keys |
+| `priceLate` | 0.0033 ETH | ~$10 | public, for everything after that |
+
+The step is enforced on-chain, priced one key at a time: buying five at 331 pays
+two at $5 and three at $10, because a per-transaction price would let a basket
+straddle the step and buy four cheap. `setPrices` refuses a late price below the
+public one — a schedule that falls partway through means whoever arrived first
+paid most.
+
+Robinhood Chain's gas token is ETH, so these are the same units a buyer already
+holds. The wei figures are today's arithmetic; the dollar figures are the
+promise, so re-run `prices` on deploy day against the actual ETH price. If ETH has left that range, set both before
 opening anything:
 
 ```bash
-node contracts/keys.js prices 0.0005 0.0015 --confirm
+node contracts/keys.js prices 0.0007 0.0017 0.0033 --confirm
 ```
+
+Allowlist, public, then the final tranche. All three move together so none is
+left stale, and the site prints them as literals in `site/index.html` — change
+them there too or the page quotes a price the contract will reject.
 
 Both move together, so the allowlist can never be left at a stale figure while
 the public price moves. The site prints these numbers as literals in

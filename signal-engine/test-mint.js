@@ -45,16 +45,21 @@ import { keccak256 } from "ethereumjs-util";
 const sel = sig => "0x" + keccak256(Buffer.from(sig)).slice(0, 4).toString("hex");
 const S = {
   phase: sel("phase()"), price: sel("price()"), allowlistPrice: sel("allowlistPrice()"),
+  priceLate: sel("priceLate()"), publicStep: sel("PUBLIC_STEP()"),
   totalMinted: sel("totalMinted()"), seasonCap: sel("seasonCap()"),
   maxPerWallet: sel("MAX_PER_WALLET()"), revealed: sel("revealed()"),
   allowlistRoot: sel("allowlistRoot()"), recommitCount: sel("recommitCount()"),
   mintedBy: sel("mintedBy(address)"),
 };
 
+const P_ALLOW = 700000000000000n, P_PUBLIC = 1700000000000000n, P_LATE = 3300000000000000n;
+
 const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0, root = ROOT } = {}) => ({
   [S.phase]: word(phase),
-  [S.price]: word(1500000000000000n),
-  [S.allowlistPrice]: word(500000000000000n),
+  [S.price]: word(P_PUBLIC),
+  [S.allowlistPrice]: word(P_ALLOW),
+  [S.priceLate]: word(P_LATE),
+  [S.publicStep]: word(333),
   [S.totalMinted]: word(minted),
   [S.seasonCap]: word(cap),
   [S.maxPerWallet]: word(5),
@@ -98,11 +103,35 @@ head("membaca chain");
   const { state } = await reader().state(HOLDER);
   ok(state.phase === 2 && state.phaseName === "public", "fase terbaca");
   ok(state.totalMinted === 12 && state.seasonCap === 666, "suplai terbaca dari chain, bukan dari konstanta situs");
-  ok(state.price === "1500000000000000" && state.allowlistPrice === "500000000000000",
-    "harga dikirim sebagai wei string — 0.0015 ETH tidak muat di float ganda tanpa cerita");
+  ok(state.price === String(P_PUBLIC) && state.allowlistPrice === String(P_ALLOW)
+    && state.priceLate === String(P_LATE),
+    "ketiga harga dikirim sebagai wei string — tidak muat di float ganda tanpa cerita");
   ok(state.remaining === 5, "sisa jatah dompet dihitung dari mintedBy on-chain");
   ok(state.canMint === true && state.method === "public" && state.unitPrice === state.price,
     "fase publik: boleh mint, dengan harga publik");
+}
+
+/* ═══════════════ the price schedule ═══════════════ */
+head("harga bertingkat");
+{
+  const early = (await reader({}, chain({ minted: 12 })).state(HOLDER)).state;
+  ok(early.nextPrices.every(p => p === String(P_PUBLIC)),
+    "sebelum tangga, kelima key berikutnya di harga publik");
+
+  const late = (await reader({}, chain({ minted: 400 })).state(HOLDER)).state;
+  ok(late.nextPrices.every(p => p === String(P_LATE)), "sesudah tangga, semuanya di harga terakhir");
+  ok(late.unitPrice === String(P_LATE), "dan angka yang dicetak halaman ikut naik");
+
+  // The case a single unit price multiplied by quantity gets wrong.
+  const straddle = (await reader({}, chain({ minted: 331 })).state(HOLDER)).state;
+  ok(JSON.stringify(straddle.nextPrices) ===
+     JSON.stringify([P_PUBLIC, P_PUBLIC, P_LATE, P_LATE, P_LATE].map(String)),
+    "yang melangkahi tangga: dua di harga lama, tiga di harga baru");
+
+  const list = (await reader({ proofs: { root: ROOT, proofs: { [HOLDER]: [] } } },
+    chain({ phase: 1, minted: 400 })).state(HOLDER)).state;
+  ok(list.nextPrices.every(p => p === String(P_ALLOW)),
+    "allowlist rata di harganya sendiri, tangga publik tidak menyentuhnya");
 }
 
 /* ═══════════════ the refusals, each with its own reason ═══════════════ */

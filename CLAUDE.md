@@ -261,6 +261,13 @@ continuing. Everything else is recoverable; that one is not.
 - `recommitSeed` works only while `totalMinted == 0`. After the first mint the
   deployer can compute what the seed would be, so a second commitment there is a
   reroll whatever it was meant for.
+- **Three prices, and the contract keeps all three.** Allowlist, public for the
+  first `PUBLIC_STEP` (333) keys, then a dearer final tranche — roughly $2, $5
+  and $10. The site publishes that schedule, so it is enforced on-chain rather
+  than left to an operator remembering to raise the price by hand mid-rush.
+  Priced one key at a time: a basket that straddles the step pays the step, and
+  `setPrices` refuses a late price below the public one, because a schedule that
+  falls partway through charges the earliest buyers the most.
 - **One supply number, `seasonCap`, bounds every mint path** — public,
   allowlist and treasury alike. It starts at 666 and only `openSeason()` raises
   it, never past `MAX_SUPPLY`, always with an event. `mintReserved` used to

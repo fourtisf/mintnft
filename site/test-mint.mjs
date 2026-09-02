@@ -30,8 +30,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const CONTRACT = "0x" + "ab".repeat(20);
 const WALLET = "0x" + "11".repeat(20);
-const PRICE = "1500000000000000";        // 0.0015 ETH
-const ALLOW_PRICE = "500000000000000";   // 0.0005
+const PRICE = "1700000000000000";        // 0.0017 ETH, ~$5
+const ALLOW_PRICE = "700000000000000";   // 0.0007, ~$2
+const LATE = "3300000000000000";         // 0.0033, ~$10
 const PROOF = ["0x" + "aa".repeat(32), "0x" + "bb".repeat(32)];
 const CHAIN = 4663;                      // Robinhood Chain
 
@@ -48,10 +49,12 @@ const IDENTITY = { configured: true, contract: CONTRACT, chainId: CHAIN,
 
 const baseState = over => ({
   phase: 2, phaseName: "public", price: PRICE, allowlistPrice: ALLOW_PRICE,
+  priceLate: LATE, publicStep: 333,
   totalMinted: 12, seasonCap: 666, maxPerWallet: 5, revealed: false,
   recommitCount: 0, allowlistRoot: "0x" + "00".repeat(32),
   address: WALLET, mintedBy: 0, remaining: 5,
-  canMint: true, method: "public", unitPrice: PRICE, ...over,
+  canMint: true, method: "public", unitPrice: PRICE,
+  nextPrices: Array(5).fill(PRICE), ...over,
 });
 
 /**
@@ -149,8 +152,8 @@ head("terbuka, dompet belum tersambung");
 head("mint publik");
 {
   const p = await boot();
-  ok(/Mint 1 · 0\.0015 ETH/.test(p.txt("mintBtn")), `tombol menyebut jumlah dan harga (${p.txt("mintBtn")})`);
-  ok(p.txt("unitPrice") === "0.0015" && p.txt("total") === "0.0015 ETH", "harga satuan dan total dari chain");
+  ok(/Mint 1 · 0\.0017 ETH/.test(p.txt("mintBtn")), `tombol menyebut jumlah dan harga (${p.txt("mintBtn")})`);
+  ok(p.txt("unitPrice") === "0.0017" && p.txt("total") === "0.0017 ETH", "harga satuan dan total dari chain");
 
   await p.mint();
   ok(p.sent.length === 1, "satu transaksi dikirim");
@@ -167,7 +170,7 @@ head("mint publik, tiga sekaligus");
 {
   const p = await boot();
   await p.click("qPlus"); await p.click("qPlus");
-  ok(p.txt("qVal") === "3" && p.txt("total") === "0.0045 ETH", "total ikut jumlah");
+  ok(p.txt("qVal") === "3" && p.txt("total") === "0.0051 ETH", "total ikut jumlah");
   await p.mint();
   const tx = p.sent[0];
   ok(BigInt(tx.value) === BigInt(PRICE) * 3n, "nilai = harga x 3");
@@ -175,11 +178,29 @@ head("mint publik, tiga sekaligus");
 }
 
 /* ═══════════════ the allowlist ═══════════════ */
+head("melangkahi tangga harga");
+{
+  // 331 minted, step at 333: two at the public price, three at the late one.
+  // A page that multiplies one price by the quantity sends the wrong value and
+  // the contract refuses it, after the reader has already agreed to pay.
+  const p = await boot({ state: baseState({
+    totalMinted: 331, nextPrices: [PRICE, PRICE, LATE, LATE, LATE] }) });
+  await p.click("qPlus"); await p.click("qPlus"); await p.click("qPlus");
+  ok(p.txt("qVal") === "4", "empat key dipilih");
+  const due = BigInt(PRICE) * 2n + BigInt(LATE) * 2n;
+  ok(p.txt("total") === "0.0100 ETH", `total menjumlahkan harga per key (${p.txt("total")})`);
+  await p.mint();
+  ok(BigInt(p.sent[0].value) === due,
+    "dan nilai yang dikirim persis itu — bukan harga satuan dikali empat");
+  ok(BigInt(p.sent[0].value) !== BigInt(PRICE) * 4n, "yang mana akan ditolak kontrak");
+}
+
 head("mint whitelist");
 {
   const p = await boot({ state: baseState({
-    phase: 1, phaseName: "allowlist", method: "allowlist", unitPrice: ALLOW_PRICE, proof: PROOF }) });
-  ok(p.txt("unitPrice") === "0.0005", "harga allowlist yang dipakai, bukan harga publik");
+    phase: 1, phaseName: "allowlist", method: "allowlist", unitPrice: ALLOW_PRICE,
+    nextPrices: Array(5).fill(ALLOW_PRICE), proof: PROOF }) });
+  ok(p.txt("unitPrice") === "0.0007", "harga allowlist yang dipakai, bukan harga publik");
   ok(/on the allowlist/.test(p.msg()), "halaman mengatakan dompet ini terdaftar");
 
   await p.mint();

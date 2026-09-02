@@ -220,22 +220,27 @@ const ROOT = path.join(__dirname, '..');
     const r = await keys('state');
     ok(r.code === 0 && /fase\s+Closed/.test(r.out), 'membaca fase dari chain');
     ok(/1 \/ 666/.test(r.out), 'membaca suplai dari chain');
-    ok(/harga publik\s+0\.0015\d* ETH/.test(r.out), 'membaca harga publik dari chain');
+    ok(/harga publik\s+0\.0017\d* ETH/.test(r.out), 'membaca harga publik dari chain');
     ok(/belum ada komitmen/.test(r.out), 'mengatakan seed belum dikomitkan, bukan mengarang tanggal');
   }
 
   /* ═══════ prices ═══════ */
   head('harga');
   {
-    const dry = await keys('prices', '0.001', '0.004');
+    const dry = await keys('prices', '0.001', '0.004', '0.009');
     ok(dry.code === 0 && /DRY RUN/.test(dry.out), 'prices tanpa --confirm tidak mengirim');
-    ok((await at(owner).price()).eq(ethers.utils.parseEther('0.0015')), 'harga belum berubah');
+    ok(/publik\s+0\.004\d* ETH\s+untuk 333 key pertama/.test(dry.out),
+      'dan menjelaskan tangganya: harga publik berlaku untuk 333 key pertama');
+    ok((await at(owner).price()).eq(ethers.utils.parseEther('0.0017')), 'harga belum berubah');
 
-    await keys('prices', '0.001', '0.004', '--confirm');
+    await keys('prices', '0.001', '0.004', '0.009', '--confirm');
     const c = at(owner);
     ok((await c.allowlistPrice()).eq(ethers.utils.parseEther('0.001'))
-      && (await c.price()).eq(ethers.utils.parseEther('0.004')), 'keduanya bergerak bersama');
-    await keys('prices', '0.0005', '0.0015', '--confirm');
+      && (await c.price()).eq(ethers.utils.parseEther('0.004'))
+      && (await c.priceLate()).eq(ethers.utils.parseEther('0.009')), 'ketiganya bergerak bersama');
+    ok((await keys('prices', '0.001', '0.004', '0.003', '--confirm')).code !== 0,
+      'tranche terakhir yang lebih murah ditolak');
+    await keys('prices', '0.0007', '0.0017', '0.0033', '--confirm');
   }
 
   /* ═══════ opening the public mint ═══════ */
