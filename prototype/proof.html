@@ -373,11 +373,55 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .lift{display:flex;align-items:center;gap:9px;min-width:120px}
 .lift i{display:block;height:5px;border-radius:3px;background:var(--grad)}
 .lift i.low{background:linear-gradient(90deg,#6E757E,#8C929C)}
-.bars{display:flex;align-items:flex-end;gap:8px;height:150px;margin-top:6px}
-.bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;height:100%}
-.bars i{display:block;width:100%;border-radius:5px 5px 2px 2px;background:var(--grad);min-height:3px}
-.bars b{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--tx)}
-.bars span{font-family:var(--mono);font-size:10px;color:var(--tx-3)}
+/* Score bands. The bars used to be flex children with a percentage height
+   next to their own labels, so flex-shrink squeezed every one of them into the
+   same leftover space: 58%, 45% and 50% drew as three identical blocks. A bar
+   is now absolutely positioned inside a fixed plot box, measured from zero, so
+   its length is the number. */
+/* The plot takes only the width its bars need. Stretched across a full-width
+   box, three bars became billboards with a thousand pixels of nothing beside
+   them, and the baseline label ended up further from the line than from the
+   page edge. */
+.bandwrap{display:grid;grid-template-columns:auto minmax(0,340px);gap:56px;
+  justify-content:start;align-items:start;margin-top:24px}
+/* padding-right is the reference line's label gutter: it sits at the end of
+   the line, inside the plot, instead of drifting into the note beside it. */
+.bars{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:64px;
+  justify-content:start;align-items:start;gap:22px;padding-right:96px;--plot:176px}
+.bd{display:grid;grid-template-rows:var(--plot) auto}
+.bd .col{position:relative}
+.bd .col i{position:absolute;left:0;right:0;bottom:0;background:var(--grad);
+  border-radius:4px 4px 0 0;min-height:2px}
+/* The 95% range for this many calls. On a band of two it covers most of the
+   axis, which is the honest picture and the reason it is drawn. */
+.bd .col u{position:absolute;left:50%;margin-left:-6px;width:12px;
+  border-top:1px solid var(--tx-3);border-bottom:1px solid var(--tx-3)}
+.bd .col u::after{content:"";position:absolute;left:5px;top:0;bottom:0;width:1px;background:var(--tx-3)}
+.bd .lb{display:flex;flex-direction:column;gap:3px;padding-top:11px;text-align:center}
+.bd .lb em{font-family:var(--mono);font-size:11px;color:var(--tx-2);font-style:normal}
+.bd .lb b{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--tx);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.bd .lb i{font-family:var(--mono);font-size:10.5px;color:var(--tx-3);font-style:normal;line-height:1.35}
+.bd.thin .col i{opacity:.3}
+.bd.thin .lb b{color:var(--tx-2)}
+/* One axis under all the bars. A border on each column drew it in segments
+   with gaps, which reads as an unfinished chart rather than a baseline. */
+.bars .base{position:absolute;left:0;right:0;top:0;height:var(--plot);pointer-events:none}
+.bars .base::after{content:"";position:absolute;left:0;right:0;bottom:0;
+  border-top:1px solid var(--border-hi)}
+.bars .base i{position:absolute;left:0;right:0;border-top:1px solid rgba(255,255,255,.2)}
+.bars .base em{position:absolute;right:0;transform:translateY(-50%);white-space:nowrap;padding-left:12px;
+  font-family:var(--mono);font-size:10px;color:var(--tx-3);font-style:normal;background:var(--surface)}
+.bandkey{font-size:12px;color:var(--tx-3);line-height:1.7}
+.bandkey p{margin:0 0 11px}
+.bandkey p:last-child{margin:0}
+.bandkey b{color:var(--tx-2);font-weight:500}
+/* Nothing to plot: drop the bar-width columns, or the message is squeezed
+   into 86px and reads as a broken chart rather than an empty one. */
+.bars.no-data{grid-auto-columns:auto}
+.bars .empty{padding:34px 0;border:none;text-align:left;color:var(--tx-3);font-size:13px}
+@media(max-width:860px){.bandwrap{grid-template-columns:1fr;gap:22px}
+  .bars{grid-auto-columns:minmax(0,1fr);gap:14px}}
 .stat{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--border)}
 .stat:last-child{border-bottom:none}
 .stat .l{font-size:12.5px;color:var(--tx-2)}
@@ -826,7 +870,10 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
     <div class="box" style="grid-column:1/-1">
       <h3>Hit rate by score band</h3>
       <p class="sub">If the score means anything, this should climb left to right. Where it stops climbing is where the firing threshold belongs.</p>
-      <div class="bars" id="qBands"></div>
+      <div class="bandwrap">
+        <div class="bars" id="qBands"></div>
+        <div class="bandkey" id="qBandKey"></div>
+      </div>
     </div>
     <div class="box" style="grid-column:1/-1">
       <h3>What you would actually have made</h3>
@@ -1931,12 +1978,71 @@ function bands(w=20){
     const e=g[lo]||(g[lo]={lo,hi:lo+w,n:0,w:0});e.n++;if(win(r))e.w++});
   return Object.values(g).sort((a,b)=>a.lo-b.lo).map(e=>({...e,hit:e.n?e.w/e.n:0}));
 }
+
+/* Wilson score interval — the range a hit rate could really be, given how few
+   calls produced it. On n=2 it covers most of the axis, and drawing that is the
+   difference between a chart that reports 50% and one that admits it knows
+   nothing yet. */
+function wilson(k,n,z=1.96){
+  if(!n)return[0,1];
+  const p=k/n,d=1+z*z/n,c=(p+z*z/(2*n))/d,
+        m=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d;
+  return[Math.max(0,c-m),Math.min(1,c+m)];
+}
+/* Below this a single outcome moves a band by ten points or more, so the band
+   is drawn but not asked to mean anything. */
+const THIN_BAND=10;
+
+function drawBands(bs){
+  const host=document.getElementById("qBands"),key=document.getElementById("qBandKey");
+  if(!host)return;
+  host.classList.toggle("no-data",!bs.length);
+  if(!bs.length){
+    host.innerHTML=`<div class="empty">No settled calls yet — nothing to score.</div>`;
+    if(key)key.innerHTML="";
+    return;
+  }
+  const N=bs.reduce((a,b)=>a+b.n,0),W=bs.reduce((a,b)=>a+b.wins,0),base=N?W/N:0;
+  const pct=v=>(v*100).toFixed(1);
+
+  host.innerHTML=
+    `<span class="base"><i style="bottom:${pct(base)}%"></i>`+
+    `<em style="bottom:${pct(base)}%">all calls ${(base*100).toFixed(0)}%</em></span>`+
+    bs.map(b=>{
+      const [lo,hi]=wilson(b.wins,b.n),thin=b.n<THIN_BAND;
+      const tip=`Score ${b.lo}-${b.hi}: ${b.wins} of ${b.n} settled calls won `
+        +`(${(b.hit*100).toFixed(0)}%). With ${b.n} call${b.n===1?"":"s"} the true rate `
+        +`is somewhere between ${(lo*100).toFixed(0)}% and ${(hi*100).toFixed(0)}%.`;
+      // Self-contained: the prototype has no esc() and this must render there too.
+      return `<div class="bd${thin?" thin":""}" title="${tip.replace(/"/g,"&quot;")}">
+        <span class="col">
+          <i style="height:${pct(b.hit)}%"></i>
+          <u style="bottom:${pct(lo)}%;height:${pct(hi-lo)}%"></u>
+        </span>
+        <span class="lb">
+          <em>${b.lo}–${b.hi}</em>
+          <b>${(b.hit*100).toFixed(0)}%</b>
+          <i>${b.n} call${b.n===1?"":"s"}${thin?"<br>too few":""}</i>
+        </span>
+      </div>`;
+    }).join("");
+
+  if(!key)return;
+  const thinCount=bs.filter(b=>b.n<THIN_BAND).length;
+  key.innerHTML=
+    `<p>The line is <b>every settled call together — ${(base*100).toFixed(0)}%</b>. `
+    +`A band only tells you something if it sits clearly away from it.</p>`
+    +`<p>The whisker on each bar is the range the real rate could be, given how `
+    +`few calls that band has. Wide whisker, nothing proven.</p>`
+    +(thinCount?`<p><b>${thinCount} of ${bs.length} bands</b> have fewer than ${THIN_BAND} `
+      +`calls and are dimmed. One more win or loss swings them by ten points or more.</p>`:"")
+    +`<p>${N} settled call${N===1?"":"s"} in total. These bands are worth `
+    +`retuning the threshold on at around 100.</p>`;
+}
+
 function renderQuant(){
   const bs=bands(),mx=Math.max(...bs.map(b=>b.hit),0.01);
-  document.getElementById("qBands").innerHTML=bs.map(b=>
-    `<div><b>${(b.hit*100).toFixed(0)}%</b><i style="height:${Math.max(4,b.hit/mx*100)}%"></i>
-      <span>${b.lo}-${b.hi}</span><span style="opacity:.6">n=${b.n}</span></div>`).join("")
-    ||`<div style="color:var(--tx-3);font-size:12.5px">No settled calls yet.</div>`;
+  drawBands(bs);
 
   const rp=reasonPerf();
   document.getElementById("qReasons").innerHTML=rp.list.map(r=>

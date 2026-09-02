@@ -1359,13 +1359,75 @@ async function pullQuant(){
     readJson(`/analytics/simulate?exit=${simX}&size=${simSize}`)]);
   renderQuant();renderSim();renderLeaders();
 }
+
+/* Wilson score interval — the range a hit rate could really be, given how few
+   calls produced it. On n=2 it covers most of the axis, and drawing that is the
+   difference between a chart that reports 50% and one that admits it knows
+   nothing yet. */
+function wilson(k,n,z=1.96){
+  if(!n)return[0,1];
+  const p=k/n,d=1+z*z/n,c=(p+z*z/(2*n))/d,
+        m=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d;
+  return[Math.max(0,c-m),Math.min(1,c+m)];
+}
+/* Below this a single outcome moves a band by ten points or more, so the band
+   is drawn but not asked to mean anything. */
+const THIN_BAND=10;
+
+function drawBands(bs){
+  const host=document.getElementById("qBands"),key=document.getElementById("qBandKey");
+  if(!host)return;
+  host.classList.toggle("no-data",!bs.length);
+  if(!bs.length){
+    host.innerHTML=`<div class="empty">No settled calls yet — nothing to score.</div>`;
+    if(key)key.innerHTML="";
+    return;
+  }
+  const N=bs.reduce((a,b)=>a+b.n,0),W=bs.reduce((a,b)=>a+b.wins,0),base=N?W/N:0;
+  const pct=v=>(v*100).toFixed(1);
+
+  host.innerHTML=
+    `<span class="base"><i style="bottom:${pct(base)}%"></i>`+
+    `<em style="bottom:${pct(base)}%">all calls ${(base*100).toFixed(0)}%</em></span>`+
+    bs.map(b=>{
+      const [lo,hi]=wilson(b.wins,b.n),thin=b.n<THIN_BAND;
+      const tip=`Score ${b.lo}-${b.hi}: ${b.wins} of ${b.n} settled calls won `
+        +`(${(b.hit*100).toFixed(0)}%). With ${b.n} call${b.n===1?"":"s"} the true rate `
+        +`is somewhere between ${(lo*100).toFixed(0)}% and ${(hi*100).toFixed(0)}%.`;
+      // Self-contained: the prototype has no esc() and this must render there too.
+      return `<div class="bd${thin?" thin":""}" title="${tip.replace(/"/g,"&quot;")}">
+        <span class="col">
+          <i style="height:${pct(b.hit)}%"></i>
+          <u style="bottom:${pct(lo)}%;height:${pct(hi-lo)}%"></u>
+        </span>
+        <span class="lb">
+          <em>${b.lo}–${b.hi}</em>
+          <b>${(b.hit*100).toFixed(0)}%</b>
+          <i>${b.n} call${b.n===1?"":"s"}${thin?"<br>too few":""}</i>
+        </span>
+      </div>`;
+    }).join("");
+
+  if(!key)return;
+  const thinCount=bs.filter(b=>b.n<THIN_BAND).length;
+  key.innerHTML=
+    `<p>The line is <b>every settled call together — ${(base*100).toFixed(0)}%</b>. `
+    +`A band only tells you something if it sits clearly away from it.</p>`
+    +`<p>The whisker on each bar is the range the real rate could be, given how `
+    +`few calls that band has. Wide whisker, nothing proven.</p>`
+    +(thinCount?`<p><b>${thinCount} of ${bs.length} bands</b> have fewer than ${THIN_BAND} `
+      +`calls and are dimmed. One more win or loss swings them by ten points or more.</p>`:"")
+    +`<p>${N} settled call${N===1?"":"s"} in total. These bands are worth `
+    +`retuning the threshold on at around 100.</p>`;
+}
+
 function renderQuant(){
-  const bs=DEMO?bands():(anaBands??[]).map(b=>({lo:b.lo,hi:b.hi,n:b.n,hit:b.hitRate}));
-  const mx=Math.max(...bs.map(b=>b.hit),0.01);
-  document.getElementById("qBands").innerHTML=bs.map(b=>
-    `<div><b>${(b.hit*100).toFixed(0)}%</b><i style="height:${Math.max(4,b.hit/mx*100)}%"></i>
-      <span>${b.lo}-${b.hi}</span><span style="opacity:.6">n=${b.n}</span></div>`).join("")
-    ||`<div style="color:var(--tx-3);font-size:12.5px">No settled calls yet.</div>`;
+  // wins, not just the rate: the interval needs the count it came from.
+  const bs=DEMO
+    ? bands().map(b=>({lo:b.lo,hi:b.hi,n:b.n,wins:b.w,hit:b.hit}))
+    : (anaBands??[]).map(b=>({lo:b.lo,hi:b.hi,n:b.n,
+        wins:b.wins??Math.round((b.hitRate??0)*b.n),hit:b.hitRate}));
+  drawBands(bs);
 
   const rp=DEMO?reasonPerf()
     :{list:(anaReasons?.reasons??[]).map(r=>({id:r.id,n:r.n,hit:r.hitRate,lift:r.lift}))};

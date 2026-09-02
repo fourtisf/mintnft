@@ -435,6 +435,39 @@ ok(text("syncTxt").startsWith("engine offline"), `header reads "${text("syncTxt"
 ok(cards().length === 5, "the calls stay on the page — they are the record, not a cache");
 ok(text("rCalls") === "—", "the statistics do not: those we no longer know");
 
+/* ── the score-band chart, which had never been measured ─────────────────
+   Three bands reading 58%, 45% and 50% drew as three bars of identical
+   height: the bar was a flex child with a percentage height sitting beside
+   its own labels, so flex-shrink squeezed every one into the same leftover
+   space. A chart that renders different numbers as the same shape is worse
+   than no chart, and nothing here would have caught it. */
+console.log("\nGRAFIK PITA SKOR");
+win.drawBands([
+  { lo: 70, hi: 80, n: 12, wins: 7, hit: 7 / 12 },
+  { lo: 80, hi: 90, n: 11, wins: 5, hit: 5 / 11 },
+  { lo: 90, hi: 100, n: 2, wins: 1, hit: 0.5 },
+]);
+const bd = [...doc.querySelectorAll("#qBands .bd")];
+const h = i => parseFloat(bd[i].querySelector(".col i").style.height);
+ok(bd.length === 3, "tiga pita tergambar");
+ok(h(0) > h(2) && h(2) > h(1), `tinggi batang mengikuti angkanya (${h(0)} > ${h(2)} > ${h(1)})`);
+ok(Math.abs(h(0) - 58.3) < 0.2 && Math.abs(h(1) - 45.5) < 0.2,
+   "dan diukur dari nol, bukan diskalakan ke batang tertinggi");
+ok(bd[2].className.includes("thin"), "pita dengan 2 call ditandai terlalu sedikit untuk dibaca");
+ok(!bd[0].className.includes("thin"), "pita dengan 12 call tidak");
+
+const wideEnough = bd.map(b => parseFloat(b.querySelector(".col u").style.height));
+ok(wideEnough[2] > wideEnough[0],
+   `rentang ketidakpastian melebar saat call-nya sedikit (${wideEnough[2].toFixed(0)}% vs ${wideEnough[0].toFixed(0)}%)`);
+ok(parseFloat(doc.querySelector("#qBands .base i").style.bottom) === 52,
+   "garis acuan adalah hit rate seluruh call, bukan rata-rata pita");
+ok(/25 settled calls/.test(doc.getElementById("qBandKey").textContent),
+   "keterangannya menyebut berapa call yang sudah settle seluruhnya");
+
+win.drawBands([]);
+ok(doc.querySelector("#qBands").classList.contains("no-data"),
+   "tanpa data, kolom selebar batang dilepas — pesannya tidak terjepit jadi 64px");
+
 win.close();
 rmSync(DATA, { force: true });
 console.log(failures ? `\n${failures} GAGAL\n` : "\nsemua lolos\n");

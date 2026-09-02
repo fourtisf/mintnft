@@ -378,11 +378,55 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .lift{display:flex;align-items:center;gap:9px;min-width:120px}
 .lift i{display:block;height:5px;border-radius:3px;background:var(--grad)}
 .lift i.low{background:linear-gradient(90deg,#6E757E,#8C929C)}
-.bars{display:flex;align-items:flex-end;gap:8px;height:150px;margin-top:6px}
-.bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;height:100%}
-.bars i{display:block;width:100%;border-radius:5px 5px 2px 2px;background:var(--grad);min-height:3px}
-.bars b{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--tx)}
-.bars span{font-family:var(--mono);font-size:10px;color:var(--tx-3)}
+/* Score bands. The bars used to be flex children with a percentage height
+   next to their own labels, so flex-shrink squeezed every one of them into the
+   same leftover space: 58%, 45% and 50% drew as three identical blocks. A bar
+   is now absolutely positioned inside a fixed plot box, measured from zero, so
+   its length is the number. */
+/* The plot takes only the width its bars need. Stretched across a full-width
+   box, three bars became billboards with a thousand pixels of nothing beside
+   them, and the baseline label ended up further from the line than from the
+   page edge. */
+.bandwrap{display:grid;grid-template-columns:auto minmax(0,340px);gap:56px;
+  justify-content:start;align-items:start;margin-top:24px}
+/* padding-right is the reference line's label gutter: it sits at the end of
+   the line, inside the plot, instead of drifting into the note beside it. */
+.bars{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:64px;
+  justify-content:start;align-items:start;gap:22px;padding-right:96px;--plot:176px}
+.bd{display:grid;grid-template-rows:var(--plot) auto}
+.bd .col{position:relative}
+.bd .col i{position:absolute;left:0;right:0;bottom:0;background:var(--grad);
+  border-radius:4px 4px 0 0;min-height:2px}
+/* The 95% range for this many calls. On a band of two it covers most of the
+   axis, which is the honest picture and the reason it is drawn. */
+.bd .col u{position:absolute;left:50%;margin-left:-6px;width:12px;
+  border-top:1px solid var(--tx-3);border-bottom:1px solid var(--tx-3)}
+.bd .col u::after{content:"";position:absolute;left:5px;top:0;bottom:0;width:1px;background:var(--tx-3)}
+.bd .lb{display:flex;flex-direction:column;gap:3px;padding-top:11px;text-align:center}
+.bd .lb em{font-family:var(--mono);font-size:11px;color:var(--tx-2);font-style:normal}
+.bd .lb b{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--tx);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.bd .lb i{font-family:var(--mono);font-size:10.5px;color:var(--tx-3);font-style:normal;line-height:1.35}
+.bd.thin .col i{opacity:.3}
+.bd.thin .lb b{color:var(--tx-2)}
+/* One axis under all the bars. A border on each column drew it in segments
+   with gaps, which reads as an unfinished chart rather than a baseline. */
+.bars .base{position:absolute;left:0;right:0;top:0;height:var(--plot);pointer-events:none}
+.bars .base::after{content:"";position:absolute;left:0;right:0;bottom:0;
+  border-top:1px solid var(--border-hi)}
+.bars .base i{position:absolute;left:0;right:0;border-top:1px solid rgba(255,255,255,.2)}
+.bars .base em{position:absolute;right:0;transform:translateY(-50%);white-space:nowrap;padding-left:12px;
+  font-family:var(--mono);font-size:10px;color:var(--tx-3);font-style:normal;background:var(--surface)}
+.bandkey{font-size:12px;color:var(--tx-3);line-height:1.7}
+.bandkey p{margin:0 0 11px}
+.bandkey p:last-child{margin:0}
+.bandkey b{color:var(--tx-2);font-weight:500}
+/* Nothing to plot: drop the bar-width columns, or the message is squeezed
+   into 86px and reads as a broken chart rather than an empty one. */
+.bars.no-data{grid-auto-columns:auto}
+.bars .empty{padding:34px 0;border:none;text-align:left;color:var(--tx-3);font-size:13px}
+@media(max-width:860px){.bandwrap{grid-template-columns:1fr;gap:22px}
+  .bars{grid-auto-columns:minmax(0,1fr);gap:14px}}
 .stat{display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--border)}
 .stat:last-child{border-bottom:none}
 .stat .l{font-size:12.5px;color:var(--tx-2)}
