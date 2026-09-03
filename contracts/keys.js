@@ -376,16 +376,19 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   const owner = argv.owner || (await signer.getAddress());
   if (!/^0x[0-9a-fA-F]{40}$/.test(owner)) die('--owner bukan alamat');
 
+  // Three transactions go out back to back, so an endpoint that serves the
+  // first and refuses the third leaves a collection half-built. Asked here,
+  // before the first read: through ethers a missing method arrives as a
+  // retried "bad response" naming whichever call happened to reach it first,
+  // which says nothing about the eight others that would also have failed.
+  const from = await signer.getAddress();
+  if (!(await reportMethods(env('DEPLOY_RPC'), from))) process.exit(1);
+  console.log('');
+
   const b = built();
   const balance = await signer.getBalance();
-  console.log(`chain ${chainId}   deployer ${await signer.getAddress()}   saldo ${eth(balance)} ETH`);
+  console.log(`chain ${chainId}   deployer ${from}   saldo ${eth(balance)} ETH`);
   console.log(`owner  ${owner}\n`);
-
-  // Three transactions go out back to back. An endpoint that serves the first
-  // and refuses the third leaves a collection half-built, so the question is
-  // asked once, here, while nothing has been sent.
-  if (!(await reportMethods(env('DEPLOY_RPC'), await signer.getAddress()))) process.exit(1);
-  console.log('');
 
   const existing = loadDeployed(chainId);
   if (existing && !argv.again) {

@@ -211,8 +211,11 @@ const ROOT = path.join(__dirname, '..');
       req.on('data', c => { body += c; });
       req.on('end', () => {
         const { id, method } = JSON.parse(body);
-        const answer = method === 'eth_blockNumber'
-          ? { id, jsonrpc: '2.0', error: { code: -32601, message: 'the method eth_blockNumber does not exist/is not available' } }
+        // eth_getBalance is in here because deploy read it before probing, and
+        // a fake that answered everything but eth_blockNumber could not tell.
+        const missing = method === 'eth_blockNumber' || method === 'eth_getBalance';
+        const answer = missing
+          ? { id, jsonrpc: '2.0', error: { code: -32601, message: `the method ${method} does not exist/is not available` } }
           : { id, jsonrpc: '2.0', result: method === 'eth_chainId' ? '0xb626' : '0x1' };
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(answer));
       });
@@ -248,6 +251,10 @@ const ROOT = path.join(__dirname, '..');
     });
     ok(d.code !== 0 && /TIDAK ADA/.test(d.out),
       'dan deploy menanyakannya sendiri, tidak bergantung pada operator menjalankan ping dulu');
+    ok(/eth_getBalance\s+TIDAK ADA/.test(d.out) && /eth_blockNumber\s+TIDAK ADA/.test(d.out),
+      'melaporkan kedua metode yang hilang, bukan hanya yang pertama ditabrak');
+    ok(!/bad response/.test(d.out),
+      'probe berjalan sebelum pembacaan apa pun — bukan setelah ethers gagal duluan');
     ok(!/DRY RUN/.test(d.out), 'berhenti sebelum mencetak rencana yang tidak bisa dijalankan');
 
     await new Promise(res => partial.close(res));
