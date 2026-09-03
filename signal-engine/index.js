@@ -20,7 +20,7 @@ import { publishAnchor } from "./anchor.js";
 import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
 import { KeysReader } from "./keys.js";
 import { TIER_DELAY_S } from "./gating.js";
-import { Telegram, formatSignal, formatOutcome } from "./notify.js";
+import { Telegram, formatSignal, formatOutcome, formatExit } from "./notify.js";
 
 const HOT = 20_000, WARM = 300_000, DISCOVER = 60_000, ANCHOR = 86_400_000;
 
@@ -76,6 +76,27 @@ export function start({ store = new FileStore(), port = 8787,
   const delays = { ...TIER_DELAY_S,
     0: Number.isFinite(publicDelayS) && publicDelayS >= 0 ? Math.floor(publicDelayS) : TIER_DELAY_S[0] };
   const triage = new Triage();
+
+  /* The public channel is a tier, and it is the slowest one.
+   *
+   * A call went to Telegram the moment it fired, which put the free channel
+   * ahead of every paid tier: Tier I pays for ten seconds and the broadcast was
+   * already out. Everything bound for the channel now waits delays[0] measured
+   * from fired_at — the same clock ws.js uses for its tier rooms, and the same
+   * acceptance that a restart drops what was still queued rather than
+   * re-sending it later out of order.
+   *
+   * With PUBLIC_DELAY_S=0 this is a straight send, which is what it should be
+   * while no key has been sold and there is no one to be ahead of. */
+  const queued = new Set();
+  const broadcast = (call, text) => {
+    if (!telegram.configured) return;
+    const due = Date.parse(call.firedAt) + delays[0] * 1000 - Date.now();
+    if (due <= 0) return void telegram.send(text);
+    const t = setTimeout(() => { queued.delete(t); telegram.send(text); }, due);
+    queued.add(t);
+  };
+
   const engine = new Engine({
     client: api,
     callerId,
@@ -92,7 +113,7 @@ export function start({ store = new FileStore(), port = 8787,
       // and the value frozen on the row cannot drift apart.
       triage.fired(sig.sourceRef);
       log(`[FIRED] #${call.seq} ${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
-      telegram.send(formatSignal(sig, call.seq));
+      broadcast(call, formatSignal(sig, call.seq));
     },
   });
 
@@ -139,9 +160,17 @@ export function start({ store = new FileStore(), port = 8787,
           log(`[WIN] #${c.seq} $${c.symbol} hit ${after.peakX.toFixed(2)}x in ${after.secondsTo2x}s`);
         if (!before.isDead && after.isDead)
           log(`[DEAD] #${c.seq} $${c.symbol} fell to ${(after.nowX * 100).toFixed(0)}% of entry`);
+        // The half of a call nobody publishes, because it is the half you can
+        // be wrong about in public. Sent once, on the transition, like every
+        // other event here — a stop that fills twice is not a stop.
+        if (!before.exitAt && after.exitAt) {
+          log(`[EXIT] #${c.seq} $${c.symbol} stop filled at ${after.exitX.toFixed(2)}x `
+            + `from a high of ${after.exitHighX.toFixed(2)}x`);
+          broadcast(c, formatExit({ ...c, ...after }));
+        }
         // Post the outcome when a call settles — wins and losses alike.
         if (before.state === "live" && after.state === "settled")
-          telegram.send(formatOutcome({ ...c, ...after }));
+          broadcast(c, formatOutcome({ ...c, ...after }));
       }
     }
   }
@@ -193,6 +222,10 @@ export function start({ store = new FileStore(), port = 8787,
 
   log(`register api on :${port}  ·  discovery ${DISCOVER/1000}s  hot ${HOT/1000}s  warm ${WARM/1000}s`);
   log(`tier latency  III ${delays[3]}s · II ${delays[2]}s · I ${delays[1]}s · public ${delays[0]}s`);
+  // Which one the channel is on, out loud: an operator who set PUBLIC_DELAY_S
+  // and an operator who forgot to see the same silent bot for the first hour.
+  if (telegram.configured)
+    log(`[telegram] broadcasts on the public leg, ${delays[0]}s behind fired_at`);
   // Both states, out loud. Reading the absence of a line is not something an
   // operator can do, and "no mint panel" and "mint panel reading a dead RPC"
   // look identical from the page.
@@ -200,7 +233,8 @@ export function start({ store = new FileStore(), port = 8787,
     ? `[keys] mint reads ${keys.contract} on chain ${keys.chainId}`
     : `[keys] mint not wired — ${keys.identity().why}; the panel will say so`);
   if (!publishAnchorTx) log("anchoring is not wired — /api/verify will report the register as unanchored");
-  return { stop() { timers.forEach(clearInterval); feed.close(); server.close(); },
+  return { stop() { timers.forEach(clearInterval); queued.forEach(clearTimeout); queued.clear();
+                    feed.close(); server.close(); },
            store, engine, triage, feed, server, refresh };
 }
 

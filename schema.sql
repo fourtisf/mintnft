@@ -171,6 +171,20 @@ CREATE TABLE call_marks (
   seconds_to_2x  integer,
   observed_live  boolean NOT NULL DEFAULT true, -- false disables the "2x in" display
 
+  -- The trailing stop, walked forward by the poller over every observation it
+  -- makes. It is recorded rather than recomputed because the published series
+  -- is decimated at 96 samples and thinned to 24 again, and a stop re-walked
+  -- over 24 points is a different number on the one figure a holder was
+  -- alerted on. exit_at null with trail_high_x set means it has been watched
+  -- and has not filled; both null means the call predates the rule, which is
+  -- not the same answer and must not render as the same answer.
+  trail_high_x   numeric(80,40),
+  exit_x         numeric(80,40),
+  exit_high_x    numeric(80,40),
+  exit_at        timestamptz(6),
+  exit_seconds   integer,
+  exit_rule      text,
+
   state          call_state NOT NULL DEFAULT 'live',
   verdict        verdict    NOT NULL DEFAULT 'open',
   is_dead        boolean    NOT NULL DEFAULT false,  -- orthogonal: a win can be dead
@@ -181,6 +195,9 @@ CREATE TABLE call_marks (
 );
 
 CREATE INDEX marks_verdict ON call_marks (verdict, state);
+-- The alert fires on the transition, so the poller asks for the rows that have
+-- not filled yet on every pass.
+CREATE INDEX marks_open_exit ON call_marks (call_id) WHERE exit_at IS NULL;
 CREATE INDEX marks_peak    ON call_marks (peak_x DESC);
 
 COMMENT ON COLUMN call_marks.is_dead IS

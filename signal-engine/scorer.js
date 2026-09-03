@@ -11,10 +11,16 @@
  * Plug a CandleSource in (GeckoTerminal publishes free OHLCV) to upgrade to
  * peakSource:"candle" and a peak anyone can independently recompute.
  */
+import { TRAIL_DROP } from "./analytics.js";
+
 export const RULES = {
   winMultiple: 2.0,
   deadFraction: 0.10,
   liveHours: 24,
+  // One number, shared with the exit simulation on the Hindsight page. Two
+  // copies of it would let the alert a holder acts on and the table that scores
+  // it afterwards disagree about what the same rule did.
+  trailDrop: TRAIL_DROP,
 };
 
 export function applyObservation(call, mark, nowMc, at = Date.now(), rules = RULES) {
@@ -57,6 +63,28 @@ export function applyObservation(call, mark, nowMc, at = Date.now(), rules = RUL
   if (!m.isDead && nowMc < call.entryMc * rules.deadFraction) {
     m.isDead = true;
     m.deadAt = iso;
+  }
+
+  /* The trailing stop, walked forward one observation at a time.
+   *
+   * It is walked here rather than over the published series because this is the
+   * only place that sees every sample: `samples` is decimated at 96 and the
+   * register thins it to 24 again before anyone can walk it afterwards. An exit
+   * recomputed from 24 points is a different exit, on the one number a holder
+   * would have acted on.
+   *
+   * It fills once and is never revised — the same reason a call is never
+   * edited. A stop that moves after the fact is not a stop.
+   */
+  if (!m.exitAt) {
+    m.trailHighX = Math.max(m.trailHighX ?? 1, m.nowX);
+    if (m.nowX <= m.trailHighX * (1 - rules.trailDrop)) {
+      m.exitX = m.nowX;
+      m.exitHighX = m.trailHighX;
+      m.exitAt = iso;
+      m.exitRule = "trail";
+      m.exitSeconds = Math.round((at - Date.parse(call.firedAt)) / 1000);
+    }
   }
 
   m.state = settled ? "settled" : "live";

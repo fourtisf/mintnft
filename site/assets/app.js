@@ -143,9 +143,27 @@ function spark(c){
    this is tradeable at all - and one still running is asked how far it has
    slipped off its peak. */
 function cell4(c){
+  /* The exit first on a call that is not dead. One that reached 2x and rolled
+     over has two true things to say, and where the rule got out is the one a
+     reader cannot get anywhere else — "reached 2x in" is still on the detail.
+     A dead call keeps "died after": its stop always fills near -25% on the way
+     down, so printing it there displaces the one number that says whether any
+     of this was tradeable with one that is nearly a constant. */
+  if(c.exitX!=null&&!c.deadAt)return["Stop exit",c.exitX.toFixed(2)+"\u00d7"];
   if(c.twoIn)return["Reached 2\u00d7 in",secs(c.twoIn)];
   if(c.deadAt)return["Died after",secs(Math.max(0,Math.round((c.deadAt-c.at)/1000)))];
   return["Off peak",((c.nowMc/c.peak-1)*100).toFixed(1)+"%"];
+}
+/* Three answers, and they are not the same one. A stop that filled, a stop
+   that has been watched and has not filled, and a call written before the rule
+   was ever walked — the last is not "never hit", it is "nobody was looking",
+   and a row that renders the third as the second is the panel this repository
+   refuses to ship. */
+function exitRow(c){
+  const k=`<span class="l">Trailing stop, ${(TRAIL_DROP*100).toFixed(0)}% off the high</span>`;
+  if(c.exitX!=null)return `<div class="stat">${k}<span class="v">${c.exitX.toFixed(2)}× off a high of ${(c.exitHigh??0).toFixed(2)}×</span></div>`;
+  if(c.trailHigh!=null)return `<div class="stat">${k}<span class="v mut">not hit · high so far ${c.trailHigh.toFixed(2)}×</span></div>`;
+  return `<div class="stat">${k}<span class="v mut">not walked — this call predates the rule</span></div>`;
 }
 const DEX="https://dexscreener.com/";
 function card(c,i,mini){
@@ -1549,6 +1567,7 @@ function openCall(id){
         <div class="stat" style="margin-top:18px"><span class="l">Score at fire</span><span class="v">${c.score}</span></div>
         <div class="stat"><span class="l">State</span><span class="v">${c.live?"Live":"Settled"}</span></div>
         <div class="stat"><span class="l">Liquidity at fire</span><span class="v">${c.liq?fmt(c.liq):"—"}</span></div>
+        ${exitRow(c)}
         ${c.real==null?"":`<div class="stat"><span class="l">Sold at 2×, after 5% costs</span><span class="v" style="color:${c.real>=0?"var(--win)":"var(--dead)"}">${c.real>=0?"+":"−"}${Math.abs(c.real*100).toFixed(0)}%</span></div>`}
         <button class="btn btn-s btn-full" style="margin-top:16px" data-share="${c.id}">Post templates</button>
       </div>
@@ -1619,6 +1638,10 @@ let simX="2x",simSize=100;
 const TRAIL_DROP=.25;
 function trailExit(c,drop=TRAIL_DROP){
   const now=nx(c),entry=c.entryMc,path=Array.isArray(c.spark)?c.spark:null;
+  /* The poller walks this stop live, over every observation it makes. What
+     arrives here is thinned to 24 points, so re-walking it answers differently
+     on the one number a holder was alerted on. The recorded fill wins. */
+  if(c.exitAt!=null)return{x:c.exitX,simulated:true,live:true};
   if(!entry||!path||path.length<2)return{x:now,simulated:false};
   let high=1;
   for(const mc of path){
@@ -2158,7 +2181,8 @@ function tplTG(c){
     `Entry MC    ${fmt(c.entry)}`,
     `Peak MC     ${fmt(c.peak)}  (${mult(c).toFixed(2)}×)`,
     `Now MC      ${fmt(c.nowMc)}  (${nx(c).toFixed(2)}×)`,
-    c.twoIn?`Reached 2×  ${secs(c.twoIn)}`:`Reached 2×  never`,"",
+    c.twoIn?`Reached 2×  ${secs(c.twoIn)}`:`Reached 2×  never`,
+    ...(c.exitX!=null?[`Stop exit   ${c.exitX.toFixed(2)}×  off a high of ${(c.exitHigh??0).toFixed(2)}×`]:[]),"",
     "Why it fired",
     ...(c.reasons||[]).map(r=>`  • ${r}`),"",
     `CA: ${c.ca}`,"",
@@ -2302,6 +2326,11 @@ function rowToCall(d){
     raw:d,                              // the row as the engine wrote it, for verification
     verdict:d.verdict,isDead:d.isDead??false,
     twoIn:d.secondsTo2x,at:Date.parse(d.firedAt),live:d.state!=="settled",
+    // The trailing stop as the poller walked it, live, over every observation.
+    // trailHigh with no exit means it was watched and never filled; neither
+    // field means the call predates the rule, which is not the same answer.
+    exitAt:d.exitAt??null,exitX:d.exitX??null,
+    exitHigh:d.exitHighX??null,exitIn:d.exitSeconds??null,trailHigh:d.trailHighX??null,
     reasons:d.reasons||[],score:d.score,flash:false,
     // The marks the poller actually saw, when the engine has them. seedPath is
     // the fallback for a row written before it kept a series: three points it
@@ -2326,6 +2355,10 @@ function applyMark(seq,m){
   if(m.nowMc!=null)c.nowMc=m.nowMc;
   if(m.peakMc!=null&&m.peakMc>c.peak)c.peak=m.peakMc;
   if(m.secondsTo2x!=null)c.twoIn=m.secondsTo2x;
+  // Once filled it never moves, here as in the engine.
+  if(m.exitAt&&!c.exitAt){c.exitAt=m.exitAt;c.exitX=m.exitX;
+    c.exitHigh=m.exitHighX;c.exitIn=m.exitSeconds;dirty=true}
+  if(m.trailHighX!=null)c.trailHigh=m.trailHighX;
   if(m.verdict)c.verdict=m.verdict;
   if(m.isDead!=null)c.isDead=m.isDead;
   if(m.deadAt&&!c.deadAt)c.deadAt=Date.parse(m.deadAt);

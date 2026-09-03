@@ -1982,6 +1982,10 @@ let simX="2x",simSize=100;
 const TRAIL_DROP=.25;
 function trailExit(c,drop=TRAIL_DROP){
   const now=nx(c),entry=c.entryMc,path=Array.isArray(c.spark)?c.spark:null;
+  /* The poller walks this stop live, over every observation it makes. What
+     arrives here is thinned to 24 points, so re-walking it answers differently
+     on the one number a holder was alerted on. The recorded fill wins. */
+  if(c.exitAt!=null)return{x:c.exitX,simulated:true,live:true};
   if(!entry||!path||path.length<2)return{x:now,simulated:false};
   let high=1;
   for(const mc of path){

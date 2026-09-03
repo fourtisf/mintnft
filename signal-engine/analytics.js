@@ -98,6 +98,10 @@ export const TRAIL_DROP = 0.25;
  */
 export function trailExit(row, drop = TRAIL_DROP) {
   const now = row.nowX ?? 1;
+  // A stop the poller walked live saw every observation; re-walking it here
+  // sees the 24 points the register publishes, and answers differently on the
+  // same call. The recorded one is the one a holder was alerted on, so it wins.
+  if (row.exitAt) return { x: row.exitX, simulated: true, live: true };
   const entry = row.entryMc;
   const path = Array.isArray(row.spark) ? row.spark : null;
   // No series, no simulation. An exit we cannot evidence is never credited.

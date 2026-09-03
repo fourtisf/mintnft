@@ -89,7 +89,13 @@ becomes the thing it was built to replace.
 6. **Re-run the parity test after any artwork change.** The site and the
    contract diverge the moment either moves. A buyer receiving different art
    from what was displayed is mis-selling, not a rough edge.
-7. **Never let a check that did not run read as a check that passed.** A dead
+7. **The public channel is a tier, and it is the slowest one.** Anything that
+   leaves for Telegram waits `PUBLIC_DELAY_S` measured from `fired_at`, the same
+   clock `ws.js` uses. A call broadcast the moment it fired put the free channel
+   ahead of every paid tier — Tier I pays for ten seconds and the message was
+   already out — which is the business model given away on the side. Set
+   `PUBLIC_DELAY_S=0` while no key has been sold; do not remove the gate.
+8. **Never let a check that did not run read as a check that passed.** A dead
    RPC, a missing key, a field the provider omitted — all of them mean *we do
    not know*, and every one of them has to survive onto the page saying so.
    `chain.js` records which fields it actually established for exactly this
@@ -133,6 +139,8 @@ node test-anchor.js  # what is built, published, refused, and provable to a thir
 node test-exits.js   # what an exit rule would really have returned, and that a
                      # trailing stop is walked over observed prices rather than
                      # handed 75% of a peak nobody sold at
+node test-exit-alert.js   # the stop walked live and alerted while the call is
+                          # still open, once, and never before the public leg
 node test-mint.js    # what the mint panel is told, and what it is never told
 node test-pg.js      # the Postgres driver, if TEST_DATABASE_URL is set; skips loudly otherwise
 node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgres
@@ -260,6 +268,15 @@ continuing. Everything else is recoverable; that one is not.
 
 ## Things that are decided, do not relitigate
 
+- **The trailing stop is recorded, not recomputed.** The poller walks it forward
+  over every observation it makes and freezes the fill on the mark. Everything
+  downstream — the Hindsight table, the card, the share text — reads that value
+  rather than re-walking the series, because `samples` is decimated at 96 and
+  the register thins it to 24 again, and a stop re-walked over 24 points is a
+  different number on the one figure a holder was alerted on. Rows written
+  before the rule existed still fall back to the series, and the three states
+  are kept distinct on the page: filled, watched-and-not-filled, and never
+  walked. The last is not "never hit".
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.

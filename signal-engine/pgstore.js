@@ -184,14 +184,21 @@ export class PgStore {
            peak_all_mc=$5, peak_all_x=$6, peak_all_at=$7, now_mc=$8, now_x=$9,
            first_2x_at=$10, seconds_to_2x=$11, observed_live=$12,
            state=$13, verdict=$14, is_dead=$15, dead_at=$16, settled_at=$17,
-           links=$18, updated_at=$19
+           links=$18, updated_at=$19,
+           trail_high_x=$20, exit_x=$21, exit_high_x=$22, exit_at=$23,
+           exit_seconds=$24, exit_rule=$25
          WHERE call_id=$1`,
         [id, m.peakMc, m.peakAt, m.peakX,
          m.peakAllMc ?? m.peakMc, m.peakAllX ?? m.peakX, m.peakAllAt ?? m.peakAt,
          m.nowMc, m.nowX, m.firstTwoXAt ?? null, m.secondsTo2x ?? null,
          m.observedLive ?? true, m.state, m.verdict, m.isDead,
          m.deadAt ?? null, m.settledAt ?? null,
-         m.links ? JSON.stringify(m.links) : null, at]);
+         m.links ? JSON.stringify(m.links) : null, at,
+         // Dropping these here would not lose a display field: `before` is read
+         // back from this table, so an exit that does not survive the write is
+         // an exit the poller re-discovers and re-broadcasts on every pass.
+         m.trailHighX ?? null, m.exitX ?? null, m.exitHighX ?? null,
+         m.exitAt ?? null, m.exitSeconds ?? null, m.exitRule ?? null]);
 
       // Every mark is a sample, recorded here rather than in the worker so the
       // two cannot drift apart.
@@ -378,6 +385,16 @@ function rowToMark(r, seq) {
     peakSource: "observed",
     updatedAt: iso(r.updated_at),
   };
+  // Only what the row actually has. A null exit_at spread onto a call would be
+  // indistinguishable from a stop that was watched and never filled.
+  if (r.trail_high_x != null) m.trailHighX = Number(r.trail_high_x);
+  if (r.exit_at != null) {
+    m.exitAt = iso(r.exit_at);
+    m.exitX = Number(r.exit_x);
+    m.exitHighX = Number(r.exit_high_x);
+    m.exitSeconds = r.exit_seconds;
+    m.exitRule = r.exit_rule;
+  }
   // Only when the mark has them, so spreading a mark over a call never erases
   // links the call was fired with.
   if (r.links) m.links = r.links;

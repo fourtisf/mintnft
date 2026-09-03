@@ -146,6 +146,17 @@ ok(settled.verdict === "win", "a call that touched 2× is a win");
 ok(settled.isDead === true, "and dead, both on the same row — neither replaces the other");
 ok((await store.samples(c1.seq)).length === 4,
   "every mark left a sample, the entry included");
+/* The exit is read back out of this table on every poll to decide whether it
+   has already been alerted. A column the driver forgets to write is not a
+   missing display field — it is an exit rediscovered and re-broadcast on every
+   pass, for ever. So it is asserted here rather than assumed. */
+ok(settled.exitAt && Math.abs(settled.exitX - 0.05) < 1e-9,
+  `the trailing stop that filled during those marks survives the round trip (${settled.exitX})`);
+ok(Math.abs(settled.exitHighX - 2.3) < 1e-9 && settled.exitRule === "trail",
+  "with the high it followed and the rule that named it");
+const stillOpen = await store.mark((await store.allCalls())[1].seq);
+ok(stillOpen.exitAt === undefined,
+  "and a mark with no exit reads back with no exit, not with a null one");
 const reg = await store.register();
 ok(reg.length === 5 && reg[0].spark.length === 4,
   "the register carries the call, its mark and the observed series in one read");
