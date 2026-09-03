@@ -248,6 +248,19 @@ async function reportMethods(url, address) {
   return false;
 }
 
+/** Reads a secret from stdin when it is piped in. A terminal with nobody
+ *  piping anything would hang here forever, so an interactive stdin is left
+ *  alone and the caller reports what to do instead. */
+function readSecret() {
+  if (process.stdin.isTTY) return Promise.resolve(null);
+  return new Promise(resolve => {
+    let buf = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', d => { buf += d; });
+    process.stdin.on('end', () => resolve(buf.replace(/\r?\n$/, '') || null));
+  });
+}
+
 /* ─────────── Ethereum mainnet, read only ─────────── */
 
 /**
@@ -689,8 +702,18 @@ const USAGE = `
   }
 
   if (cmd === 'commit') {
-    const secret = argv._[1];
-    if (!secret) die('usage: keys.js commit <secret> [--ahead 600]');
+    // An argument goes into shell history and into `ps`, which is the reason
+    // DEPLOY_PK is not one either. This secret decides every tier in the
+    // season until it is revealed, so it gets the same treatment: piped in, or
+    // from the env file, and only as an argument if the operator insists.
+    const secret = argv._[1] ?? env('SEED_SECRET') ?? (await readSecret());
+    if (!secret) die('rahasia tidak diberikan.\n\n'
+      + 'Salah satu dari:\n'
+      + '  read -s -p "rahasia: " S && printf %s "$S" | node contracts/keys.js commit --confirm\n'
+      + '  SEED_SECRET=… di .keys.env\n'
+      + '  node contracts/keys.js commit "<rahasia>"   (masuk riwayat bash — hindari)');
+    if (argv._[1]) console.error('peringatan: rahasia diberikan sebagai argumen, jadi ia ada di\n'
+      + '  riwayat bash dan sempat terlihat di ps. Bersihkan dengan: history -c\n');
     const h = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(secret));
     const commitment = ethers.utils.keccak256(h);
 

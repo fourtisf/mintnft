@@ -395,7 +395,23 @@ const ROOT = path.join(__dirname, '..');
     ok((await keys('commit', SEASON_SECRET, '--ahead', '10')).code !== 0,
       '--ahead terlalu dekat ditolak: blok yang hampir ada bukan blok yang tak terduga');
 
-    await keys('commit', SEASON_SECRET, '--ahead', '600', '--confirm');
+    // The secret arrives on stdin, not as an argument: an argument is in the
+    // shell history of the machine that ran it, and this one decides every
+    // tier in the season until reveal.
+    const piped = await new Promise(resolve => {
+      const child = execFile('node', [path.join(__dirname, 'keys.js'), 'commit', '--ahead', '600', '--confirm'], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
+               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT, KEYS_CONTRACT: '', KEYS_ENV: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+      child.stdin.end(SEASON_SECRET + '\n');
+    });
+    ok(piped.code === 0, 'commit menerima rahasia dari stdin, tanpa pernah jadi argumen');
+    ok(!piped.out.includes(SEASON_SECRET.slice(0, 8)) || /SIMPAN rahasia/.test(piped.out),
+      'dan yang dicetak hanya peringatan menyimpannya, bukan bocoran ke tempat lain');
+    ok((await at(owner).seedCommit()) !== ethers.constants.HashZero,
+      'komitmennya benar-benar sampai ke chain lewat jalur itu');
+
     await keys('phase', '2', '--confirm');
     const c = at(buyer);
     ok((await c.phase()) === 2, 'CLI benar-benar membuka fase 2');
