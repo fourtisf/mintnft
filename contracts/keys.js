@@ -706,13 +706,14 @@ const USAGE = `
     // DEPLOY_PK is not one either. This secret decides every tier in the
     // season until it is revealed, so it gets the same treatment: piped in, or
     // from the env file, and only as an argument if the operator insists.
-    const secret = argv._[1] ?? env('SEED_SECRET') ?? (await readSecret());
+    const typed = argv._[1];
+    const secret = typed ?? env('SEED_SECRET') ?? (await readSecret());
     if (!secret) die('rahasia tidak diberikan.\n\n'
       + 'Salah satu dari:\n'
       + '  read -s -p "rahasia: " S && printf %s "$S" | node contracts/keys.js commit --confirm\n'
       + '  SEED_SECRET=… di .keys.env\n'
       + '  node contracts/keys.js commit "<rahasia>"   (masuk riwayat bash — hindari)');
-    if (argv._[1]) console.error('peringatan: rahasia diberikan sebagai argumen, jadi ia ada di\n'
+    if (typed) console.error('peringatan: rahasia diberikan sebagai argumen, jadi ia ada di\n'
       + '  riwayat bash dan sempat terlihat di ps. Bersihkan dengan: history -c\n');
     const h = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(secret));
     const commitment = ethers.utils.keccak256(h);
@@ -726,7 +727,12 @@ const USAGE = `
 
     console.log('SIMPAN rahasia ini di luar repo. Tanpa itu seed tidak bisa dibuka,');
     console.log('dan koleksi tidak akan pernah punya tier.\n');
-    console.log(`  rahasia          ${secret}`);
+    // Echoing a secret the operator piped in only puts it on a screen, in a
+    // scrollback, and in whatever screenshot is taken of that screen. They
+    // already have it — the commitment is what they cannot recompute.
+    console.log(typed
+      ? `  rahasia          ${secret}`
+      : `  rahasia          (${secret.length} karakter — tidak dicetak, Anda yang memegangnya)`);
     console.log(`  komitmen         ${commitment}`);
     console.log(`  blok Ethereum    ${target}  (~${(ahead * 12 / 3600).toFixed(1)} jam lagi)`);
     console.log('\nSeed nanti = keccak(rahasia, entropi mint, hash blok Ethereum itu).');

@@ -407,8 +407,10 @@ const ROOT = path.join(__dirname, '..');
       child.stdin.end(SEASON_SECRET + '\n');
     });
     ok(piped.code === 0, 'commit menerima rahasia dari stdin, tanpa pernah jadi argumen');
-    ok(!piped.out.includes(SEASON_SECRET.slice(0, 8)) || /SIMPAN rahasia/.test(piped.out),
-      'dan yang dicetak hanya peringatan menyimpannya, bukan bocoran ke tempat lain');
+    ok(!piped.out.includes(SEASON_SECRET),
+      'dan tidak mencetaknya kembali — layar itu berakhir di scrollback dan screenshot');
+    ok(/tidak dicetak/.test(piped.out) && /SIMPAN rahasia/.test(piped.out),
+      'tetap mengatakan bahwa rahasianya harus disimpan, dan bahwa ia sengaja tidak ditampilkan');
     ok((await at(owner).seedCommit()) !== ethers.constants.HashZero,
       'komitmennya benar-benar sampai ke chain lewat jalur itu');
 
