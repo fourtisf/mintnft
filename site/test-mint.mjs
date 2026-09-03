@@ -44,7 +44,9 @@ const iface = new ethers.utils.Interface(
     "ProofKeys.sol", "ProofKeys").abi);
 
 const IDENTITY = { configured: true, contract: CONTRACT, chainId: CHAIN,
-                   explorer: "https://robinhoodchain.blockscout.com", selectors: MINT_SELECTORS };
+                   explorer: "https://robinhoodchain.blockscout.com",
+                   marketplace: "https://opensea.io/assets/robinhood/" + CONTRACT,
+                   selectors: MINT_SELECTORS };
 
 const baseState = over => ({
   phase: 2, phaseName: "two", price: PRICE, priceOne: P1, priceTwo: PRICE, priceThree: P3,
@@ -279,6 +281,32 @@ head("kunci milik dompet ini");
   ok(/Cannot reach the chain/.test(dead.msg()) && dead.tiles().length === 0,
     "RPC mati dibaca sebagai tidak tahu, bukan sebagai dompet kosong");
   ok(dead.cta() === null, "dan tidak mengajak mint berdasarkan sesuatu yang tidak terbaca");
+}
+
+head("alamat kontrak dan jalan keluar ke pasar");
+{
+  // The address is the only thing on this page a reader can check against
+  // something that is not this page.
+  const p = await boot({ state: baseState({ tokens: [5] }) });
+  const links = () => [...p.doc.querySelectorAll("#ctrLinks a")].map(a => a.getAttribute("href"));
+  ok(links().some(h => h === `https://robinhoodchain.blockscout.com/address/${CONTRACT}`),
+    "alamat kontrak ditautkan ke explorer, bukan hanya dicetak");
+  ok(p.txt("ctrLinks").includes(CONTRACT.slice(0, 6)), "dan potongannya terbaca");
+  ok(links().some(h => h === `https://opensea.io/assets/robinhood/${CONTRACT}`),
+    "koleksinya ditautkan ke OpenSea");
+  ok(p.doc.querySelector(`#mineGrid [data-mine="5"] .mk-out`)?.getAttribute("href")
+     === `https://opensea.io/assets/robinhood/${CONTRACT}/5`,
+    "dan tiap kunci yang dipegang punya tautan ke itemnya sendiri");
+
+  // A chain OpenSea does not list gets no link, not a link that 404s.
+  const noMarket = await boot({
+    identity: { ...IDENTITY, marketplace: null },
+    state: baseState({ tokens: [5] }) });
+  ok(noMarket.doc.querySelector("#ctrLinks a.mk") === null
+     && noMarket.doc.querySelector("#mineGrid .mk-out") === null,
+    "chain yang tidak terdaftar di OpenSea tidak diberi tautan karangan");
+  ok(noMarket.doc.querySelector("#ctrLinks a") !== null,
+    "explorer-nya tetap ada — itu tidak bergantung pada pasar mana pun");
 }
 
 head("kunci yang dipegang punya ukirannya sejak menit pertama");

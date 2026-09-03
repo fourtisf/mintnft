@@ -899,10 +899,14 @@ function mineTile(id){
   const tier=ownedTier(id);
   // The engraving is the holder's from the moment they own it. What waits is
   // the tier, and only that.
-  return `<button class="gk mine-key" data-mine="${id}">
-    <span class="gk-art"><svg viewBox="0 0 600 600">${art.body}</svg></span>
+  const market=MINT.id?.marketplace
+    ? `<a class="mk-out" href="${esc(MINT.id.marketplace)}/${id}" target="_blank"
+        rel="noopener" title="Lihat di OpenSea">OpenSea</a>`
+    : "";
+  return `<div class="gk mine-key" data-mine="${id}">
+    <span class="gk-art"><svg viewBox="0 0 600 600">${art.body}</svg>${market}</span>
     <span class="gk-meta"><span>${n}</span>
-      <b>${tier?"T"+ROMAN[tier]:"—"}</b></span></button>`;
+      <b>${tier?"T"+ROMAN[tier]:"—"}</b></span></div>`;
 }
 
 /* Clicking a key changes the stage, which by then is well above the fold. The
@@ -947,7 +951,26 @@ function derived(text,kind){if(!MINT.notice)paintMsg(text,kind)}
 
 const PHASE_LABEL={closed:"NOT OPEN",one:"PHASE 1",two:"PHASE 2",three:"PHASE 3"};
 
+/* The address is the only thing on this page a reader can check against
+   something that is not this page. Printing it, and where to read it, is the
+   difference between a claim and a citation. */
+function paintContractLinks(){
+  const el=document.getElementById("ctrLinks");
+  if(!el)return;
+  const cfg=MINT.id;
+  if(!cfg?.configured||!cfg.contract)return void(el.textContent="not deployed");
+  const a=cfg.contract;
+  const short=a.slice(0,6)+"…"+a.slice(-4);
+  const bits=[`<a href="${esc(cfg.explorer)}/address/${esc(a)}" target="_blank" rel="noopener"
+    title="${esc(a)}">${short}</a>`];
+  // Absent for a chain OpenSea does not list, rather than a link that 404s.
+  if(cfg.marketplace)bits.push(`<a class="mk" href="${esc(cfg.marketplace)}"
+    target="_blank" rel="noopener">OpenSea</a>`);
+  el.innerHTML=bits.join("");
+}
+
 function syncMint(){
+  paintContractLinks();
   const st=MINT.state,cfg=MINT.id;
   const cap=st?.seasonCap??666,minted=st?.totalMinted??0;
   const max=st?.remaining??st?.maxPerWallet??5;

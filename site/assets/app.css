@@ -609,10 +609,21 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .drw .x:hover{color:var(--tx);background:var(--surface-2)}
 .small{margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--tx-3);line-height:1.8}
 
+#ctrLinks{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+#ctrLinks a{font-family:var(--mono);font-size:11.5px;color:var(--tx-2);border-bottom:1px solid var(--border-hi)}
+#ctrLinks a:hover{color:var(--tx)}
+#ctrLinks a.mk{color:var(--accent);border-color:var(--accent)}
+
 .samplenote{font-size:12.5px;line-height:1.6;color:var(--tx-3);margin-top:14px;max-width:56ch}
 
 /* your keys */
+.mine-key{cursor:pointer}
 .mine-key .gk-art{position:relative}
+.mk-out{position:absolute;right:6px;bottom:6px;z-index:2;font-family:var(--mono);font-size:9px;
+  letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:999px;
+  background:rgba(8,9,11,.82);border:1px solid var(--border-hi);color:var(--tx-2);opacity:0;transition:.15s}
+.mine-key:hover .mk-out{opacity:1}
+.mk-out:hover{color:var(--tx);border-color:var(--accent)}
 .mine-key.unopened{border-color:rgba(126,138,255,.4)}
 .mine-key.unopened .gk-art::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
   background:linear-gradient(90deg,transparent,rgba(126,138,255,.16),transparent);animation:shim 2.2s infinite}

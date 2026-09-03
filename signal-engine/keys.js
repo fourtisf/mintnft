@@ -78,10 +78,19 @@ export class KeysReader {
   get configured() { return Boolean(this.contract && this.rpcUrl); }
 
   /** What the site needs before it can render anything at all. */
+  /** OpenSea addresses a token as /assets/<chain slug>/<contract>/<id>. Only
+   *  chains it actually lists get a slug here: a link built for a chain it has
+   *  never heard of is a 404 shipped to every holder. */
+  marketplace() {
+    const slug = { 4663: "robinhood" }[Number(this.chainId)];
+    return slug ? `https://opensea.io/assets/${slug}/${this.contract}` : null;
+  }
+
   identity() {
     return this.configured
       ? { configured: true, contract: this.contract, chainId: this.chainId,
-          explorer: this.explorer, selectors: MINT_SELECTORS }
+          explorer: this.explorer, marketplace: this.marketplace(),
+          selectors: MINT_SELECTORS }
       : {
           configured: false,
           // Named separately because they fail differently: no address means
