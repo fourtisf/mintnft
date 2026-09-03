@@ -452,19 +452,22 @@ const RANK=(()=>{
   const m={};a.forEach(([id],i)=>m[id]=i+1);return m;
 })();
 
+let traitFilter=null;
 function renderTraits(id){
   const t=keyTraits(id);
-  const rows=[["Headwear",t.hood,RARITY.hood[t.hood]],
-    ["Eyes",t.eyes,RARITY.eyes[t.eyes]],
-    ["Mask",t.mask,RARITY.mask[t.mask]],
-    ["Outfit",t.fit,RARITY.fit[t.fit]],
-    ["Palette",t.pal[0],RARITY.palette[t.pal[0]]],
-    ["Backdrop",t.bg,RARITY.bg[t.bg]],
-    ["Aura",t.aura,RARITY.aura[t.aura]],
-    ["Tier","Tier "+ROMAN[t.tier],RARITY.tier["Tier "+ROMAN[t.tier]]]];
-  document.getElementById("traits").innerHTML=rows.map(([k,v,n])=>
-    `<div class="tr"><div class="k">${k}</div><div class="v">${v}</div>
-      <div class="p">${(n/666*100).toFixed(1)}% have this</div></div>`).join("");
+  const rows=[["Headwear","hood",t.hood,RARITY.hood[t.hood]],
+    ["Eyes","eyes",t.eyes,RARITY.eyes[t.eyes]],
+    ["Mask","mask",t.mask,RARITY.mask[t.mask]],
+    ["Outfit","fit",t.fit,RARITY.fit[t.fit]],
+    ["Palette","pal",t.pal[0],RARITY.palette[t.pal[0]]],
+    ["Backdrop","bg",t.bg,RARITY.bg[t.bg]],
+    ["Aura","aura",t.aura,RARITY.aura[t.aura]],
+    ["Tier","tier","Tier "+ROMAN[t.tier],RARITY.tier["Tier "+ROMAN[t.tier]]]];
+  document.getElementById("traits").innerHTML=rows.map(([k,kind,v,n])=>
+    `<button class="tr${traitFilter&&traitFilter.kind===kind&&traitFilter.value===v?" on":""}"
+      data-trait="${kind}" data-value="${esc(v)}">
+      <div class="k">${k}</div><div class="v">${esc(v)}</div>
+      <div class="p">${(n/666*100).toFixed(1)}% have this</div></button>`).join("");
 }
 
 /* Before ProofKeys.reveal() the seed does not exist yet, so neither does the
@@ -869,6 +872,26 @@ function mineTile(id){
       <b>${shut?(chainRevealed?"open it":"sealed"):"T"+ROMAN[art.tier]}</b></span></button>`;
 }
 
+/* Clicking a key changes the stage, which by then is well above the fold. The
+   change was happening; nobody could see it happen. */
+document.getElementById("coll")?.addEventListener("click",()=>{
+  document.getElementById("keyArt")?.scrollIntoView({behavior:"smooth",block:"center"});
+});
+
+/* A trait is the obvious thing to click on a collection page, and it was inert
+   markup. Clicking one narrows the grid to the keys that carry it. */
+function applyTraitFilter(kind,value){
+  traitFilter=(traitFilter&&traitFilter.kind===kind&&traitFilter.value===value)?null:{kind,value};
+  document.querySelectorAll(".traits .tr").forEach(el=>
+    el.classList.toggle("on",!!traitFilter&&el.dataset.trait===traitFilter.kind));
+  renderColl(true);
+  document.getElementById("collection")?.scrollIntoView({behavior:"smooth",block:"start"});
+}
+document.getElementById("traits")?.addEventListener("click",e=>{
+  const el=e.target.closest("[data-trait]");if(!el)return;
+  applyTraitFilter(el.dataset.trait,el.dataset.value);
+});
+
 document.getElementById("mineGrid")?.addEventListener("click",e=>{
   const b=e.target.closest("[data-mine]");if(!b)return;
   const id=+b.dataset.mine;
@@ -978,14 +1001,20 @@ async function loadMintState(){
 /* Listing what a wallet holds needs its address and nothing else. Asking for a
    signature first would be charging for a read. */
 async function connectForKeys(){
+  const say=t=>{const el=document.getElementById("mineMsg");if(el)el.textContent=t};
   const eth=await chooseWallet();
-  if(!eth)return;
+  // Returning quietly here is a button that does nothing, which reads as broken
+  // rather than as a wallet that is missing or a choice that was declined.
+  if(!eth)return say(WALLETS.size?"No wallet chosen.":"No wallet found in this browser.");
   try{
     const [addr]=await eth.request({method:"eth_requestAccounts"});
-    if(!addr)return;
+    if(!addr)return say("That wallet returned no account.");
     MINT.wallet=addr.toLowerCase();
     await loadMintState();
-  }catch{ /* a reader declining is not an error worth shouting about */ }
+  }catch(e){
+    const m=String(e?.message??e);
+    say(/denied|reject/i.test(m)?"Cancelled.":m.slice(0,140));
+  }
 }
 
 /* The wallet has to be on the right chain before anything is signed. Sending a
@@ -1133,8 +1162,16 @@ function collIds(){
   // Every key in the season, as a preview. It listed 1..minted and called them
   // "minted so far", which on a mint that has not opened was 412 keys nobody
   // owns. The art is real and drawn here; the ownership was not.
+  const carries=i=>{
+    if(!traitFilter||!revealed)return true;
+    const t=keyTraits(i);
+    const has={hood:t.hood,eyes:t.eyes,mask:t.mask,fit:t.fit,pal:t.pal[0],bg:t.bg,
+               aura:t.aura,tier:"Tier "+ROMAN[t.tier]};
+    return has[traitFilter.kind]===traitFilter.value;
+  };
   const out=[];
-  for(let i=1;i<=666;i++) if(!collFilter||(revealed&&keyTraits(i).tier===collFilter)) out.push(i);
+  for(let i=1;i<=666;i++)
+    if((!collFilter||(revealed&&keyTraits(i).tier===collFilter))&&carries(i)) out.push(i);
   return out;
 }
 function renderColl(reset){

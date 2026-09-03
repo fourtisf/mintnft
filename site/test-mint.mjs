@@ -69,6 +69,8 @@ async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
   win.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {},
                             addListener() {}, removeListener() {} });
   win.scrollTo = () => {};
+  // jsdom implements no scrolling at all; a page that scrolls is not a defect.
+  win.Element.prototype.scrollIntoView = function () {};
   win.WebSocket = class { constructor() { setTimeout(() => this.onerror?.({}), 0); } close() {} };
 
   win.fetch = async u => {
@@ -313,6 +315,39 @@ head("membuka kunci");
     "sekali dibuka, tawaran itu hilang");
   ok(/^T(I|II|III)$/.test(tile(open, 5).querySelector(".gk-meta b").textContent),
     "dan tier-nya muncul — dari seed yang sudah terbit, bukan dari klik");
+}
+
+head("yang bisa diklik, benar-benar melakukan sesuatu");
+{
+  const p = await boot({ state: baseState({ tokens: [] }) });
+  const count = () => p.txt("collCount");
+
+  // A trait is the obvious thing to click on a collection page and it was
+  // inert markup — a div with no handler, which reads as a broken button.
+  const trait = p.doc.querySelector(".traits [data-trait]");
+  ok(trait !== null, "kartu trait adalah tombol, bukan div mati");
+  const all = count();
+  trait.dispatchEvent(new p.win.MouseEvent("click", { bubbles: true }));
+  await sleep(60);
+  ok(count() !== all, "mengkliknya menyaring koleksi");
+  ok(p.doc.querySelector(".traits .tr.on") !== null, "dan trait yang dipakai terlihat menyala");
+  p.doc.querySelector(".traits .tr.on").dispatchEvent(new p.win.MouseEvent("click", { bubbles: true }));
+  await sleep(60);
+  ok(count() === all, "mengkliknya lagi melepas saringan itu");
+
+  // Returning quietly from connect is a button that does nothing, which reads
+  // as broken rather than as a wallet that is missing.
+  const bare = await boot({ wallet: false, state: baseState({ tokens: [] }) });
+  bare.el("mineCta").dispatchEvent(new bare.win.MouseEvent("click", { bubbles: true }));
+  await sleep(80);
+  ok(/No wallet found/.test(bare.txt("mineMsg")),
+    "Connect tanpa dompet mengatakan kenapa, bukan diam");
+
+  const ok2 = await boot({ state: baseState({ tokens: [] }) });
+  ok2.el("mineCta").dispatchEvent(new ok2.win.MouseEvent("click", { bubbles: true }));
+  await sleep(120);
+  ok(/holds no keys yet/.test(ok2.txt("mineMsg")),
+    "dan dengan dompet, ia benar-benar menyambung lalu melaporkan isinya");
 }
 
 head("contoh dan milik sendiri dipisah");
