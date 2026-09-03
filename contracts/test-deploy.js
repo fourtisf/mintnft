@@ -60,6 +60,8 @@ const ROOT = path.join(__dirname, '..');
     }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
   });
 
+  const SEASON_SECRET = 'musim-satu-rahasia';
+
   const abi = artifact(compile(['ProofKeys.sol', 'ProofParts.sol', 'ProofRenderer.sol']),
     'ProofKeys.sol', 'ProofKeys').abi;
   const deployedPath = path.join(OUT, 'keys.46630.json');
@@ -383,7 +385,17 @@ const ROOT = path.join(__dirname, '..');
     ok((await keys('phase', 'closed', '--confirm')).code === 0,
       'menutup tetap boleh — yang dijaga hanya membuka');
 
-    await keys('commit', 'rahasia-sebelum-fase', '--ahead', '600', '--confirm');
+    // commitSeed is one-shot, so everything that needs an uncommitted contract
+    // has to happen here, before the commitment this season actually uses.
+    const dry = await keys('commit', SEASON_SECRET, '--ahead', '600');
+    ok(dry.code === 0 && /SIMPAN rahasia/.test(dry.out),
+      'commit memperingatkan untuk menyimpan rahasianya sebelum mengirim apa pun');
+    ok(/blok Ethereum\s+\d+/.test(dry.out),
+      'dan menyebut blok Ethereum mana yang akan dipatok, sebelum blok itu ada');
+    ok((await keys('commit', SEASON_SECRET, '--ahead', '10')).code !== 0,
+      '--ahead terlalu dekat ditolak: blok yang hampir ada bukan blok yang tak terduga');
+
+    await keys('commit', SEASON_SECRET, '--ahead', '600', '--confirm');
     await keys('phase', '2', '--confirm');
     const c = at(buyer);
     ok((await c.phase()) === 2, 'CLI benar-benar membuka fase 2');
@@ -402,19 +414,9 @@ const ROOT = path.join(__dirname, '..');
   /* ═══════ commit and reveal ═══════ */
   head('commit dan reveal');
   {
-    const secret = 'musim-satu-rahasia';
+    const secret = SEASON_SECRET;
     const c = at(owner);
 
-    const dry = await keys('commit', secret, '--ahead', '600');
-    ok(dry.code === 0 && /SIMPAN rahasia/.test(dry.out),
-      'commit memperingatkan untuk menyimpan rahasianya sebelum mengirim apa pun');
-    ok(/blok Ethereum\s+\d+/.test(dry.out),
-      'dan menyebut blok Ethereum mana yang akan dipatok, sebelum blok itu ada');
-
-    ok((await keys('commit', secret, '--ahead', '10')).code !== 0,
-      '--ahead terlalu dekat ditolak: blok yang hampir ada bukan blok yang tak terduga');
-
-    await keys('commit', secret, '--ahead', '600', '--confirm');
     ok(await c.seedCommit() !== ethers.constants.HashZero, 'komitmen tersimpan di chain');
     const target = (await c.entropyBlock()).toNumber();
     ok(target > Number(await l1Get('eth_blockNumber')),
