@@ -15,11 +15,12 @@ out/keys.*.json
 data/
 *.log
 out/
-# render scaffolding — screenshots taken to check the work, never deliverables
+# render scaffolding — screenshots taken to check the work, never deliverables.
+# brand/render.js is not one of them: it is the third step in brand/README.md,
+# and ignoring it is what left the banners un-rebuildable after the art moved.
 brand/node_modules/
 brand/s.js
 brand/shot*.js
-brand/render.js
 brand/c1.png
 brand/v.png
 brand/*-preview.png

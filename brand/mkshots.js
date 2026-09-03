@@ -30,9 +30,13 @@ const stage=()=>{
     document.querySelectorAll(".cols").forEach(c=>c.style.alignItems="start");
     document.querySelectorAll(".rec,.box").forEach(e=>{
       e.style.animation="none";e.style.opacity=1;e.style.transform="none"});
+    // reveal-on-scroll would otherwise leave a panel at opacity 0 in the crop
+    document.querySelectorAll(".rv").forEach(e=>e.classList.add("in"));
   });
   const shot=async(sel,name,i=0)=>{
-    const e=(await p.$(sel))[i];
+    const all=await p.$$(sel);
+    const e=all[i];
+    if(!e)throw new Error(`${name}: ${sel} cocok ${all.length}, butuh indeks ${i}`);
     await e.scrollIntoViewIfNeeded();await p.waitForTimeout(250);
     await e.screenshot({path:path.join(OUT,name)});console.log(name);
   };
@@ -54,6 +58,38 @@ const stage=()=>{
 
   await p.evaluate(()=>go("quant"));await p.waitForTimeout(1700);await settle();
   await shot('#v-quant .box','h-sim.png',1);
+  await shot('#v-quant .box','q-leaders.png',2);
+
+  /* The keys. Every engraving comes from the token number, so these are the
+     art the contract renders — which is why this has to be re-run after any
+     change to keySVG, and the banners rebuilt on top of it. */
+  await p.evaluate(()=>go("mint"));await p.waitForTimeout(1500);await settle();
+  // Keep in step with CALLS in mkbanners.js: a missing shot is a broken banner.
+  for(const id of [7,113,288,401,522,640]){
+    await p.evaluate(i=>{
+      drawKey(i);document.getElementById("keyArt").classList.remove("blooming");
+    },id);
+    await p.waitForTimeout(200);
+    await shot('#v-mint .keystage','key-'+id+'.png');
+  }
+
+  // The grid paints on intersection, so it has to be scrolled past for real
+  await p.evaluate(async()=>{
+    const g=document.getElementById("coll");
+    const end=g.getBoundingClientRect().bottom+window.scrollY;
+    for(let y=g.getBoundingClientRect().top+window.scrollY;y<end+500;y+=400){
+      window.scrollTo(0,y);await new Promise(r=>setTimeout(r,140));
+    }
+  });
+  await p.waitForTimeout(600);
+  const skel=await p.evaluate(()=>document.querySelectorAll('#coll .skel').length);
+  if(skel)throw new Error(`${skel} petak koleksi masih kerangka — k-gallery.png akan kosong`);
+  /* The page prints a sample tier under every tile and captions it as a sample.
+     A banner carries no caption, so the letters would read as the tier key
+     #0027 was actually drawn — and the season seed has not been revealed. */
+  await p.evaluate(()=>document.querySelectorAll("#coll .gk-meta b")
+    .forEach(b=>b.textContent="\u2014"));
+  await shot('#coll','k-gallery.png');
 
   // the full page sits behind a headline in the intro banner, so 2x is enough
   const full=await b.newPage({viewport:{width:1440,height:920},deviceScaleFactor:2});

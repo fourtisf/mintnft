@@ -345,4 +345,75 @@ fs.writeFileSync('brand/banners/x-avatar.html', `${BASE}<style>body{width:1000px
 <div style="position:absolute;inset:0;background:radial-gradient(115% 100% at 50% 40%,transparent 46%,rgba(0,0,0,.6))"></div>
 <div class="grain"></div>`);
 
-console.log('16 banner + 1 avatar ditulis');
+/* ── the mint ──────────────────────────────────────────────────────────── */
+
+/* The address is on these because it is the one thing a reader can check
+   against something that is not a banner. Read from out/keys.4663.json rather
+   than typed: a hand-copied address on artwork sent to strangers is the worst
+   place for a typo, and the record already holds the real one. */
+const DEPLOYED = (() => {
+  try { return JSON.parse(fs.readFileSync('out/keys.4663.json', 'utf8')); }
+  catch { return null; }
+})();
+const CA = DEPLOYED?.keys ?? null;
+const CA_SHOWN = CA ?? 'belum di-deploy';
+
+/* Closed is the honest state to advertise while the phase is closed: a banner
+   that says mint now, next to a contract that refuses, is the one thing this
+   product exists not to do. Change the word when the phase changes. */
+const MINT_STATE = process.env.MINT_STATE ?? 'Coming soon';
+
+fs.writeFileSync('brand/banners/m1-mint.html', page(1600,900,`
+<div style="position:absolute;inset:0;background:url('${SHOT('k-gallery.png')}') center 42%/150% auto no-repeat;opacity:.9"></div>
+<div style="position:absolute;inset:0;background:linear-gradient(90deg,#08090B 42%,rgba(8,9,11,.82) 58%,rgba(8,9,11,.3) 80%,transparent)"></div>
+<div style="position:absolute;left:74px;top:50%;transform:translateY(-50%);width:720px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="eyebrow">Proof Keys · Season 1</span>
+    <span style="font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+      padding:5px 11px;border-radius:999px;border:1px solid var(--border-hi);color:var(--tx-2)">${MINT_STATE}</span>
+  </div>
+  <div class="rule-l" style="width:170px;margin:20px 0 26px"></div>
+  <h2 style="font-size:56px;line-height:1.06">666 keys.<br><span class="grad-tx">Every one drawn from<br>its own number.</span></h2>
+  <p style="font-size:18px;line-height:1.64;color:var(--tx-2);margin-top:26px">
+    The engraving is on chain the moment a key is minted — no server, no IPFS, nothing to expire.
+    Only the tier waits, drawn from a seed committed before minting opened and published after it closes.</p>
+  <div style="display:flex;gap:34px;margin-top:34px">
+    <div><div class="eyebrow" style="font-size:10.5px">Phase 1</div>
+      <div style="font-family:var(--mono);font-size:24px;margin-top:7px">$2</div></div>
+    <div><div class="eyebrow" style="font-size:10.5px">Phase 2</div>
+      <div style="font-family:var(--mono);font-size:24px;margin-top:7px">$5</div></div>
+    <div><div class="eyebrow" style="font-size:10.5px">Phase 3</div>
+      <div style="font-family:var(--mono);font-size:24px;margin-top:7px">$10</div></div>
+    <div><div class="eyebrow" style="font-size:10.5px">Max / wallet</div>
+      <div style="font-family:var(--mono);font-size:24px;margin-top:7px">5</div></div>
+  </div>
+  <div class="wm" style="margin-top:42px">${MARK}<span>Nekara</span></div>
+</div>
+<div style="position:absolute;left:74px;bottom:46px">
+  <div class="eyebrow" style="font-size:10.5px">Robinhood Chain · 4663</div>
+  <div class="mono" style="font-size:12.5px;margin-top:6px;color:var(--tx-2)">${CA_SHOWN}</div>
+</div>`));
+
+fs.writeFileSync('brand/banners/m2-mint-square.html', page(1080,1080,`
+<div style="position:absolute;inset:0;padding:74px 62px 58px;display:flex;flex-direction:column;align-items:center;text-align:center">
+  <div class="wm">${MARK}<span>Nekara</span></div>
+  <div style="font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    padding:6px 13px;border-radius:999px;border:1px solid var(--border-hi);color:var(--tx-2);margin-top:26px">${MINT_STATE}</div>
+  <h1 style="font-size:52px;line-height:1.1;margin-top:26px">666 keys.<br><span class="grad-tx">One number each.</span></h1>
+  <img class="ui" src="${SHOT('k-gallery.png')}" style="width:100%;height:576px;object-fit:cover;object-position:center 33%;margin-top:34px">
+  <div style="display:flex;gap:44px;margin-top:34px">
+    <div><div class="eyebrow" style="font-size:10px">Phase 1</div>
+      <div style="font-family:var(--mono);font-size:22px;margin-top:6px">$2</div></div>
+    <div><div class="eyebrow" style="font-size:10px">Phase 2</div>
+      <div style="font-family:var(--mono);font-size:22px;margin-top:6px">$5</div></div>
+    <div><div class="eyebrow" style="font-size:10px">Phase 3</div>
+      <div style="font-family:var(--mono);font-size:22px;margin-top:6px">$10</div></div>
+  </div>
+  <div class="rule" style="width:280px;margin:auto 0 18px"></div>
+  <div class="eyebrow" style="font-size:10px">Robinhood Chain · access to a feed · not an investment</div>
+  <div class="mono" style="font-size:11px;margin-top:9px;color:var(--tx-3)">${CA_SHOWN}</div>
+</div>`));
+
+if (!CA) console.error('  peringatan: out/keys.4663.json tidak terbaca — banner mint tanpa alamat kontrak');
+
+console.log('18 banner + 1 avatar ditulis');

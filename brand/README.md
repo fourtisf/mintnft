@@ -48,7 +48,15 @@ the whole set after any change to the site's design:
     node brand/render.js      # -> banners/*.png at 2x
 
 or `brand/mkbanners.sh` for all three. Needs `playwright` and a chromium;
-point `CHROME` at one if it is not at the default path.
+point `CHROME` at one if it is not at the default path. `render.js` takes
+banner names to redo a subset (`node brand/render.js m1-mint m2-mint-square`);
+each page declares its own size in its CSS, and a page that declares none is
+named on a non-zero exit rather than rendered at the wrong dimensions.
+
+`mkshots.js` captures the key engravings too, so **it is part of re-running
+parity after an artwork change**: the banners are laid out over the art the
+contract renders, and a banner showing the previous engraving advertises a key
+nobody can be sent.
 
 | File | Size | Where it goes |
 |---|---|---|
@@ -78,14 +86,34 @@ on the right; the copy comes from the page the panel was cropped from.
 | `p5-scan.png` | 1080×1080 | what the screener passed on | Last 24 hours |
 | `p6-callers.png` | 1600×900 | callers ranked on every call, not the best one | Caller leaderboard |
 
-Keys. What a key actually is, in the site's own words. **No price, no supply
-counter, no mint button** — no contract is deployed, so any of those would be
-advertising a sale that does not exist.
+Keys. What a key actually is, in the site's own words. No price and no supply
+counter on these two — they answer *what is this*, and the mint banners below
+answer *what does it cost*.
 
 | File | Size | Where it goes |
 |---|---|---|
 | `k1-keys.png` | 1600×900 | X |
 | `k2-keys-square.png` | 1080×1080 | Telegram and Instagram |
+
+Mint. These two carry the price ladder and the deployed contract address, so
+they are the only banners that can go out of date on their own:
+
+- the address is read from `out/keys.4663.json`, never typed. With no such
+  record the banner says `belum di-deploy` and `mkbanners.js` prints a warning
+  — a banner is not the place to guess an address people will send money to.
+- `MINT_STATE` is the word in the pill, default `Coming soon`. **It has to match
+  the phase on chain.** A banner that says mint now, next to a contract that
+  reverts, is the one thing this product exists not to do. Override it when the
+  phase opens: `MINT_STATE='Phase 1 · live' node brand/mkbanners.js`.
+- the gallery behind them shows engravings without tier letters. On the site
+  every tile carries a sample tier under a caption saying it is a sample; a
+  banner carries no caption, so `mkshots.js` blanks them. The season seed is
+  not revealed, and a tier on a banner would be a claim nobody can check.
+
+| File | Size | Where it goes |
+|---|---|---|
+| `m1-mint.png` | 1600×900 | X |
+| `m2-mint-square.png` | 1080×1080 | Telegram and Instagram |
 
 Scoreboards. The format every call channel posts, with a dead call left in the
 fourth slot and the current multiple beside every peak. **The four calls on
