@@ -1,4 +1,4 @@
-const fs=require('fs');
+const fs=require('fs'), path=require('path');
 const MARK=`<svg viewBox="0 0 120 120" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient></defs><circle cx="60" cy="60" r="51" stroke="url(#lg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#lg)"/><circle cx="60" cy="60" r="10" fill="url(#lg)"/></svg>`;
 
 const SHOT=p=>`file://${__dirname}/shots/${p}`;
@@ -363,31 +363,62 @@ const CA_SHOWN = CA ?? 'belum di-deploy';
    product exists not to do. Change the word when the phase changes. */
 const MINT_STATE = process.env.MINT_STATE ?? 'Coming soon';
 
+/* The art is the product, so nothing is laid over it and nothing is cropped
+   out of it. These come from the site's own renderer rather than a screenshot
+   of it: the engraved number plate sits at the far left of the square, and any
+   crop that makes a screenshot fit a card cuts it in half. */
+let PROTO = null;
+const proto = () => PROTO ??= new (require('jsdom').JSDOM)(
+  fs.readFileSync(path.join(__dirname, '..', 'prototype', 'proof.html'), 'utf8'),
+  { runScripts: 'dangerously', virtualConsole: new (require('jsdom').VirtualConsole)(),
+    url: 'http://localhost/', beforeParse(w) {
+      w.IntersectionObserver = class { observe() {} unobserve() {} };
+      w.matchMedia = () => ({ matches: true });
+      w.requestAnimationFrame = () => {}; w.scrollTo = () => {}; w.setInterval = () => 0;
+      w.fetch = () => Promise.reject(0); w.TextEncoder = TextEncoder;
+    } }).window;
+
+const KEY = (id, w) => {
+  // The plate engraves a tier drawn from the sample seed. The season seed is
+  // not out, and a banner carries no caption saying so.
+  const body = proto().keySVG(id, 'full').body.replace(/(>TIER )[IVX]+(<)/, '$1\u2014$2');
+  return `<div style="width:${w}px;height:${w}px;border-radius:14px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.13);
+    box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.045)">
+    <svg viewBox="0 0 600 600" width="${w}" height="${w}"
+      xmlns="http://www.w3.org/2000/svg">${body}</svg></div>`;
+};
+
 fs.writeFileSync('brand/banners/m1-mint.html', page(1600,900,`
-<div style="position:absolute;inset:0;background:url('${SHOT('k-gallery.png')}') center 42%/150% auto no-repeat;opacity:.9"></div>
-<div style="position:absolute;inset:0;background:linear-gradient(90deg,#08090B 42%,rgba(8,9,11,.82) 58%,rgba(8,9,11,.3) 80%,transparent)"></div>
-<div style="position:absolute;left:74px;top:50%;transform:translateY(-50%);width:720px">
+<div style="position:absolute;inset:0;background:radial-gradient(120% 90% at 78% 42%,#0E1017 0%,#08090B 62%)"></div>
+<div style="position:absolute;left:74px;top:50%;transform:translateY(-50%);width:552px">
   <div style="display:flex;align-items:center;gap:12px">
     <span class="eyebrow">Proof Keys · Season 1</span>
     <span style="font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
       padding:5px 11px;border-radius:999px;border:1px solid var(--border-hi);color:var(--tx-2)">${MINT_STATE}</span>
   </div>
   <div class="rule-l" style="width:170px;margin:20px 0 26px"></div>
-  <h2 style="font-size:56px;line-height:1.06">666 keys.<br><span class="grad-tx">Every one drawn from<br>its own number.</span></h2>
-  <p style="font-size:18px;line-height:1.64;color:var(--tx-2);margin-top:26px">
+  <h2 style="font-size:42px;line-height:1.1">666 keys.<br><span class="grad-tx">Every one drawn<br>from its own number.</span></h2>
+  <p style="font-size:16px;line-height:1.6;color:var(--tx-2);margin-top:22px">
     The engraving is on chain the moment a key is minted — no server, no IPFS, nothing to expire.
     Only the tier waits, drawn from a seed committed before minting opened and published after it closes.</p>
-  <div style="display:flex;gap:34px;margin-top:34px">
+  <div style="display:flex;gap:32px;margin-top:30px">
     <div><div class="eyebrow" style="font-size:10.5px">Phase 1</div>
-      <div style="font-family:var(--mono);font-size:24px;margin-top:7px">$2</div></div>
+      <div style="font-family:var(--mono);font-size:23px;margin-top:7px">$2</div></div>
     <div><div class="eyebrow" style="font-size:10.5px">Phase 2</div>
-      <div style="font-family:var(--mono);font-size:24px;margin-top:7px">$5</div></div>
+      <div style="font-family:var(--mono);font-size:23px;margin-top:7px">$5</div></div>
     <div><div class="eyebrow" style="font-size:10.5px">Phase 3</div>
-      <div style="font-family:var(--mono);font-size:24px;margin-top:7px">$10</div></div>
+      <div style="font-family:var(--mono);font-size:23px;margin-top:7px">$10</div></div>
     <div><div class="eyebrow" style="font-size:10.5px">Max / wallet</div>
-      <div style="font-family:var(--mono);font-size:24px;margin-top:7px">5</div></div>
+      <div style="font-family:var(--mono);font-size:23px;margin-top:7px">5</div></div>
   </div>
-  <div class="wm" style="margin-top:42px">${MARK}<span>Nekara</span></div>
+  <div class="wm" style="margin-top:38px">${MARK}<span>Nekara</span></div>
+</div>
+<div style="position:absolute;right:56px;top:50%;transform:translateY(-50%);
+  display:flex;align-items:center;gap:18px">
+  ${KEY(1,256)}
+  ${KEY(3,320)}
+  ${KEY(16,256)}
 </div>
 <div style="position:absolute;left:74px;bottom:46px">
   <div class="eyebrow" style="font-size:10.5px">Robinhood Chain · 4663</div>

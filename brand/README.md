@@ -105,10 +105,18 @@ they are the only banners that can go out of date on their own:
   the phase on chain.** A banner that says mint now, next to a contract that
   reverts, is the one thing this product exists not to do. Override it when the
   phase opens: `MINT_STATE='Phase 1 · live' node brand/mkbanners.js`.
-- the gallery behind them shows engravings without tier letters. On the site
-  every tile carries a sample tier under a caption saying it is a sample; a
-  banner carries no caption, so `mkshots.js` blanks them. The season seed is
-  not revealed, and a tier on a banner would be a claim nobody can check.
+- the tier is blanked everywhere they show a key. On the site every tile and
+  every plate carries a tier drawn from the sample seed, under a caption saying
+  so; a banner carries no caption, and the season seed is not out, so a tier
+  there would be a claim nobody can check. `mkshots.js` blanks it in the shots
+  and `mkbanners.js` blanks it in the keys it draws itself.
+- `m1-mint` draws its three keys **from the site's renderer, not from a
+  screenshot of it** — `mkbanners.js` boots `prototype/proof.html` in jsdom and
+  inlines the SVG. The engraved number plate sits at the far left of the square,
+  so every crop that makes a screenshot fit a card cuts it in half; a vector has
+  no crop. Nothing is laid over the art either: the copy keeps to its own half
+  of the frame, because a scrim across the engraving is the one thing this
+  banner cannot afford.
 
 | File | Size | Where it goes |
 |---|---|---|

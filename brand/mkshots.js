@@ -64,10 +64,23 @@ const stage=()=>{
      art the contract renders — which is why this has to be re-run after any
      change to keySVG, and the banners rebuilt on top of it. */
   await p.evaluate(()=>go("mint"));await p.waitForTimeout(1500);await settle();
-  // Keep in step with CALLS in mkbanners.js: a missing shot is a broken banner.
-  for(const id of [7,113,288,401,522,640]){
+  /* 1, 3 and 16 are the mint banner's three cards — Aperture/Cyan,
+     Halation/Verdant and Monolith/Ember, so the row spans the palette instead
+     of showing the same blue three times. The rest are CALLS in mkbanners.js;
+     keep both in step, because a missing shot is a broken banner. */
+  for(const id of [1,3,7,16,113,288,401,522,640]){
     await p.evaluate(i=>{
-      drawKey(i);document.getElementById("keyArt").classList.remove("blooming");
+      drawKey(i);
+      const art=document.getElementById("keyArt");
+      art.classList.remove("blooming");
+      /* The plate engraves a tier and the badge ranks it. Both are drawn from
+         the sample seed and the page captions them as samples; a banner has no
+         caption and the season seed is not out, so on a shot they read as the
+         tier this key was actually dealt. The trait name is not a claim. */
+      const line=[...art.querySelectorAll("text")].pop();
+      if(line&&/^TIER /.test(line.textContent))line.textContent="TIER \u2014";
+      const badge=document.getElementById("keyTier");
+      badge.textContent=badge.textContent.split(" \u00b7 ")[0];
     },id);
     await p.waitForTimeout(200);
     await shot('#v-mint .keystage','key-'+id+'.png');
