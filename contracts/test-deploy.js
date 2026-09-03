@@ -56,7 +56,7 @@ const ROOT = path.join(__dirname, '..');
     execFile('node', [path.join(__dirname, 'keys.js'), ...args], {
       cwd: ROOT,
       env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
-             ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT, KEYS_CONTRACT: '' },
+             ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT, KEYS_CONTRACT: '', KEYS_ENV: '' },
     }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
   });
 
@@ -65,6 +65,60 @@ const ROOT = path.join(__dirname, '..');
   const deployedPath = path.join(OUT, 'keys.46630.json');
   const at = who => new ethers.Contract(JSON.parse(fs.readFileSync(deployedPath, 'utf8')).keys,
     abi, who.connect(provider));
+
+  /* ═══════ .keys.env ═══════ */
+  head('.keys.env');
+  {
+    // The key cannot be an argument, so it comes from the environment — and an
+    // operator who forgets to export it first reads "DEPLOY_RPC belum diisi"
+    // and goes looking for a broken RPC. The file is the fix; these cases are
+    // that it is actually read, and that it never silently loses to anything.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nekara-env-'));
+    const file = path.join(dir, '.keys.env');
+    const bare = (extra = {}) => new Promise(resolve => {
+      const e = { ...process.env, ...extra, KEYS_OUT: OUT, DEPLOY_POLL_MS: '10' };
+      for (const k of ['DEPLOY_RPC', 'DEPLOY_PK', 'ETH_RPC', 'KEYS_ENV', 'KEYS_CONTRACT'])
+        if (!(k in extra)) delete e[k];
+      execFile('node', [path.join(__dirname, 'keys.js'), 'ping'], { cwd: dir, env: e },
+        (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+
+    const none = await bare();
+    ok(none.code !== 0, 'tanpa file dan tanpa export, perintahnya berhenti');
+    ok(/\.keys\.env/.test(none.out) && none.out.includes(dir),
+      'dan menyebut file yang dicari, di direktori mana');
+    ok(/DEPLOY_RPC=/.test(none.out) && /DEPLOY_PK=/.test(none.out),
+      'lalu isinya, bukan hanya nama variabel yang kurang');
+
+    const good = `# ditulis tangan\nDEPLOY_RPC=${rpc.url}\nexport DEPLOY_PK=${owner.privateKey}\n`
+      + `ETH_RPC="${l1.url}"\n\n`;
+    fs.writeFileSync(file, good, { mode: 0o600 });
+    const read = await bare();
+    ok(read.code === 0 && /chain 46630/.test(read.out), 'dengan file itu, ping jalan tanpa export apa pun');
+    ok(read.out.includes(owner.address), 'kuncinya terbaca dari file, bukan dari argumen');
+    ok(read.out.includes(l1.url), 'tanda kutip dan "export" di depan tidak ikut terbawa');
+
+    const win = await bare({ DEPLOY_PK: buyer.privateKey });
+    ok(win.out.includes(buyer.address) && !win.out.includes(owner.address),
+      'variabel yang sudah di-export menang atas file');
+
+    fs.writeFileSync(file, `DEPLOY_RPC=${rpc.url}\nini bukan apa-apa\n`, { mode: 0o600 });
+    const bad = await bare();
+    ok(bad.code !== 0 && /baris 2/.test(bad.out),
+      'baris yang tidak berbentuk NAMA=nilai dihentikan, dengan nomor barisnya');
+
+    fs.writeFileSync(file, good);
+    fs.chmodSync(file, 0o644);
+    const loose = await bare();
+    ok(/bisa dibaca akun lain/.test(loose.out), 'file berisi private key yang terbuka diperingatkan');
+    ok(loose.code === 0, 'tapi tetap dijalankan — itu peringatan, bukan penolakan');
+
+    const off = await bare({ KEYS_ENV: '', DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey, ETH_RPC: l1.url });
+    ok(off.code === 0 && !/bisa dibaca akun lain/.test(off.out),
+      'KEYS_ENV kosong berarti tidak ada file yang dibaca sama sekali');
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 
   /* ═══════ before anything exists ═══════ */
   head('sebelum ada apa-apa');
@@ -95,7 +149,7 @@ const ROOT = path.join(__dirname, '..');
                // Both knobs pinned: this tests the mechanism, not whatever the
                // defaults happen to be tuned to on the day.
                ETH_RPC: '', RPC_TIMEOUT_MS: '2000', RPC_ATTEMPTS: '2',
-               KEYS_OUT: OUT, KEYS_CONTRACT: '' },
+               KEYS_OUT: OUT, KEYS_CONTRACT: '', KEYS_ENV: '' },
       }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
     });
     const took = Date.now() - t0;
@@ -125,7 +179,7 @@ const ROOT = path.join(__dirname, '..');
       execFile('node', [path.join(__dirname, 'keys.js'), 'ping'], {
         cwd: ROOT,
         env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
-               ETH_RPC: url, RPC_TIMEOUT_MS: '5000', KEYS_OUT: OUT, KEYS_CONTRACT: '' },
+               ETH_RPC: url, RPC_TIMEOUT_MS: '5000', KEYS_OUT: OUT, KEYS_CONTRACT: '', KEYS_ENV: '' },
       }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
     });
 
@@ -205,7 +259,7 @@ const ROOT = path.join(__dirname, '..');
       execFile('node', [path.join(__dirname, 'keys.js'), 'deploy', '--owner', owner.address, '--confirm'], {
         cwd: ROOT,
         env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
-               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT3, KEYS_CONTRACT: '' },
+               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT3, KEYS_CONTRACT: '', KEYS_ENV: '' },
       }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
     });
     ok(lost.code !== 0 && /sudah mengirim \d+ transaksi/.test(lost.out),
@@ -344,7 +398,7 @@ const ROOT = path.join(__dirname, '..');
       execFile('node', [path.join(__dirname, 'keys.js'), ...args], {
         cwd: ROOT,
         env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: owner.privateKey,
-               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT2, KEYS_CONTRACT: '' },
+               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT2, KEYS_CONTRACT: '', KEYS_ENV: '' },
       }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
     });
     // --again on purpose: this account has been deploying all file long, and

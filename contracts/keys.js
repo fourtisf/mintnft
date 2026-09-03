@@ -36,6 +36,61 @@ const env = n => {
 
 const die = m => { console.error(m); process.exit(1); };
 
+/** The key must never be an argument, so it has to come from the environment,
+ *  and "export it first" is the step an operator forgets and then debugs as a
+ *  broken RPC. Read the file instead. An exported variable still wins, which
+ *  is how a one-off run overrides what is on disk. */
+// KEYS_ENV set to nothing means "read no file at all" — which is what a test
+// needs, so that a stray .keys.env on a developer's machine cannot reach it.
+const ENV_FILE = process.env.KEYS_ENV !== undefined
+  ? (process.env.KEYS_ENV.trim() || null)
+  : [path.join(process.cwd(), '.keys.env'), path.join(__dirname, '..', '.keys.env')]
+      .find(f => fs.existsSync(f)) || null;
+
+function loadEnvFile(file) {
+  if (!file) return null;
+  if (!fs.existsSync(file)) die(`KEYS_ENV menunjuk ${file}, dan file itu tidak ada`);
+
+  // It holds a private key. Group- or world-readable is worth one line of
+  // noise, because nothing else will ever mention it.
+  const mode = fs.statSync(file).mode & 0o777;
+  if (mode & 0o077) console.error(`peringatan: ${file} bisa dibaca akun lain — chmod 600 ${file}`);
+
+  let text;
+  try { text = fs.readFileSync(file, 'utf8'); }
+  catch (e) { die(`${file} ada tapi tidak terbaca: ${e.message}`); }
+
+  const names = [];
+  text.split(/\r?\n/).forEach((line, i) => {
+    const s = line.trim();
+    if (!s || s.startsWith('#')) return;
+    const m = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(s);
+    // Silence here would look exactly like a variable that was set, which is
+    // the one failure this repository refuses to ship anywhere.
+    if (!m) die(`${file} baris ${i + 1} bukan NAMA=nilai: ${s}`);
+    let value = m[2].trim();
+    if (value.length > 1 && /^".*"$|^'.*'$/.test(value)) value = value.slice(1, -1);
+    names.push(m[1]);
+    if (process.env[m[1]] === undefined) process.env[m[1]] = value;
+  });
+  return { file, names };
+}
+
+const ENV_LOADED = loadEnvFile(ENV_FILE);
+
+/** Every "you did not set X" message has to say where X goes, because the
+ *  operator reading it has no way to know this file is even consulted. */
+const missing = (name, why) => die(
+  `${name} belum diisi — ${why}\n\n`
+  + (ENV_LOADED
+      ? `Terbaca dari ${ENV_LOADED.file}: ${ENV_LOADED.names.join(', ') || '(kosong)'}\n`
+        + `${name} tidak ada di sana. Tambahkan satu baris ${name}=… lalu ulangi.`
+      : `Tidak ada .keys.env di ${[...new Set([process.cwd(), path.join(__dirname, '..')])].join(' maupun ')}.\n`
+        + 'Buat satu, lalu ulangi perintah ini:\n\n'
+        + '  DEPLOY_RPC=https://rpc.mainnet.chain.robinhood.com\n'
+        + '  DEPLOY_PK=0x…\n'
+        + '  ETH_RPC=https://ethereum-rpc.publicnode.com'));
+
 /** Nothing here waits forever. An RPC that accepts a connection and never
  *  answers is the failure that looks most like work in progress, and every
  *  command below starts with one. */
@@ -69,7 +124,7 @@ async function retry(fn, what, attempts = Number(env('RPC_ATTEMPTS') ?? 5)) {
 function wallet() {
   const rpc = env('DEPLOY_RPC');
   const pk = env('DEPLOY_PK');
-  if (!rpc) die('DEPLOY_RPC belum diisi — RPC mana yang harus dikirimi?');
+  if (!rpc) missing('DEPLOY_RPC', 'RPC mana yang harus dikirimi?');
   // Said out loud before the first call, so a hang has a name attached to it.
   console.error(`menghubungi ${rpc} …`);
   const provider = new ethers.providers.JsonRpcProvider(rpc);
@@ -94,7 +149,7 @@ function wallet() {
  */
 async function ethMainnet() {
   const url = env('ETH_RPC');
-  if (!url) die('ETH_RPC belum diisi — seed musim butuh satu blok Ethereum mainnet, '
+  if (!url) missing('ETH_RPC', 'seed musim butuh satu blok Ethereum mainnet, '
     + 'dan tanpa endpoint itu tidak ada yang bisa dibaca');
   const call = async (method, params) => {
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -410,6 +465,8 @@ const USAGE = `
 
   env: DEPLOY_RPC (wajib), DEPLOY_PK (untuk mengirim), KEYS_CONTRACT (opsional),
        ETH_RPC (Ethereum mainnet, hanya dibaca, untuk commit dan reveal)
+       Dibaca dari .keys.env di direktori ini kalau ada — chmod 600 — dan
+       variabel yang sudah di-export tetap menang. KEYS_ENV menunjuk file lain.
   Tanpa --confirm setiap perintah hanya mencetak apa yang akan dikirim.
 `;
 
