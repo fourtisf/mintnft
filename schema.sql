@@ -340,3 +340,38 @@ FROM calls c
 JOIN call_marks m ON m.call_id = c.id
 WHERE c.fired_at > now() - interval '7 days'
 GROUP BY c.chain;
+
+
+/* ═══════════════════ telegram subscribers ═══════════════════
+   Operational state, not evidence. Nothing here is hashed, rows are edited and
+   deleted freely, and that is exactly why it lives at the bottom of this file
+   rather than beside calls — the append-only guarantee is about the register,
+   and diluting where it applies is how it stops meaning anything.
+
+   No tier column, deliberately. A key can be sold between the moment its holder
+   links a chat and the moment a call fires; a stored tier would keep paying the
+   seller and strand the buyer on the public leg. The tier is read from the
+   chain at send time, every time. */
+CREATE TABLE tg_subscribers (
+  chat_id     bigint PRIMARY KEY,
+
+  -- One address, one chat: linking again moves the binding rather than fanning
+  -- one wallet's latency out across every chat that ever claimed it.
+  address     text UNIQUE,
+  linked_at   timestamptz,
+
+  -- Chain, minimum score and market-cap ceiling, as the subscriber set them.
+  filters     jsonb NOT NULL DEFAULT '{}'::jsonb,
+
+  -- False when the person blocked the bot. Kept rather than deleted so a
+  -- re-/start is a reactivation and not a stranger.
+  active      boolean NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  seen_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX tg_active ON tg_subscribers (chat_id) WHERE active;
+
+COMMENT ON COLUMN tg_subscribers.address IS
+  'The wallet a chat proved it controls, via a code issued in the chat and a
+   SIWE signature on the site. Neither half alone binds anything.';

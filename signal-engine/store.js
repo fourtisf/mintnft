@@ -104,6 +104,66 @@ export class FileStore {
     return this.db.anchors.filter(a => a.seqTo >= seq && a.txHash)
       .sort((x, y) => x.seqTo - y.seqTo)[0] ?? null;
   }
+  /* ── telegram subscribers ──
+   *
+   * Operational state, not evidence: nothing here is hashed and a subscriber
+   * may be edited or removed, which is the opposite of a call. It lives beside
+   * the register rather than inside it so that distinction stays visible.
+   *
+   * No tier is stored. A key can be sold between the moment its holder links a
+   * chat and the moment a signal fires, and a stored tier would keep sending
+   * the seller their old latency and leave the buyer on the public leg. The
+   * tier is read from the chain at send time, every time.
+   */
+  #subs() { return (this.db.subs ??= {}); }
+  addSubscriber(chatId) {
+    const s = this.#subs();
+    const now = new Date().toISOString();
+    s[chatId] = { ...(s[chatId] ?? { chatId, address: null, filters: {}, createdAt: now }),
+                  active: true, seenAt: now };
+    this.#flush();
+    return s[chatId];
+  }
+  subscriber(chatId) { return this.#subs()[chatId] ?? null; }
+  subscriberByAddress(address) {
+    const a = String(address).toLowerCase();
+    return Object.values(this.#subs()).find(x => x.address === a) ?? null;
+  }
+  /** One address, one chat. Linking again moves it rather than fanning out. */
+  linkSubscriber(chatId, address) {
+    const s = this.#subs(), a = String(address).toLowerCase();
+    for (const row of Object.values(s)) if (row.address === a && row.chatId !== chatId) row.address = null;
+    const row = s[chatId] ?? this.addSubscriber(chatId);
+    row.address = a;
+    row.linkedAt = new Date().toISOString();
+    row.active = true;
+    this.#flush();
+    return row;
+  }
+  unlinkSubscriber(chatId) {
+    const row = this.#subs()[chatId];
+    if (!row) return null;
+    row.address = null; row.linkedAt = null;
+    this.#flush();
+    return row;
+  }
+  setSubscriberFilters(chatId, filters) {
+    const row = this.#subs()[chatId];
+    if (!row) return null;
+    row.filters = filters;
+    this.#flush();
+    return row;
+  }
+  /** A blocked bot is not an error to retry for ever; it is a subscriber gone. */
+  deactivateSubscriber(chatId) {
+    const row = this.#subs()[chatId];
+    if (!row) return null;
+    row.active = false;
+    this.#flush();
+    return row;
+  }
+  subscribers() { return Object.values(this.#subs()).filter(x => x.active); }
+
   hasToken(chain, addr, withinMs) {
     const cut = Date.now() - withinMs;
     return this.db.calls.some(c =>

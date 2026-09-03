@@ -178,6 +178,40 @@ ok(cs.length === 1 && Number(cs[0].calls) === 5,
 ok(Number(cs[0].wins) === 1 && Number(cs[0].hit_rate) === 0.2,
   "and the hit rate is wins over all of them — 1 of 5, misses included");
 
+/* The bot reads these back on every send to decide who gets what and when. A
+   driver that quietly forgets a column here does not lose a display field — it
+   loses the binding between a wallet and a chat, and the holder's tier with it. */
+console.log("\nPELANGGAN TELEGRAM");
+{
+  const a = await store.addSubscriber(9001);
+  ok(a.active && a.address === null, "a fresh chat is active and unlinked");
+  await store.addSubscriber(9001);
+  ok((await store.subscribers()).filter(s => s.chatId === 9001).length === 1,
+    "/start twice is still one row");
+
+  const addr = "0xaaa0000000000000000000000000000000000001";
+  await store.linkSubscriber(9001, "0xAAA0000000000000000000000000000000000001");
+  ok((await store.subscriber(9001)).address === addr, "the address is stored lowercased");
+  ok((await store.subscriberByAddress(addr))?.chatId === 9001, "and is findable back from it");
+
+  await store.addSubscriber(9002);
+  await store.linkSubscriber(9002, addr);
+  ok((await store.subscriber(9001)).address === null && (await store.subscriber(9002)).address === addr,
+    "a second chat claiming the same wallet moves the binding rather than duplicating it");
+
+  await store.setSubscriberFilters(9002, { chains: ["solana"], minScore: 70 });
+  const f = (await store.subscriber(9002)).filters;
+  ok(f.chains?.[0] === "solana" && f.minScore === 70, "filters survive as jsonb");
+
+  await store.deactivateSubscriber(9002);
+  const ids = (await store.subscribers()).map(s => s.chatId);
+  ok(!ids.includes(9002) && ids.includes(9001),
+    "blocking the bot leaves the send list without deleting the row");
+  ok((await store.subscriber(9002)).active === false, "so a later /start is a reactivation");
+  ok(typeof (await store.subscriber(9001)).chatId === "number",
+    "chat_id comes back a number, not a bigint string — the same key the file driver uses");
+}
+
 await store.close();
 console.log(failures ? `\n${failures} GAGAL\n` : "\nsemua lolos\n");
 process.exit(failures ? 1 : 0);

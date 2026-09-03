@@ -17,6 +17,7 @@ import { readFileSync, statSync } from "node:fs";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
 import { NonceStore, issueSession, readSession, verifySiwe, StaticTierSource } from "./auth.js";
+import { TIER_NAME } from "./tgbot.js";
 import { KeysReader } from "./keys.js";
 
 const readBody = req => new Promise((resolve, reject) => {
@@ -34,6 +35,8 @@ export function serve(store, {
   delays = TIER_DELAY_S,
   nonces = new NonceStore(),
   feed = null,
+  // Null until TG_TOKEN is set. The route says so rather than pretending.
+  bot = null,
   triage = null,
   cfg = null,
   keys = new KeysReader({ log: console.log }),
@@ -138,6 +141,32 @@ export function serve(store, {
       if (!claims) return json(res, 401, { error: "no session" });
       const tier = await tierSource.bestTierOf(claims.addr);
       return json(res, 200, { token: issueSession({ address: claims.addr, tier }, secret), tier, address: claims.addr });
+    }
+
+    /* ── telegram ──
+       The code proves control of the chat; the session proves control of the
+       address. Neither alone is enough, and the binding needs both — a chat id
+       posted in public would otherwise be enough to claim someone's tier. */
+    // Whether there is anything to link to. The page asks before it offers a
+    // form: an input wired to a bot that does not exist is a dead end wearing
+    // the costume of a feature.
+    if (p === "/api/tg") return json(res, 200, { configured: Boolean(bot?.configured) });
+
+    if (p === "/api/tg/link" && req.method === "POST") {
+      const claims = readSession((req.headers.authorization ?? "").replace(/^Bearer /i, ""), secret);
+      if (!claims) return json(res, 401, { error: "connect a wallet first" });
+      if (!bot?.configured) return json(res, 503, { error: "the alert bot is not wired" });
+      let body;
+      try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: "bad body" }); }
+      const v = bot.codes.redeem(body.code);
+      // Expired and never-issued are one answer on purpose: telling them apart
+      // turns this route into an oracle for which codes are live.
+      if (!v) return json(res, 400, { error: "that code is expired or not one of ours" });
+      await store.linkSubscriber(v.chatId, claims.addr);
+      // Read now for the reply only. Delivery reads it again at send time.
+      const tier = await tierSource.bestTierOf(claims.addr);
+      bot.say(v.chatId, `Linked to \`${claims.addr}\`\\. You are on ${TIER_NAME[tier]}\\.`);
+      return json(res, 200, { linked: true, tier });
     }
 
     /* ── the mint ──

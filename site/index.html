@@ -476,6 +476,28 @@
     </div>
   </section>
 
+  <section class="sec" id="alerts" style="padding:56px 0 0">
+    <div class="box">
+      <h3>Telegram alerts</h3>
+      <p class="sub">Every call, every trailing-stop exit and every outcome, in a DM, at the
+      latency your key holds. The tier is read from the chain when a call fires — not when you
+      link — so selling a key moves the alerts with it.</p>
+      <div class="alrow">
+        <ol class="alsteps">
+          <li>Open the bot and send <code>/link</code></li>
+          <li>It replies with a six-character code</li>
+          <li>Paste it here, with the wallet holding your key connected</li>
+        </ol>
+        <div class="alform">
+          <input id="tgCode" maxlength="6" autocomplete="off" spellcheck="false"
+                 placeholder="ABC234" aria-label="Telegram link code">
+          <button class="btn btn-p" id="tgLink">Link</button>
+        </div>
+      </div>
+      <div class="mintmsg" id="tgMsg" hidden></div>
+    </div>
+  </section>
+
   <section class="sec" id="collection" style="padding:88px 0 0">
     <div class="collhead rv">
       <div>

@@ -600,7 +600,7 @@ function setSeasonSeed(hex){
   if(v===seasonSeed)return;
   seasonSeed=v;
   TRAIT_CACHE={};
-  drawKey(preview);renderMarquee();renderColl(true);renderMine();
+  drawKey(preview);renderMarquee();renderColl(true);renderMine();renderAlerts();
 }
 
 function setRevealedFromChain(is){
@@ -611,6 +611,7 @@ function setRevealedFromChain(is){
   chainRevealed=is;
   paintSampleNote();
   if(moved)renderMine();
+  renderAlerts();
 }
 
 /* Said out loud wherever finished art appears while the draw has not run.
@@ -924,6 +925,53 @@ function calldata(sel,q){
    because that is the per-wallet limit and it never moves. The empty state
    has to tell those apart from "no wallet connected", which is not a fact
    about the wallet at all. */
+let ALERTS=null;
+/* The Telegram panel. Four states, and only one of them is a form:
+   no bot wired, no wallet signed in, ready to link, and a failure the server
+   named. A disabled input with no reason next to it is the sort of dead end
+   this page exists not to be. */
+function renderAlerts(note,kind){
+  const input=document.getElementById("tgCode"), btn=document.getElementById("tgLink");
+  const msg=document.getElementById("tgMsg");
+  if(!input||!btn||!msg)return;
+  const say=(t,k)=>{msg.hidden=!t;msg.textContent=t??"";msg.className="mintmsg"+(k?" "+k:"")};
+  if(ALERTS===null){
+    // Asked once. Until it answers, the form stays shut rather than inviting a
+    // code into a route that may not exist.
+    input.disabled=btn.disabled=true;
+    fetch(API+"/tg").then(r=>r.json()).then(j=>{ALERTS=j;renderAlerts()}).catch(()=>{ALERTS={configured:false};renderAlerts()});
+    return say("");
+  }
+  if(!ALERTS.configured){
+    input.disabled=btn.disabled=true;
+    return say("The alert bot is not running yet, so there is nothing to link to.");
+  }
+  if(!SESSION.token){
+    input.disabled=btn.disabled=true;
+    return say("Connect the wallet holding your key first — the code proves the chat is yours, the signature proves the wallet is.");
+  }
+  input.disabled=btn.disabled=false;
+  say(note,kind);
+}
+async function linkTelegram(){
+  const input=document.getElementById("tgCode"), btn=document.getElementById("tgLink");
+  const code=(input.value||"").trim().toUpperCase();
+  if(code.length!==6)return renderAlerts("A code is six characters, as the bot sent it.","bad");
+  btn.disabled=true;
+  try{
+    const r=await fetch(API+"/tg/link",{method:"POST",
+      headers:{"content-type":"application/json",authorization:"Bearer "+SESSION.token},
+      body:JSON.stringify({code})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)return renderAlerts(j.error??"That did not work.","bad");
+    input.value="";
+    renderAlerts(`Linked. Alerts arrive at ${TIER_NAME[j.tier]??"your tier"}, read from the chain each time a call fires.`,"good");
+  }catch(e){renderAlerts("Could not reach the server. Nothing was linked.","bad")}
+  finally{btn.disabled=false}
+}
+document.getElementById("tgLink")?.addEventListener("click",linkTelegram);
+document.getElementById("tgCode")?.addEventListener("keydown",e=>{if(e.key==="Enter")linkTelegram()});
+
 function renderMine(){
   const grid=document.getElementById("mineGrid");
   const empty=document.getElementById("mineEmpty");

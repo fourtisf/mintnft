@@ -89,13 +89,19 @@ becomes the thing it was built to replace.
 6. **Re-run the parity test after any artwork change.** The site and the
    contract diverge the moment either moves. A buyer receiving different art
    from what was displayed is mis-selling, not a rough edge.
-7. **The public channel is a tier, and it is the slowest one.** Anything that
+7. **Never store a subscriber's tier.** A key can be sold between the moment
+   its holder links a chat and the moment a call fires. A stored tier keeps
+   paying the seller latency they no longer own and strands the buyer on the
+   public leg — and the buyer would be right to call that a scam. `tgbot.js`
+   reads `bestTierOf` on every send, and a provider being down reads as public,
+   never as a promotion.
+8. **The public channel is a tier, and it is the slowest one.** Anything that
    leaves for Telegram waits `PUBLIC_DELAY_S` measured from `fired_at`, the same
    clock `ws.js` uses. A call broadcast the moment it fired put the free channel
    ahead of every paid tier — Tier I pays for ten seconds and the message was
    already out — which is the business model given away on the side. Set
    `PUBLIC_DELAY_S=0` while no key has been sold; do not remove the gate.
-8. **Never let a check that did not run read as a check that passed.** A dead
+9. **Never let a check that did not run read as a check that passed.** A dead
    RPC, a missing key, a field the provider omitted — all of them mean *we do
    not know*, and every one of them has to survive onto the page saying so.
    `chain.js` records which fields it actually established for exactly this
@@ -117,6 +123,7 @@ Deploy on a small VPS; Postgres and Redis in Docker.
 | `contracts/keys.js` | The only thing here that sends a transaction. Every subcommand is a dry run until `--confirm`. Key from the environment, never an argument. |
 | Mint on the site | `/api/keys` and `/api/keys/state` read the chain; the page builds the calldata and the visitor's wallet signs it. This process never holds a key. |
 | `schema.sql` | Postgres DDL. It now runs; it did not before — an index expression over a `timestamptz` is only STABLE and Postgres rejected the file outright, which is what "structurally verified" had been standing in for. |
+| `signal-engine/tgbot.js` | The alert bot. Long-polls Telegram, so it needs no public URL and no nginx location. `/start` subscribes on the public leg; `/link` issues a code that only binds once a SIWE session on the site presents it. Tier read at send time, every time. |
 | `signal-engine/pgstore.js` | The Postgres driver, behind the same interface as `FileStore`. `migrate-pg.js` moves a file register across without recomputing a hash. |
 | `prototype/proof.html` | Design reference. Single file, mock data, seven pages. |
 
@@ -141,6 +148,8 @@ node test-exits.js   # what an exit rule would really have returned, and that a
                      # handed 75% of a peak nobody sold at
 node test-exit-alert.js   # the stop walked live and alerted while the call is
                           # still open, once, and never before the public leg
+node test-tgbot.js   # the alert bot: link codes, filters, and that a tier is
+                     # read from the chain at send time rather than stored
 node test-mint.js    # what the mint panel is told, and what it is never told
 node test-pg.js      # the Postgres driver, if TEST_DATABASE_URL is set; skips loudly otherwise
 node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgres

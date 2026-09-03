@@ -21,6 +21,7 @@ import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
 import { KeysReader } from "./keys.js";
 import { TIER_DELAY_S } from "./gating.js";
 import { Telegram, formatSignal, formatOutcome, formatExit } from "./notify.js";
+import { TelegramBot, LinkCodes } from "./tgbot.js";
 
 const HOT = 20_000, WARM = 300_000, DISCOVER = 60_000, ANCHOR = 86_400_000;
 
@@ -89,13 +90,27 @@ export function start({ store = new FileStore(), port = 8787,
    * With PUBLIC_DELAY_S=0 this is a straight send, which is what it should be
    * while no key has been sold and there is no one to be ahead of. */
   const queued = new Set();
-  const broadcast = (call, text) => {
+  const channel = (call, text) => {
     if (!telegram.configured) return;
     const due = Date.parse(call.firedAt) + delays[0] * 1000 - Date.now();
     if (due <= 0) return void telegram.send(text);
     const t = setTimeout(() => { queued.delete(t); telegram.send(text); }, due);
     queued.add(t);
   };
+
+  /* Two audiences, one clock.
+   *
+   * The channel is the shopfront: one public post per event, on the public leg,
+   * for anyone who has not bought anything. The bot is the product: the same
+   * event, to each subscriber, at the tier their wallet holds right now.
+   *
+   * Both read delays[0] from the same table, so there is no arrangement of
+   * settings in which the free channel arrives before a paid subscriber. */
+  const bot = new TelegramBot({ token: process.env.TG_TOKEN, store, tierSource,
+                                codes: new LinkCodes(), delays, log,
+                                site: domain ?? "nekara.xyz" });
+
+  const broadcast = (call, text) => { channel(call, text); bot.fanout(call, text); };
 
   const engine = new Engine({
     client: api,
@@ -213,7 +228,7 @@ export function start({ store = new FileStore(), port = 8787,
 
   const keys = new KeysReader({ log });
   const server = serve(store, { port, secret, domain, tierSource, delays, triage,
-                                cfg: engine.cfg, keys, log });
+                                cfg: engine.cfg, keys, bot, log });
   const feed = attachFeed(server, {
     log, delays,
     // The tier comes from the signed session and nothing else the client sends.
@@ -225,7 +240,11 @@ export function start({ store = new FileStore(), port = 8787,
   // Which one the channel is on, out loud: an operator who set PUBLIC_DELAY_S
   // and an operator who forgot to see the same silent bot for the first hour.
   if (telegram.configured)
-    log(`[telegram] broadcasts on the public leg, ${delays[0]}s behind fired_at`);
+    log(`[telegram] channel broadcasts on the public leg, ${delays[0]}s behind fired_at`);
+  // Both states out loud. "No bot" and "a bot nobody has started" look the same
+  // from the outside, and only one of them is something to fix.
+  if (bot.configured) { bot.start(); log("[tg] alert bot polling — /start, /link, /status"); }
+  else log("[tg] TG_TOKEN not set — no per-holder alerts; the tier ladder reaches the site only");
   // Both states, out loud. Reading the absence of a line is not something an
   // operator can do, and "no mint panel" and "mint panel reading a dead RPC"
   // look identical from the page.
@@ -234,8 +253,8 @@ export function start({ store = new FileStore(), port = 8787,
     : `[keys] mint not wired — ${keys.identity().why}; the panel will say so`);
   if (!publishAnchorTx) log("anchoring is not wired — /api/verify will report the register as unanchored");
   return { stop() { timers.forEach(clearInterval); queued.forEach(clearTimeout); queued.clear();
-                    feed.close(); server.close(); },
-           store, engine, triage, feed, server, refresh };
+                    bot.stop(); feed.close(); server.close(); },
+           store, engine, triage, feed, server, refresh, bot };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) start({ store: await openStore() });

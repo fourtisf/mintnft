@@ -703,3 +703,15 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 }
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}
   .gspin,.gspin-r,.abord::before{animation:none!important}}
+
+/* telegram link panel — the only place a holder turns a tier into a DM */
+.alrow{display:flex;gap:34px;align-items:flex-start;flex-wrap:wrap;margin-top:18px}
+.alsteps{flex:1 1 340px;margin:0;padding-left:20px;color:var(--tx-2);font-size:13.5px;line-height:1.9}
+.alsteps code{font-family:var(--mono);font-size:12.5px;color:var(--tx);
+  background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:1px 6px}
+.alform{display:flex;gap:10px;align-items:center}
+.alform input{width:150px;background:var(--surface-2);border:1px solid var(--border-hi);
+  border-radius:9px;color:var(--tx);font-family:var(--mono);font-size:17px;letter-spacing:.18em;
+  text-transform:uppercase;padding:11px 13px;outline:none}
+.alform input:focus{border-color:var(--accent)}
+.alform input:disabled{opacity:.45}

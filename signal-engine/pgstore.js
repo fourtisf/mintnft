@@ -331,6 +331,65 @@ export class PgStore {
     return rows.length > 0;
   }
 
+  /* ── telegram subscribers ──
+     The same interface the file driver answers, so nothing above these two
+     files knows which one it is talking to. Every method returns the row it
+     wrote rather than the row it was given: a driver that echoes its argument
+     cannot fail loudly when the write did not land. */
+  async addSubscriber(chatId) {
+    const { rows } = await this.pool.query(
+      `INSERT INTO tg_subscribers (chat_id) VALUES ($1)
+       ON CONFLICT (chat_id) DO UPDATE SET active = true, seen_at = now()
+       RETURNING *`, [chatId]);
+    return rowToSub(rows[0]);
+  }
+  async subscriber(chatId) {
+    const { rows } = await this.pool.query("SELECT * FROM tg_subscribers WHERE chat_id = $1", [chatId]);
+    return rows[0] ? rowToSub(rows[0]) : null;
+  }
+  async subscriberByAddress(address) {
+    const { rows } = await this.pool.query(
+      "SELECT * FROM tg_subscribers WHERE address = $1", [String(address).toLowerCase()]);
+    return rows[0] ? rowToSub(rows[0]) : null;
+  }
+  async linkSubscriber(chatId, address) {
+    const a = String(address).toLowerCase();
+    const c = await this.pool.connect();
+    try {
+      await c.query("BEGIN");
+      await c.query("INSERT INTO tg_subscribers (chat_id) VALUES ($1) ON CONFLICT DO NOTHING", [chatId]);
+      // The unique index would reject the second binding rather than move it,
+      // so the old chat is released inside the same transaction.
+      await c.query("UPDATE tg_subscribers SET address = NULL, linked_at = NULL WHERE address = $1 AND chat_id <> $2",
+        [a, chatId]);
+      const { rows } = await c.query(
+        `UPDATE tg_subscribers SET address = $2, linked_at = now(), active = true, seen_at = now()
+         WHERE chat_id = $1 RETURNING *`, [chatId, a]);
+      await c.query("COMMIT");
+      return rowToSub(rows[0]);
+    } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); }
+  }
+  async unlinkSubscriber(chatId) {
+    const { rows } = await this.pool.query(
+      "UPDATE tg_subscribers SET address = NULL, linked_at = NULL WHERE chat_id = $1 RETURNING *", [chatId]);
+    return rows[0] ? rowToSub(rows[0]) : null;
+  }
+  async setSubscriberFilters(chatId, filters) {
+    const { rows } = await this.pool.query(
+      "UPDATE tg_subscribers SET filters = $2 WHERE chat_id = $1 RETURNING *",
+      [chatId, JSON.stringify(filters ?? {})]);
+    return rows[0] ? rowToSub(rows[0]) : null;
+  }
+  async deactivateSubscriber(chatId) {
+    const { rows } = await this.pool.query(
+      "UPDATE tg_subscribers SET active = false WHERE chat_id = $1 RETURNING *", [chatId]);
+    return rows[0] ? rowToSub(rows[0]) : null;
+  }
+  async subscribers() {
+    const { rows } = await this.pool.query("SELECT * FROM tg_subscribers WHERE active ORDER BY chat_id");
+    return rows.map(rowToSub);
+  }
+
   /* Published statistics come from the views in schema.sql, never from a query
      written next to the route that needs one. */
   async callerStats() { return (await this.pool.query("SELECT * FROM caller_stats")).rows; }
@@ -370,6 +429,17 @@ function rowToCall(r) {
     recordHash: hex(r.record_hash),
     chainHash: hex(r.chain_hash),
   };
+}
+
+/* chat_id is a bigint, and node-postgres hands those back as strings so that
+   ids past 2^53 survive. Telegram's fit in a Number today and the file driver
+   keys on one, so it is narrowed here rather than left to differ per driver. */
+function rowToSub(r) {
+  return { chatId: Number(r.chat_id), address: r.address ?? null,
+           linkedAt: r.linked_at ? new Date(r.linked_at).toISOString() : null,
+           filters: r.filters ?? {}, active: r.active,
+           createdAt: new Date(r.created_at).toISOString(),
+           seenAt: new Date(r.seen_at).toISOString() };
 }
 
 function rowToMark(r, seq) {
