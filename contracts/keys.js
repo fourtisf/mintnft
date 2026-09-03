@@ -490,9 +490,21 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   fs.mkdirSync(OUT, { recursive: true });
   fs.writeFileSync(deployedFile(chainId), JSON.stringify(out, null, 2));
   console.log(`\ntersimpan di out/keys.${chainId}.json`);
-  console.log('\nberikutnya:');
-  console.log(`  KEYS_CONTRACT=${keys.address} di signal-engine/.env`);
-  console.log('  node contracts/keys.js state');
+  // The engine reads process.env and nothing else — there is no dotenv in it.
+  // Naming a .env file here sends the operator to write something no process
+  // reads, and the result is indistinguishable from working gating: the site
+  // comes up, nobody errors, and every holder silently sits at public tier.
+  // Both variables are needed; with one the engine falls back to public too.
+  const svc = '/etc/systemd/system/nekara-engine.service.d';
+  console.log('\nberikutnya — arahkan engine ke kontrak ini:');
+  console.log(`  mkdir -p ${svc}`);
+  console.log(`  printf '[Service]\\nEnvironment=KEYS_CONTRACT=${keys.address}\\nEnvironment=KEYS_RPC=${env('DEPLOY_RPC')}\\n' \\`);
+  console.log(`    > ${svc}/keys.conf`);
+  console.log('  systemctl daemon-reload && systemctl restart nekara-engine');
+  console.log('\nlalu pastikan engine benar-benar membacanya, jangan percaya bahwa ia membacanya:');
+  console.log('  journalctl -u nekara-engine -n 30 --no-pager | grep -i "tier\\|keys"');
+  console.log('  curl -s https://nekara.xyz/api/keys');
+  console.log('\n  node contracts/keys.js state');
   console.log('  lihat contracts/DEPLOY.md untuk urutan buka mint dan reveal');
 }
 

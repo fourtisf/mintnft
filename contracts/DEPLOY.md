@@ -201,17 +201,31 @@ a small amount to the real destination before the mint, not after.
 
 ## 7. Wire the backend
 
-`signal-engine/.env`:
+The engine reads `process.env` and nothing else — it loads no `.env` file.
+Writing one is the failure this whole document exists to avoid: nothing errors,
+the site comes up, and every holder silently sits at public tier. Use a systemd
+drop-in, which also survives `golive.sh` reinstalling the unit:
 
 ```
-KEYS_CONTRACT=0x…
-KEYS_RPC=https://rpc.mainnet.chain.robinhood.com
-KEYS_CHAIN_ID=4663
-KEYS_EXPLORER=https://robinhoodchain.blockscout.com
+mkdir -p /etc/systemd/system/nekara-engine.service.d
+printf '[Service]\nEnvironment=KEYS_CONTRACT=0x…\nEnvironment=KEYS_RPC=https://rpc.mainnet.chain.robinhood.com\n' \
+  > /etc/systemd/system/nekara-engine.service.d/keys.conf
+systemctl daemon-reload && systemctl restart nekara-engine
 ```
 
-On the testnet those are `46630` and
-`https://explorer.testnet.chain.robinhood.com`.
+`KEYS_CHAIN_ID` defaults to 4663 and `KEYS_EXPLORER` to
+`https://robinhoodchain.blockscout.com`; set them only on the testnet, where
+they are `46630` and `https://explorer.testnet.chain.robinhood.com`.
+
+**Both** `KEYS_CONTRACT` and `KEYS_RPC` are required. With one of the two the
+engine does not complain — it falls back to public tier for everyone, which is
+correct behaviour and indistinguishable from a typo. Read it back rather than
+assuming:
+
+```
+journalctl -u nekara-engine -n 30 --no-pager | grep -i "tier\|keys"
+curl -s https://nekara.xyz/api/keys
+```
 
 The engine logs which of these it got at boot, in both directions — a mint panel
 that is not wired says so on the page rather than rendering zeroes.
