@@ -59,9 +59,10 @@ const baseState = over => ({
  * Returns handles plus everything the wallet was asked to do.
  */
 async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
-                      wallet = true, sendFails = null, switchFails = false } = {}) {
+                      wallet = true, sendFails = null, switchFails = false,
+                      url = "http://localhost/", navigate = true } = {}) {
   const dom = new JSDOM(readFileSync(join(ROOT, "site", "index.html"), "utf8"),
-    { url: "http://localhost/", runScripts: "outside-only", pretendToBeVisual: true });
+    { url, runScripts: "outside-only", pretendToBeVisual: true });
   const win = dom.window, doc = win.document;
 
   win.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
@@ -101,8 +102,12 @@ async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
   }
 
   win.eval(readFileSync(join(ROOT, "site", "assets", "app.js"), "utf8"));
-  doc.querySelector('#navLinks a[data-v="mint"]')
-    ?.dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+  // Every case but the routing one wants the mint panel however it gets there.
+  // The routing case must not be handed the answer it is meant to prove.
+  if (navigate) {
+    doc.querySelector('#navLinks a[data-v="mint"]')
+      ?.dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+  }
   await sleep(60);
 
   const el = id => doc.getElementById(id);
@@ -227,6 +232,26 @@ head("tanpa dompet di browser");
   const p = await boot({ wallet: false });
   await p.mint();
   ok(/No wallet found/.test(p.msg()), "dikatakan tidak ada dompet");
+}
+
+head("alamat halaman");
+{
+  // contractURI() shipped https://nekara.xyz/keys on-chain, in a contract with
+  // no setter for it. The page moved to /mint; the old address did not, and
+  // cannot. Every marketplace reading the collection follows that link.
+  const shown = d => [...d.querySelectorAll('[id^="v-"]')]
+    .filter(el => !el.classList.contains("hide")).map(el => el.id);
+
+  const moved = await boot({ url: "http://localhost/mint", navigate: false });
+  ok(shown(moved.doc).join() === "v-mint", "/mint sendiri membuka halaman mint");
+
+  const published = await boot({ url: "http://localhost/keys", navigate: false });
+  ok(shown(published.doc).join() === "v-mint",
+    "/keys yang sudah terbit di dalam kontrak sampai ke halaman yang sama");
+
+  const other = await boot({ url: "http://localhost/custody", navigate: false });
+  ok(shown(other.doc).join() === "v-vault",
+    "dan alamat lain tetap ke halamannya sendiri — bukan mint karena kebetulan");
 }
 
 console.log(`\n${failures ? failures + " GAGAL" : "semua lolos"}`);

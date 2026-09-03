@@ -973,8 +973,11 @@ document.getElementById("collSeg").addEventListener("click",e=>{
    address, because a share post needed one.
    Method is an overlay rather than a view, so it rides on whatever is beneath
    it and takes its own path only while it is open. */
-const VIEW_PATH={home:"/",reg:"/signals",quant:"/hindsight",ops:"/triage",vault:"/custody",mint:"/keys"};
-const PATH_VIEW=Object.fromEntries(Object.entries(VIEW_PATH).map(([v,p])=>[p,v]));
+const VIEW_PATH={home:"/",reg:"/signals",quant:"/hindsight",ops:"/triage",vault:"/custody",mint:"/mint"};
+/* /keys is not a redirect, it is an address that was published and cannot be
+   withdrawn: contractURI() carries it on-chain, in a contract with no setter.
+   Every wallet and marketplace that reads the collection reads that link. */
+const PATH_VIEW={...Object.fromEntries(Object.entries(VIEW_PATH).map(([v,p])=>[p,v])),"/keys":"mint"};
 let VIEW="home";
 
 function go(v,hash,push=true){

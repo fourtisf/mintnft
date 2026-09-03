@@ -51,7 +51,7 @@ the SVG backdrop exactly so artwork shows no seam against its container.
 
 ### Seven pages, these names
 
-`Home · Signals · Hindsight · Triage · Custody · Keys · Method`, plus the call
+`Home · Signals · Hindsight · Triage · Custody · Mint · Method`, plus the call
 detail view. Do not rename them — Hindsight, Triage and Custody were chosen
 specifically to avoid copying a competitor's Quant Desk, Ops Room and Vault.
 
@@ -60,6 +60,13 @@ the append-only *record* is still the register everywhere it is a record — the
 API paths, the CSV export, `schema.sql`, the verifier and the Custody copy —
 because renaming that breaks every published link and the standalone verifier
 with it.
+
+Keys became **Mint** the same way, and `/keys` did not go with it. `contractURI()`
+published `https://nekara.xyz/keys` on-chain in a contract with no setter for it,
+so every marketplace that reads the collection reads that address. It resolves to
+the same page and always will; the nginx location and `PATH_VIEW` both carry it,
+and `site/test-mint.mjs` fails if either stops. `/api/keys` is unchanged for the
+same reason the register's paths are.
 
 ## Non-negotiables
 
