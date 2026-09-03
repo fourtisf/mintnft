@@ -371,6 +371,19 @@ const ROOT = path.join(__dirname, '..');
   /* ═══════ opening the public mint ═══════ */
   head('mint publik');
   {
+    // This order is the whole point: recommitSeed() refuses once a single key
+    // exists, so a phase opened before the commitment leaves a bad commitment
+    // permanently uncorrectable. The contract cannot tell the two apart, so
+    // the CLI has to.
+    const early = await keys('phase', '2', '--confirm');
+    ok(early.code !== 0 && /seed belum dikomit/.test(early.out),
+      'membuka fase tanpa seed terkomit ditolak, sebelum key pertama mengunci apa pun');
+    ok(/recommitSeed/.test(early.out), 'dan mengatakan apa yang akan hilang, bukan sekadar menolak');
+    ok((await at(owner).phase()) === 0, 'fasenya benar-benar tidak bergerak');
+    ok((await keys('phase', 'closed', '--confirm')).code === 0,
+      'menutup tetap boleh — yang dijaga hanya membuka');
+
+    await keys('commit', 'rahasia-sebelum-fase', '--ahead', '600', '--confirm');
     await keys('phase', '2', '--confirm');
     const c = at(buyer);
     ok((await c.phase()) === 2, 'CLI benar-benar membuka fase 2');

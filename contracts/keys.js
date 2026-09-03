@@ -660,6 +660,21 @@ const USAGE = `
     const p = PHASES[String(argv._[1] || '').toLowerCase()];
     if (p === undefined) die('fase harus 1, 2, 3, atau closed');
     if (p !== 0 && await c.revealed()) die('seed sudah terbit — mint tidak bisa dibuka lagi, dan itu disengaja');
+
+    // Opening a phase with no commitment is one keystroke from unrecoverable:
+    // the moment a key is minted, recommitSeed() refuses for good, so the one
+    // chance to correct a bad commitment is gone before anybody notices it was
+    // needed. The contract does not forbid this order — nothing on-chain can
+    // tell "not committed yet" from "committed off-chain" — so the refusal
+    // lives here, where the operator is.
+    if (p !== 0 && (await c.seedCommit()) === ethers.constants.HashZero) {
+      die('seed belum dikomit — commitSeed masih kosong di kontrak.\n\n'
+        + 'Membuka mint sekarang berarti key pertama yang tercetak mengunci\n'
+        + 'recommitSeed selamanya, dan komitmen yang salah tidak bisa diperbaiki lagi.\n\n'
+        + 'Jalankan dulu:  node contracts/keys.js commit "<rahasia>" --confirm\n'
+        + 'Lalu ulangi perintah ini.');
+    }
+
     return void await send(`setPhase(${PHASE_NAME[p]})`, c, 'setPhase', [p], { confirm });
   }
 
