@@ -309,8 +309,14 @@ const ROOT = path.join(__dirname, '..');
     });
 
     const rich = await run(owner.privateKey, OUT5);
-    ok(/ditahan sementara\s+[\d.]+ ETH/.test(rich.out),
+    ok(/harus dipegang\s+[\d.]+ ETH/.test(rich.out),
       'dry run menyebut berapa yang harus dipegang, bukan hanya berapa yang habis');
+    // Summing all three refuses wallets that can pay: each reserve is released
+    // before the next transaction is signed.
+    const held = Number(/harus dipegang\s+([\d.]+)/.exec(rich.out)[1]);
+    const spend = Number(/perkiraan biaya\s+([\d.]+)/.exec(rich.out)[1]);
+    ok(held > spend && held < spend * 2.5,
+      `yang dipegang lebih besar dari yang habis tapi bukan jumlah ketiganya (${held} vs ${spend})`);
     ok(!/SALDO KURANG/.test(rich.out), 'dan dompet yang cukup diloloskan');
 
     const broke = await run(poor.privateKey, OUT5);

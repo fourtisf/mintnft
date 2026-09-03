@@ -486,10 +486,19 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
     + 'harga, commit, fase, reveal, withdraw');
   console.log(`\n  total     ${gas} gas @ ${ethers.utils.formatUnits(price, 'gwei')} gwei`);
   console.log(`  perkiraan biaya  ${eth(cost, 8)} ETH${estimated ? '' : '   (dari pengukuran lokal — node menolak mengestimasi)'}`);
-  // The number that decides whether this goes through is not the fee: it is
-  // what the sender must hold while each transaction is in flight.
-  const reserve = (gas * 12n / 10n) * price.toBigInt() * 2n;
-  console.log(`  ditahan sementara ${eth(reserve, 8)} ETH   (batas gas x fee maksimum, dikembalikan)`);
+  // Each transaction holds its own limit x max fee and releases it before the
+  // next one is signed, so summing all three refuses deploys the wallet can
+  // afford. What matters is the worst single moment: the reserve for one
+  // transaction on top of what the earlier ones have already burned.
+  const maxFee = price.toBigInt() * 2n;
+  let spent = 0n, hold = 0n;
+  for (const [name] of plan) {
+    const limit = (limitOf[name] ?? 0n) * 12n / 10n;
+    const need = limit * maxFee + spent;
+    if (need > hold) hold = need;
+    spent += (limitOf[name] ?? 0n) * price.toBigInt();
+  }
+  console.log(`  harus dipegang   ${eth(hold, 8)} ETH   (satu transaksi terberat, selebihnya kembali)`);
   console.log(`  saldo Anda       ${eth(balance, 8)} ETH`);
 
   // On Nitro the fee also carries the cost of posting this data to Ethereum,
@@ -499,10 +508,15 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   console.log('  mengirim data kontrak ke Ethereum, yang tidak terlihat dari sini.');
   console.log('  Kirim lebih dari angka di atas, jangan pas-pasan.');
 
-  if (balance.toBigInt() < reserve) {
-    console.log(`\n  SALDO KURANG — butuh sekitar ${eth(reserve - balance.toBigInt(), 8)} ETH lagi, di chain ${chainId}.`);
-    console.log('  Sebagian besar itu ditahan, bukan dibelanjakan: selisihnya kembali');
-    console.log('  begitu transaksinya masuk blok.');
+  // Both are real floors: one transaction has to fit, and the three together
+  // have to be affordable.
+  const floor = hold > cost ? hold : cost;
+  if (balance.toBigInt() < floor) {
+    console.log(`\n  SALDO KURANG — butuh sekitar ${eth(floor - balance.toBigInt(), 8)} ETH lagi, di chain ${chainId}.`);
+    if (hold > cost) {
+      console.log('  Sebagian dari itu ditahan, bukan dibelanjakan: selisihnya kembali');
+      console.log('  begitu transaksinya masuk blok.');
+    }
   }
 
   if (!confirm) {
