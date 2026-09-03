@@ -607,6 +607,13 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .small{margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--tx-3);line-height:1.8}
 
 /* your keys */
+.mine-key .gk-art{position:relative}
+.mine-key.unopened{border-color:rgba(126,138,255,.4)}
+.mine-key.unopened .gk-art::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(126,138,255,.16),transparent);animation:shim 2.2s infinite}
+.openlbl{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:1;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  padding:4px 10px;border-radius:999px;background:var(--grad);color:#fff}
 .mine-empty{text-align:center;padding:44px 20px;border:1px dashed var(--border-hi);border-radius:var(--r);
   background:var(--surface);box-shadow:inset 0 1px 0 rgba(255,255,255,.045)}
 .mine-empty p{color:var(--tx-2);font-size:13.5px;margin-bottom:18px}

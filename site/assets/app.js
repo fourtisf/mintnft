@@ -826,8 +826,52 @@ function renderMine(){
 
   empty.hidden=true;
   count.textContent=ids.length===1?"1 key":`${ids.length} keys`;
-  grid.innerHTML=ids.map(heroTile).join("");
+  grid.innerHTML=ids.map(mineTile).join("");
+  grid.querySelectorAll("[data-lazy]").forEach(el=>keyIO.observe(el));
 }
+
+/* Opening is a real event, not a flourish: before reveal() the artwork does
+   not exist, so a tile that let itself be opened would be drawing something
+   nobody can derive. The button appears only once the chain says the seed is
+   out, and each key opens once — which is what localStorage is for, and why
+   it not being there costs nothing but a second opening. */
+const OPENED="nekara.opened";
+const openedSet=()=>{
+  try{return new Set(JSON.parse(localStorage.getItem(OPENED)??"[]"))}catch{return new Set}
+};
+const markOpened=id=>{
+  try{const s=openedSet();s.add(id);localStorage.setItem(OPENED,JSON.stringify([...s]))}catch{}
+};
+
+function mineTile(id){
+  const n="#"+String(id).padStart(4,"0");
+  const shut=!revealed||!openedSet().has(id);
+  const art=shut?sealedSVG(id,"card"):ART(id,"card");
+  return `<button class="gk mine-key${revealed&&shut?" unopened":""}" data-mine="${id}">
+    <span class="gk-art"><svg viewBox="0 0 600 600">${art.body}</svg>
+      ${revealed&&shut?'<span class="openlbl">Open</span>':""}</span>
+    <span class="gk-meta"><span>${n}</span>
+      <b>${shut?(revealed?"open it":"sealed"):"T"+ROMAN[art.tier]}</b></span></button>`;
+}
+
+document.getElementById("mineGrid")?.addEventListener("click",e=>{
+  const b=e.target.closest("[data-mine]");if(!b)return;
+  const id=+b.dataset.mine;
+  if(!revealed){
+    paintMsg("The season seed is published after minting closes. Every key opens then.","");
+    document.getElementById("mintMsg").hidden=false;
+    return;
+  }
+  if(openedSet().has(id))return void drawKey(id);
+  markOpened(id);
+  const art=ART(id,"card");
+  const svg=b.querySelector(".gk-art svg");
+  b.querySelector(".openlbl")?.remove();
+  b.classList.remove("unopened");
+  svg.innerHTML=art.body;
+  svg.classList.remove("blooming");void svg.offsetWidth;svg.classList.add("blooming");
+  b.querySelector(".gk-meta b").textContent="T"+ROMAN[art.tier];
+});
 
 function paintMsg(text,kind){
   const el=document.getElementById("mintMsg");

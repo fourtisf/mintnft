@@ -251,7 +251,7 @@ head("kunci milik dompet ini");
     empty: () => !p.el("mineEmpty").hidden,
     msg: () => p.txt("mineMsg"),
     cta: () => (p.el("mineCta").hidden ? null : p.txt("mineCta")),
-    tiles: () => [...p.doc.querySelectorAll("#mineGrid .hgk")].map(b => b.dataset.key),
+    tiles: () => [...p.doc.querySelectorAll("#mineGrid [data-mine]")].map(b => b.dataset.mine),
     count: () => p.txt("mineCount"),
   });
 
@@ -277,6 +277,35 @@ head("kunci milik dompet ini");
   ok(/Cannot reach the chain/.test(dead.msg()) && dead.tiles().length === 0,
     "RPC mati dibaca sebagai tidak tahu, bukan sebagai dompet kosong");
   ok(dead.cta() === null, "dan tidak mengajak mint berdasarkan sesuatu yang tidak terbaca");
+}
+
+head("membuka kunci");
+{
+  const tile = (p, id) => p.doc.querySelector(`#mineGrid [data-mine="${id}"]`);
+  const click = (p, id) => tile(p, id)
+    .dispatchEvent(new p.win.MouseEvent("click", { bubbles: true }));
+
+  // Before reveal there is nothing to open: the seed has not been drawn, so a
+  // tile that opened would be drawing what nobody can derive.
+  const shut = await boot({ state: baseState({ tokens: [5] }) });
+  ok(tile(shut, 5).querySelector(".openlbl") === null, "sebelum reveal tidak ada tombol buka");
+  ok(!tile(shut, 5).classList.contains("unopened"), "dan kartunya tidak berkedip menjanjikan sesuatu");
+  click(shut, 5);
+  await sleep(40);
+  ok(/after minting closes/.test(shut.txt("mintMsg")),
+    "menekannya menjelaskan kapan bisa dibuka, bukan diam saja");
+  ok(tile(shut, 5).querySelector(".gk-meta b").textContent === "sealed",
+    "dan tidak ada tier yang muncul karena ditekan");
+
+  const open = await boot({ state: baseState({ revealed: true, tokens: [5] }) });
+  ok(tile(open, 5).classList.contains("unopened"), "setelah reveal kartunya menawarkan dibuka");
+  ok(tile(open, 5).querySelector(".openlbl")?.textContent === "Open", "dengan tombolnya");
+  click(open, 5);
+  await sleep(40);
+  ok(!tile(open, 5).classList.contains("unopened") && tile(open, 5).querySelector(".openlbl") === null,
+    "sekali dibuka, tawaran itu hilang");
+  ok(/^T(I|II|III)$/.test(tile(open, 5).querySelector(".gk-meta b").textContent),
+    "dan tier-nya muncul — dari seed yang sudah terbit, bukan dari klik");
 }
 
 head("gambar sebelum seed terbit");
