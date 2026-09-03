@@ -290,6 +290,53 @@ const ROOT = path.join(__dirname, '..');
     ok(!fs.existsSync(deployedPath), 'tidak ada alamat yang ditulis');
   }
 
+  /* ═══════ an estimate that works small and fails big ═══════ */
+  head('estimasi yang sanggup kecil tapi tidak sanggup besar');
+  {
+    // What mainnet did: the dry run estimated all three contracts, and seconds
+    // later ethers estimated again for the send and got nothing back. The
+    // failure arrives as UNPREDICTABLE_GAS_LIMIT, which reads like a
+    // transaction that would revert rather than a dropped call — and by then
+    // ProofParts was already on the chain and paid for.
+    const bigFails = require('node:http').createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', async () => {
+        const j = JSON.parse(body);
+        const big = j.method === 'eth_estimateGas'
+          && String(j.params?.[0]?.data ?? '').length > 20000;
+        if (big) {
+          return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(
+            { id: j.id, jsonrpc: '2.0', error: { code: -32000, message: 'cannot estimate' } }));
+        }
+        const up = await fetch(rpc.url, { method: 'POST',
+          headers: { 'content-type': 'application/json' }, body });
+        res.writeHead(200, { 'content-type': 'application/json' }).end(await up.text());
+      });
+    });
+    await new Promise(r => bigFails.listen(0, '127.0.0.1', r));
+    const url = `http://127.0.0.1:${bigFails.address().port}`;
+    const OUT4 = fs.mkdtempSync(path.join(os.tmpdir(), 'nekara-est-'));
+
+    const r = await new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), 'deploy', '--owner', owner.address, '--confirm'], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: url, DEPLOY_PK: listed.privateKey,
+               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT4, KEYS_CONTRACT: '', KEYS_ENV: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+
+    ok(r.code === 0, 'deploy tetap selesai — batas gas-nya sudah diukur, tidak ditanya dua kali');
+    ok(/dari pengukuran lokal/.test(r.out),
+      'dan mengaku angkanya dari pengukuran lokal, bukan dari chain');
+    ok(!/UNPREDICTABLE_GAS_LIMIT/.test(r.out), 'tanpa UNPREDICTABLE_GAS_LIMIT');
+    const rec = JSON.parse(fs.readFileSync(path.join(OUT4, 'keys.46630.json'), 'utf8'));
+    ok(/^0x[0-9a-fA-F]{40}$/.test(rec.keys ?? ''), 'ketiganya berdiri dan tercatat');
+
+    fs.rmSync(OUT4, { recursive: true, force: true });
+    await new Promise(res => bigFails.close(res));
+  }
+
   /* ═══════ the deploy ═══════ */
   head('deploy');
   let keysAddr;

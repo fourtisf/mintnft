@@ -442,6 +442,7 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
 
   console.log('yang akan dikirim:');
   let gas = 0n, estimated = true;
+  const limitOf = {};
   for (const [name, art, shown, ctorHex] of plan) {
     let g;
     try {
@@ -451,6 +452,11 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
       g = MEASURED[name];
       estimated = false;
     }
+    // Kept for the send. Letting ethers estimate again a few seconds later is
+    // one more call to an endpoint that has already been measured dropping
+    // them, and its failure arrives as UNPREDICTABLE_GAS_LIMIT — which reads
+    // like the transaction would revert rather than like a dropped call.
+    limitOf[name] = g;
     gas += g;
     console.log(`  ${name.padEnd(14)} ${(art.deployedSize / 1024).toFixed(1)} KB  `
       + `${g.toString().padStart(9)} gas  arg: ${shown.join(', ') || '-'}`);
@@ -484,18 +490,23 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   const out = { chainId, owner, deployedAt: new Date().toISOString() };
   const factory = art => new ethers.ContractFactory(art.abi, art.bytecode, signer);
 
+  // The margin is the same 20% the admin path uses: the number came from an
+  // estimate against this chain, and a deploy that runs out of gas mid-flight
+  // costs the fee and leaves nothing behind.
+  const lim = name => ({ gasLimit: ethers.BigNumber.from(limitOf[name]).mul(12).div(10) });
+
   console.log('\nmengirim…');
-  const parts = await factory(b.parts).deploy();
+  const parts = await factory(b.parts).deploy(lim('ProofParts'));
   await parts.deployTransaction.wait();
   out.parts = parts.address;
   console.log(`  ProofParts     ${parts.address}`);
 
-  const renderer = await factory(b.renderer).deploy(parts.address);
+  const renderer = await factory(b.renderer).deploy(parts.address, lim('ProofRenderer'));
   await renderer.deployTransaction.wait();
   out.renderer = renderer.address;
   console.log(`  ProofRenderer  ${renderer.address}`);
 
-  const keys = await factory(b.keys).deploy(renderer.address, owner);
+  const keys = await factory(b.keys).deploy(renderer.address, owner, lim('ProofKeys'));
   await keys.deployTransaction.wait();
   out.keys = keys.address;
   console.log(`  ProofKeys      ${keys.address}`);
