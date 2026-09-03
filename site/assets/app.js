@@ -469,8 +469,26 @@ function renderTraits(id){
 
 /* Before ProofKeys.reveal() the seed does not exist yet, so neither does the
    artwork. The site must read revealed() from the contract - showing finished
-   art on a sealed collection would be a lie. */
+   art on a sealed collection would be a lie.
+
+   It said exactly that and then started at true anyway, so a live sale showed
+   every visitor a finished key with a tier and a rarity rank for a season whose
+   seed had not been drawn. The toggle beside it is a preview control and stays
+   one; what the chain says is what it opens on. */
 let revealed=true;
+// Until /api/keys/state answers, nothing has been established either way, and
+// a visitor who has already chosen a preview state keeps it.
+let revealedKnown=false;
+
+function setRevealedFromChain(is){
+  if(revealedKnown)return;
+  revealedKnown=true;
+  if(revealed===is)return;
+  revealed=is;
+  document.querySelectorAll("#revealSeg button").forEach(b=>
+    b.classList.toggle("on",(b.dataset.r==="1")===is));
+  drawKey(preview);renderMarquee();renderColl(true);
+}
 function sealedSVG(id,detail){
   const grid=detail==="grid";
   return {tier:0,traits:null,sealed:true,body:`
@@ -847,6 +865,7 @@ async function loadMintState(){
     const r=await fetch(API+"/keys/state"+(who?"?address="+who:""),noStore());
     const j=await r.json();
     MINT.state=j.state??null;
+    if(MINT.state)setRevealedFromChain(!!MINT.state.revealed);
   }catch{
     // Unreachable is a state, not a zero.
     MINT.state=null;
@@ -1024,6 +1043,7 @@ document.getElementById("loadMore").addEventListener("click",()=>renderColl(fals
 document.getElementById("revealSeg").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   revealed=b.dataset.r==="1";
+  revealedKnown=true;      // a deliberate choice outlives the next poll
   [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));
   drawKey(preview);renderMarquee();renderColl(true);
 });

@@ -245,6 +245,30 @@ head("tanpa dompet di browser");
   ok(/No wallet found/.test(p.msg()), "dikatakan tidak ada dompet");
 }
 
+head("gambar sebelum seed terbit");
+{
+  // The panel opened on finished art with a tier and a rarity rank while the
+  // season's seed had not been drawn, on a sale that was already taking money.
+  const sealed = await boot();
+  ok(sealed.txt("keyTier") === "Sealed until reveal",
+    "kontrak bilang belum reveal, jadi panel bilang tersegel — bukan tier karangan");
+  ok(!/Rank \d+ \/ 666/.test(sealed.doc.getElementById("keyTier").textContent),
+    "dan tidak ada peringkat kelangkaan untuk undian yang belum dijalankan");
+  ok(sealed.doc.querySelector('#revealSeg button[data-r="0"]').classList.contains("on"),
+    "tombolnya ikut berdiri di 'Before reveal', bukan menyalahi apa yang digambar");
+
+  // It is a preview control and stays one: a visitor may look at what revealed
+  // art will be, and that choice is not undone by the next poll.
+  sealed.doc.querySelector('#revealSeg button[data-r="1"]')
+    .dispatchEvent(new sealed.win.MouseEvent("click", { bubbles: true }));
+  await sleep(60);
+  ok(sealed.txt("keyTier") !== "Sealed until reveal", "pratinjau setelah reveal masih bisa dilihat");
+
+  const open = await boot({ state: baseState({ revealed: true }) });
+  ok(open.txt("keyTier") !== "Sealed until reveal",
+    "dan begitu chain bilang sudah reveal, panel membuka karya jadinya");
+}
+
 head("memilih dompet");
 {
   const FOX = { info: { uuid: "u1", name: "MetaMask", rdns: "io.metamask",
