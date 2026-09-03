@@ -870,11 +870,81 @@ async function onRightChain(eth_){
   }
 }
 
+/* ── which wallet ─────────────────────────────────────────────────────────
+   window.ethereum is whichever extension won a race to define it. With two or
+   three installed — and a Solana-only one among them — the page can end up
+   asking a wallet that has no Ethereum account at all. What the reader sees is
+   "Unable to find any account for 60", which names a BIP-44 coin type and
+   tells them nothing they can act on.
+
+   EIP-6963 has every extension announce itself instead, so the reader picks.
+   The picker appears whenever more than one answered: remembering silently
+   would be one fewer click and no way back out of a wrong choice. */
+const WALLETS=new Map();
+addEventListener("eip6963:announceProvider",e=>{
+  const d=e.detail;
+  if(d?.info?.uuid&&d.provider)WALLETS.set(d.info.uuid,d);
+});
+dispatchEvent(new Event("eip6963:requestProvider"));
+
+const LAST_WALLET="nekara.wallet";
+const lastWallet=()=>{try{return localStorage.getItem(LAST_WALLET)}catch{return null}};
+const rememberWallet=r=>{try{localStorage.setItem(LAST_WALLET,r)}catch{}};
+
+/* Names and icons come from browser extensions, so they are text from outside
+   this page. The name is escaped; the icon is only rendered when it is a data
+   URI, which is what the spec requires and what keeps this from becoming a
+   pixel that reports who opened the page. */
+function walletRow(w){
+  const icon=/^data:image\//.test(w.info.icon??"")
+    ? `<img src="${esc(w.info.icon)}" alt="">`
+    : `<img src="data:image/svg+xml;utf8,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26'><rect width='26' height='26' rx='6' fill='%2314171C'/></svg>")}" alt="">`;
+  return `<button class="wopt" type="button" data-uuid="${esc(w.info.uuid)}">${icon}`
+    + `<span>${esc(w.info.name)}</span><span class="rd">${esc(w.info.rdns??"")}</span></button>`;
+}
+
+function chooseWallet(){
+  const list=[...WALLETS.values()];
+  // Nothing announced: either an older wallet that only sets window.ethereum,
+  // or none at all. Both are handled by the caller, differently.
+  if(!list.length)return Promise.resolve(window.ethereum??null);
+  if(list.length===1)return Promise.resolve(list[0].provider);
+
+  const last=lastWallet();
+  list.sort((a,b)=>(b.info.rdns===last)-(a.info.rdns===last));
+
+  const box=document.getElementById("walletPick");
+  if(!box)return Promise.resolve(list[0].provider);
+  document.getElementById("wpickList").innerHTML=list.map(walletRow).join("");
+
+  return new Promise(resolve=>{
+    const close=v=>{
+      box.classList.remove("on");scrim.classList.remove("on");box.setAttribute("aria-hidden","true");
+      box.onclick=null;document.getElementById("wpickCancel").onclick=null;
+      scrim.removeEventListener("click",cancel);removeEventListener("keydown",key);
+      resolve(v);
+    };
+    const cancel=()=>close(null);
+    const key=e=>{if(e.key==="Escape")cancel()};
+    box.onclick=e=>{
+      const b=e.target.closest(".wopt");if(!b)return;
+      const w=WALLETS.get(b.dataset.uuid);if(!w)return cancel();
+      rememberWallet(w.info.rdns??"");
+      close(w.provider);
+    };
+    document.getElementById("wpickCancel").onclick=cancel;
+    scrim.addEventListener("click",cancel);
+    addEventListener("keydown",key);
+    box.classList.add("on");scrim.classList.add("on");box.setAttribute("aria-hidden","false");
+    box.querySelector(".wopt")?.focus();
+  });
+}
+
 async function doMint(){
-  const eth_=window.ethereum;
-  if(!eth_)return notice("No wallet found in this browser.","bad");
   if(MINT.busy)return;
   notice(null);
+  const eth_=await chooseWallet();
+  if(!eth_)return notice(WALLETS.size?"No wallet chosen.":"No wallet found in this browser.","bad");
   try{
     const [addr]=await eth_.request({method:"eth_requestAccounts"});
     if(!addr)return notice("No account.","bad");
@@ -2201,8 +2271,8 @@ function signInError(msg){
   setTimeout(paintSession,3200);
 }
 async function connect(){
-  const eth=window.ethereum;
-  if(!eth)return signInError("No wallet found");
+  const eth=await chooseWallet();
+  if(!eth)return signInError(WALLETS.size?"No wallet chosen":"No wallet found");
   try{
     const [address]=await eth.request({method:"eth_requestAccounts"});
     if(!address)return signInError("No account");
@@ -2217,7 +2287,8 @@ async function connect(){
       "This proves the address holds a key. It authorises no transaction and moves no funds.",
       "",
       `URI: ${location.origin}`,
-      "Chain ID: 8453",
+      "Version: 1",
+      `Chain ID: ${MINT.id?.chainId??4663}`,
       `Nonce: ${n.nonce}`,
       `Issued At: ${new Date().toISOString()}`,
     ].join("\n");

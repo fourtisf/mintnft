@@ -60,7 +60,7 @@ const baseState = over => ({
  */
 async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
                       wallet = true, sendFails = null, switchFails = false,
-                      url = "http://localhost/", navigate = true } = {}) {
+                      url = "http://localhost/", navigate = true, announce = [] } = {}) {
   const dom = new JSDOM(readFileSync(join(ROOT, "site", "index.html"), "utf8"),
     { url, runScripts: "outside-only", pretendToBeVisual: true });
   const win = dom.window, doc = win.document;
@@ -80,28 +80,37 @@ async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
 
   const sent = [], asked = [];
   let current = chainId;
-  if (wallet) {
-    win.ethereum = {
-      async request({ method, params }) {
-        asked.push(method);
-        if (method === "eth_requestAccounts") return [WALLET];
-        if (method === "eth_chainId") return "0x" + current.toString(16);
-        if (method === "wallet_switchEthereumChain") {
-          if (switchFails) throw new Error("User rejected the request.");
-          current = Number(params[0].chainId);
-          return null;
-        }
-        if (method === "eth_sendTransaction") {
-          if (sendFails) throw new Error(sendFails);
-          sent.push(params[0]);
-          return "0x" + "de".repeat(32);
-        }
-        throw new Error("unsupported: " + method);
-      },
-    };
-  }
+  const makeProvider = (tag, account = WALLET) => ({
+    async request({ method, params }) {
+      asked.push(tag ? `${tag}:${method}` : method);
+      if (method === "eth_requestAccounts") {
+        if (account === null) throw new Error("Unable to find any account for 60");
+        return [account];
+      }
+      if (method === "eth_chainId") return "0x" + current.toString(16);
+      if (method === "wallet_switchEthereumChain") {
+        if (switchFails) throw new Error("User rejected the request.");
+        current = Number(params[0].chainId);
+        return null;
+      }
+      if (method === "eth_sendTransaction") {
+        if (sendFails) throw new Error(sendFails);
+        sent.push({ ...params[0], via: tag });
+        return "0x" + "de".repeat(32);
+      }
+      throw new Error("unsupported: " + method);
+    },
+  });
+  if (wallet) win.ethereum = makeProvider(null);
 
   win.eval(readFileSync(join(ROOT, "site", "assets", "app.js"), "utf8"));
+  // Extensions answer the page's eip6963:requestProvider after it is listening,
+  // which is exactly here.
+  for (const a of announce) {
+    win.dispatchEvent(Object.assign(new win.Event("eip6963:announceProvider"), {
+      detail: { info: a.info, provider: a.provider ?? makeProvider(a.info.rdns, a.account) },
+    }));
+  }
   // Every case but the routing one wants the mint panel however it gets there.
   // The routing case must not be handed the answer it is meant to prove.
   if (navigate) {
@@ -114,6 +123,8 @@ async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
   const txt = id => (el(id)?.textContent ?? "").trim();
   return {
     win, doc, el, txt, sent, asked,
+    pick: () => el("walletPick"),
+    options: () => [...doc.querySelectorAll("#wpickList .wopt")],
     btn: () => el("mintBtn"),
     msg: () => txt("mintMsg"),
     click: async id => { el(id).dispatchEvent(new win.MouseEvent("click", { bubbles: true })); await sleep(40); },
@@ -232,6 +243,61 @@ head("tanpa dompet di browser");
   const p = await boot({ wallet: false });
   await p.mint();
   ok(/No wallet found/.test(p.msg()), "dikatakan tidak ada dompet");
+}
+
+head("memilih dompet");
+{
+  const FOX = { info: { uuid: "u1", name: "MetaMask", rdns: "io.metamask",
+                        icon: "data:image/svg+xml;utf8,<svg/>" } };
+  // The wallet that produced the real failure: it answers, and has no
+  // Ethereum account behind it.
+  const SOL = { info: { uuid: "u2", name: "Phantom", rdns: "app.phantom",
+                        icon: "data:image/svg+xml;utf8,<svg/>" }, account: null };
+
+  const one = await boot({ announce: [FOX] });
+  await one.mint();
+  ok(one.pick().getAttribute("aria-hidden") === "true",
+    "satu dompet: tidak ada yang perlu dipilih, tidak ada dialog");
+  ok(one.sent.length === 1 && one.sent[0].via === "io.metamask",
+    "dan yang dipakai dompet yang mengumumkan diri, bukan window.ethereum");
+
+  const two = await boot({ announce: [SOL, FOX] });
+  const minting = two.mint();
+  await sleep(40);
+  ok(two.pick().classList.contains("on"), "dua dompet: pembaca ditanya lebih dulu");
+  ok(two.options().length === 2, "keduanya terdaftar");
+  ok(two.options().map(b => b.textContent).join(" ").includes("Phantom")
+     && two.options().map(b => b.textContent).join(" ").includes("MetaMask"),
+    "dengan namanya masing-masing, jadi yang salah bisa dihindari");
+
+  two.options().find(b => b.textContent.includes("MetaMask"))
+    .dispatchEvent(new two.win.MouseEvent("click", { bubbles: true }));
+  await minting;
+  await sleep(40);
+  ok(two.sent.length === 1 && two.sent[0].via === "io.metamask",
+    "transaksinya pergi ke yang dipilih");
+  ok(!two.asked.some(m => m.startsWith("app.phantom:")),
+    "dan yang tidak dipilih tidak pernah ditanya apa-apa");
+
+  const off = await boot({ announce: [SOL, FOX] });
+  const pending = off.mint();
+  await sleep(40);
+  off.el("wpickCancel").dispatchEvent(new off.win.MouseEvent("click", { bubbles: true }));
+  await pending;
+  ok(off.sent.length === 0, "membatalkan pilihan tidak mengirim apa pun");
+  ok(/No wallet chosen/.test(off.msg()), "dan dikatakan tidak ada yang dipilih, bukan tidak ada dompet");
+
+  // info.name and info.icon are written by a browser extension.
+  const EVIL = { info: { uuid: "u3", name: "<img src=x onerror=alert(1)>",
+                         rdns: "x.evil", icon: "https://tracker.example/px.png" } };
+  const hostile = await boot({ announce: [EVIL, FOX] });
+  hostile.mint();
+  await sleep(40);
+  const row = hostile.options().find(b => b.dataset.uuid === "u3");
+  ok(row.querySelector("img[src^='https://tracker']") === null,
+    "ikon yang bukan data URI tidak dimuat — nama dompet bukan izin memanggil host lain");
+  ok(row.textContent.includes("<img src=x onerror=alert(1)>"),
+    "dan nama bermuatan markup dibaca sebagai teks, bukan dieksekusi");
 }
 
 head("alamat halaman");
