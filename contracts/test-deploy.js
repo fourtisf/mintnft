@@ -159,6 +159,15 @@ const ROOT = path.join(__dirname, '..');
     ok(/tidak menjawab dalam/.test(r.out), 'mengatakan RPC-nya yang diam');
     ok(r.out.includes(url), 'dan menyebut endpoint mana');
     ok(/curl/.test(r.out), 'lalu memberi perintah untuk memeriksanya sendiri');
+    // The silence has two causes that look identical from here — a dead
+    // endpoint, and a machine that reaches for IPv6 first and never arrives.
+    // Which one it is has to be measured and shown, not guessed at.
+    ok(/menguji 127\.0\.0\.1:\d+ per keluarga alamat/.test(r.out),
+      'dan menguji tiap keluarga alamat, lalu mencetak hasilnya');
+    ok(/IPv4\s+127\.0\.0\.1\s+tersambung/.test(r.out),
+      'TCP-nya tersambung — jadi yang diam memang RPC-nya, bukan jaringannya');
+    ok(!/gai\.conf/.test(r.out) && !/IPv6/.test(r.out),
+      'dan tanpa AAAA, IPv6 tidak disebut sama sekali — bukan tebakan, hasil ukur');
     await new Promise(res => deaf.close(res));
   }
 

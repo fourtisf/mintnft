@@ -21,6 +21,7 @@
  * argument goes into shell history and into `ps`.
  */
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 const { ethers } = require('ethers');
 const { compile, artifact } = require('./build.js');
@@ -135,6 +136,57 @@ function wallet() {
   if (!/^0x[0-9a-fA-F]{64}$/.test(pk)) die('DEPLOY_PK bukan private key 32 byte');
   return { provider, signer: new ethers.Wallet(pk, provider) };
 }
+
+/**
+ * A hostname with an AAAA record, on a machine whose IPv6 does not route, is a
+ * thirty-second silence indistinguishable from a dead RPC — and the operator
+ * has no reason to suspect their own machine, so they go looking at the wrong
+ * end. The difference is one connect() per family, so measure it and print
+ * what came back rather than announcing a verdict: a family that could not be
+ * probed at all says so, because "no answer" and "refused" are not the same
+ * finding and neither is "fine".
+ */
+async function reachability(rpcUrl) {
+  let host, port;
+  try {
+    const u = new URL(rpcUrl);
+    host = u.hostname;
+    port = Number(u.port) || (u.protocol === 'http:' ? 80 : 443);
+  } catch { return null; }
+
+  // lookup, not resolve4/resolve6: it reads /etc/hosts and honours the same
+  // system policy the failing connection just used.
+  const all = await require('dns').promises.lookup(host, { all: true }).catch(() => []);
+  if (!all.length) return null;
+
+  const probe = addr => new Promise(resolve => {
+    const started = Date.now();
+    const done = how => { s.destroy(); resolve({ ...addr, how, ms: Date.now() - started }); };
+    const s = net.connect({ host: addr.address, port }, () => done('tersambung'));
+    s.setTimeout(5000, () => done('tidak menjawab'));
+    s.on('error', e => done(e.code === 'ECONNREFUSED' ? 'ditolak' : `gagal (${e.code || e.message})`));
+  });
+
+  const seen = [];
+  for (const family of [4, 6]) {
+    const first = all.find(a => a.family === family);
+    if (first) seen.push(await probe(first));
+  }
+  return { host, port, seen };
+}
+
+const reachReport = r => {
+  if (!r || !r.seen.length) return '';
+  const rows = r.seen.map(a => `  IPv${a.family}  ${a.address}  ${a.how} (${(a.ms / 1000).toFixed(1)}s)`);
+  const v4 = r.seen.find(a => a.family === 4), v6 = r.seen.find(a => a.family === 6);
+  const blame = v4 && v6 && v4.how === 'tersambung' && v6.how !== 'tersambung'
+    ? `\nJalur IPv4 ke ${r.host} hidup dan jalur IPv6 tidak, jadi yang diam bukan RPC-nya.\n`
+      + 'Mesin ini mencoba IPv6 lebih dulu untuk setiap program, bukan hanya yang ini.\n'
+      + 'Perbaiki sekali untuk seluruh sistem:\n\n'
+      + "  echo 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf\n"
+    : '';
+  return `\nmenguji ${r.host}:${r.port} per keluarga alamat:\n${rows.join('\n')}\n${blame}`;
+};
 
 /* ─────────── Ethereum mainnet, read only ─────────── */
 
@@ -480,8 +532,9 @@ const USAGE = `
   try {
     chainId = (await retry(() => ctx.provider.getNetwork(), `DEPLOY_RPC (${env('DEPLOY_RPC')})`)).chainId;
   } catch (e) {
-    die(`${e.message}\n\n`
-      + 'Periksa endpoint-nya langsung:\n'
+    die(`${e.message}\n`
+      + reachReport(await reachability(env('DEPLOY_RPC')))
+      + '\nPeriksa endpoint-nya langsung:\n'
       + `  curl -s --max-time 10 -X POST ${env('DEPLOY_RPC')} \\\n`
       + `    -H 'content-type: application/json' \\\n`
       + `    -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'\n\n`
