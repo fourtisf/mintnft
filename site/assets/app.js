@@ -967,7 +967,49 @@ function paintContractLinks(){
   if(cfg.marketplace)bits.push(`<a class="mk" href="${esc(cfg.marketplace)}"
     target="_blank" rel="noopener">OpenSea</a>`);
   el.innerHTML=bits.join("");
+
+  const box=document.getElementById("ctrFull");
+  if(box){
+    document.getElementById("ctrAddr").textContent=a;
+    box.hidden=false;
+  }
+  const nav=document.getElementById("navOpensea");
+  if(nav){
+    // Hidden rather than dead: an icon that goes nowhere teaches a reader the
+    // page is unfinished, which is the same rule the other brand links follow.
+    nav.classList.toggle("hide",!cfg.marketplace);
+    if(cfg.marketplace){nav.href=cfg.marketplace;nav.target="_blank";nav.rel="noopener noreferrer"}
+  }
 }
+
+/* Copy has three outcomes and only one of them is success. A button that says
+   Copied while the clipboard is empty is worse than one that says nothing:
+   the reader pastes an address they do not have, into a wallet. */
+async function copyContract(){
+  const btn=document.getElementById("ctrCopy");
+  const a=document.getElementById("ctrAddr")?.textContent??"";
+  if(!btn||!a)return;
+  const mark=(text,cls)=>{
+    btn.textContent=text;
+    btn.classList.remove("done","failed");
+    if(cls)btn.classList.add(cls);
+    setTimeout(()=>{btn.textContent="Copy";btn.classList.remove("done","failed")},2400);
+  };
+  try{
+    await navigator.clipboard.writeText(a);
+    mark("Copied","done");
+  }catch{
+    // No clipboard permission, or a page not served over https. Selecting the
+    // text is something the reader can finish by hand; claiming success is not.
+    try{
+      const r=document.createRange();
+      r.selectNodeContents(document.getElementById("ctrAddr"));
+      const sel=getSelection();sel.removeAllRanges();sel.addRange(r);
+      mark("Selected","failed");
+    }catch{ mark("Copy failed","failed") }
+  }
+}
+document.getElementById("ctrCopy")?.addEventListener("click",copyContract);
 
 function syncMint(){
   paintContractLinks();

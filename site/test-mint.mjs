@@ -307,6 +307,32 @@ head("alamat kontrak dan jalan keluar ke pasar");
     "chain yang tidak terdaftar di OpenSea tidak diberi tautan karangan");
   ok(noMarket.doc.querySelector("#ctrLinks a") !== null,
     "explorer-nya tetap ada — itu tidak bergantung pada pasar mana pun");
+  ok(noMarket.doc.getElementById("navOpensea").classList.contains("hide"),
+    "ikon OpenSea di nav ikut disembunyikan, bukan menautkan ke mana-mana");
+  ok(!p.doc.getElementById("navOpensea").classList.contains("hide")
+     && p.doc.getElementById("navOpensea").getAttribute("href") === IDENTITY.marketplace,
+    "dan muncul begitu chain-nya memang terdaftar");
+
+  // The full address, selectable and copyable — the truncated one is for
+  // reading, not for pasting into a wallet.
+  ok(p.txt("ctrAddr") === CONTRACT && !p.el("ctrFull").hidden,
+    "alamat penuhnya dicetak, bukan hanya potongannya");
+
+  // Copy has three outcomes and only one is success. A button that says Copied
+  // over an empty clipboard sends someone to paste an address they never got.
+  let wrote = null;
+  p.win.navigator.clipboard = { writeText: async t => { wrote = t; } };
+  p.el("ctrCopy").dispatchEvent(new p.win.MouseEvent("click", { bubbles: true }));
+  await sleep(60);
+  ok(wrote === CONTRACT, "tombolnya menyalin alamat penuh");
+  ok(p.txt("ctrCopy") === "Copied", "dan mengatakan berhasil");
+
+  const deaf = await boot({ state: baseState({ tokens: [] }) });
+  deaf.win.navigator.clipboard = { writeText: async () => { throw new Error("denied") } };
+  deaf.el("ctrCopy").dispatchEvent(new deaf.win.MouseEvent("click", { bubbles: true }));
+  await sleep(60);
+  ok(deaf.txt("ctrCopy") !== "Copied",
+    "clipboard yang ditolak tidak dilaporkan sebagai berhasil");
 }
 
 head("kunci yang dipegang punya ukirannya sejak menit pertama");

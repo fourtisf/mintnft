@@ -609,6 +609,17 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .drw .x:hover{color:var(--tx);background:var(--surface-2)}
 .small{margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--tx-3);line-height:1.8}
 
+.ctrfull{display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 11px;
+  border:1px solid var(--border);border-radius:9px;background:var(--surface-2)}
+.ctrfull code{font-family:var(--mono);font-size:10.5px;color:var(--tx-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;user-select:all}
+#ctrCopy{flex-shrink:0;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;padding:5px 10px;border-radius:7px;border:1px solid var(--border-hi);
+  color:var(--tx-2);transition:.15s}
+#ctrCopy:hover{color:var(--tx);border-color:var(--accent)}
+#ctrCopy.done{color:var(--win);border-color:var(--win)}
+#ctrCopy.failed{color:var(--dead);border-color:var(--dead)}
+
 #ctrLinks{display:flex;align-items:center;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 #ctrLinks a{font-family:var(--mono);font-size:11.5px;color:var(--tx-2);border-bottom:1px solid var(--border-hi)}
 #ctrLinks a:hover{color:var(--tx)}
