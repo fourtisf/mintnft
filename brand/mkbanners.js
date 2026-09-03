@@ -389,60 +389,54 @@ const KEY = (id, w) => {
       xmlns="http://www.w3.org/2000/svg">${body}</svg></div>`;
 };
 
+const PILL = `<span style="font-family:var(--mono);font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;padding:5px 11px;border-radius:999px;border:1px solid var(--border-hi);
+  color:var(--tx-2)">${MINT_STATE}</span>`;
+const SPEC = (label, value, size = 23) => `<div><div class="eyebrow" style="font-size:10.5px">${label}</div>
+  <div style="font-family:var(--mono);font-size:${size}px;margin-top:7px">${value}</div></div>`;
+const LADDER = size => `${SPEC('Phase 1','$2',size)}${SPEC('Phase 2','$5',size)}${SPEC('Phase 3','$10',size)}${SPEC('Max / wallet','5',size)}`;
+
+/* Type across the top, the art given the whole band under it. Nothing is laid
+   over the keys and nothing competes with them, which is the only reason they
+   can be this big in a 900px frame. */
 fs.writeFileSync('brand/banners/m1-mint.html', page(1600,900,`
-<div style="position:absolute;inset:0;background:radial-gradient(120% 90% at 78% 42%,#0E1017 0%,#08090B 62%)"></div>
-<div style="position:absolute;left:74px;top:50%;transform:translateY(-50%);width:552px">
-  <div style="display:flex;align-items:center;gap:12px">
-    <span class="eyebrow">Proof Keys · Season 1</span>
-    <span style="font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
-      padding:5px 11px;border-radius:999px;border:1px solid var(--border-hi);color:var(--tx-2)">${MINT_STATE}</span>
+<div style="position:absolute;inset:0;padding:54px 74px 46px;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+    <div>
+      <div style="display:flex;align-items:center;gap:13px">
+        <span class="eyebrow">Proof Keys · Season 1</span>${PILL}
+      </div>
+      <h2 style="font-size:44px;line-height:1.09;margin-top:16px">666 keys.
+        <span class="grad-tx">Every one drawn from its own number.</span></h2>
+    </div>
+    <div class="wm" style="flex-shrink:0;margin-left:40px">${MARK}<span>Nekara</span></div>
   </div>
-  <div class="rule-l" style="width:170px;margin:20px 0 26px"></div>
-  <h2 style="font-size:42px;line-height:1.1">666 keys.<br><span class="grad-tx">Every one drawn<br>from its own number.</span></h2>
-  <p style="font-size:16px;line-height:1.6;color:var(--tx-2);margin-top:22px">
-    The engraving is on chain the moment a key is minted — no server, no IPFS, nothing to expire.
-    Only the tier waits, drawn from a seed committed before minting opened and published after it closes.</p>
-  <div style="display:flex;gap:32px;margin-top:30px">
-    <div><div class="eyebrow" style="font-size:10.5px">Phase 1</div>
-      <div style="font-family:var(--mono);font-size:23px;margin-top:7px">$2</div></div>
-    <div><div class="eyebrow" style="font-size:10.5px">Phase 2</div>
-      <div style="font-family:var(--mono);font-size:23px;margin-top:7px">$5</div></div>
-    <div><div class="eyebrow" style="font-size:10.5px">Phase 3</div>
-      <div style="font-family:var(--mono);font-size:23px;margin-top:7px">$10</div></div>
-    <div><div class="eyebrow" style="font-size:10.5px">Max / wallet</div>
-      <div style="font-family:var(--mono);font-size:23px;margin-top:7px">5</div></div>
+  <div style="display:flex;gap:18px;justify-content:center;margin:auto 0">
+    ${KEY(1,348)}${KEY(3,348)}${KEY(16,348)}${KEY(13,348)}
   </div>
-  <div class="wm" style="margin-top:38px">${MARK}<span>Nekara</span></div>
-</div>
-<div style="position:absolute;right:56px;top:50%;transform:translateY(-50%);
-  display:flex;align-items:center;gap:18px">
-  ${KEY(1,256)}
-  ${KEY(3,320)}
-  ${KEY(16,256)}
-</div>
-<div style="position:absolute;left:74px;bottom:46px">
-  <div class="eyebrow" style="font-size:10.5px">Robinhood Chain · 4663</div>
-  <div class="mono" style="font-size:12.5px;margin-top:6px;color:var(--tx-2)">${CA_SHOWN}</div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div style="display:flex;gap:44px">${LADDER(22)}</div>
+    <div style="text-align:right">
+      <div class="eyebrow" style="font-size:10.5px">Robinhood Chain · 4663</div>
+      <div class="mono" style="font-size:12.5px;margin-top:6px;color:var(--tx-2)">${CA_SHOWN}</div>
+    </div>
+  </div>
 </div>`));
 
 fs.writeFileSync('brand/banners/m2-mint-square.html', page(1080,1080,`
-<div style="position:absolute;inset:0;padding:74px 62px 58px;display:flex;flex-direction:column;align-items:center;text-align:center">
+<div style="position:absolute;inset:0;padding:56px;display:flex;flex-direction:column;align-items:center;text-align:center">
   <div class="wm">${MARK}<span>Nekara</span></div>
-  <div style="font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
-    padding:6px 13px;border-radius:999px;border:1px solid var(--border-hi);color:var(--tx-2);margin-top:26px">${MINT_STATE}</div>
-  <h1 style="font-size:52px;line-height:1.1;margin-top:26px">666 keys.<br><span class="grad-tx">One number each.</span></h1>
-  <img class="ui" src="${SHOT('k-gallery.png')}" style="width:100%;height:576px;object-fit:cover;object-position:center 33%;margin-top:34px">
-  <div style="display:flex;gap:44px;margin-top:34px">
-    <div><div class="eyebrow" style="font-size:10px">Phase 1</div>
-      <div style="font-family:var(--mono);font-size:22px;margin-top:6px">$2</div></div>
-    <div><div class="eyebrow" style="font-size:10px">Phase 2</div>
-      <div style="font-family:var(--mono);font-size:22px;margin-top:6px">$5</div></div>
-    <div><div class="eyebrow" style="font-size:10px">Phase 3</div>
-      <div style="font-family:var(--mono);font-size:22px;margin-top:6px">$10</div></div>
+  <div style="display:flex;align-items:center;gap:13px;margin-top:24px">
+    <span class="eyebrow">Proof Keys · Season 1</span>${PILL}
   </div>
-  <div class="rule" style="width:280px;margin:auto 0 18px"></div>
-  <div class="eyebrow" style="font-size:10px">Robinhood Chain · access to a feed · not an investment</div>
-  <div class="mono" style="font-size:11px;margin-top:9px;color:var(--tx-3)">${CA_SHOWN}</div>
+  <h2 style="font-size:42px;line-height:1.1;margin-top:18px">666 keys.<br>
+    <span class="grad-tx">Every one drawn from its own number.</span></h2>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin:auto 0">
+    ${KEY(1,360)}${KEY(3,360)}${KEY(16,360)}${KEY(13,360)}
+  </div>
+  <div style="display:flex;gap:46px">${LADDER(21)}</div>
+  <div class="eyebrow" style="font-size:10px;margin-top:26px">Robinhood Chain · access to a feed · not an investment</div>
+  <div class="mono" style="font-size:11px;margin-top:9px">${CA_SHOWN}</div>
 </div>`));
 
 if (!CA) console.error('  peringatan: out/keys.4663.json tidak terbaca — banner mint tanpa alamat kontrak');
