@@ -361,7 +361,7 @@ const CA_SHOWN = CA ?? 'belum di-deploy';
 /* Closed is the honest state to advertise while the phase is closed: a banner
    that says mint now, next to a contract that refuses, is the one thing this
    product exists not to do. Change the word when the phase changes. */
-const MINT_STATE = process.env.MINT_STATE ?? 'Coming soon';
+const MINT_STATE = process.env.MINT_STATE ?? 'Phase 1 · Coming soon';
 
 /* The art is the product, so nothing is laid over it and nothing is cropped
    out of it. These come from the site's own renderer rather than a screenshot
