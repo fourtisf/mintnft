@@ -401,6 +401,111 @@ async function feeFields(provider) {
 const PHASES = { closed: 0, '1': 1, '2': 2, '3': 3 };
 const PHASE_NAME = ['Closed', 'Phase 1', 'Phase 2', 'Phase 3'];
 
+/**
+ * Replaces the art on a collection that is already deployed. The engraving is
+ * drawn by ProofRenderer, and ProofKeys only holds a pointer to it, so a change
+ * to the artwork is a new ProofParts and ProofRenderer plus one setRenderer —
+ * never a second ProofKeys. Deploying again would mint a second collection at a
+ * new address and orphan every key already sold.
+ *
+ * The tokens do not move and the seed does not move; only what they look like.
+ * That is a change to what a holder owns, which is why it prints the two
+ * addresses and reads the pointer back afterwards rather than trusting the
+ * receipt.
+ */
+async function cmdRenderer(argv, { provider, signer }, chainId, confirm) {
+  if (!signer) die('DEPLOY_PK belum diisi');
+  const from = await signer.getAddress();
+  if (!(await reportMethods(env('DEPLOY_RPC'), from))) process.exit(1);
+  console.log('');
+
+  const b = built();
+  const c = await keysContract(provider, signer, chainId, argv.at);
+  const [owner, current, locked] = await Promise.all([
+    retry(() => c.owner(), 'owner'),
+    retry(() => c.renderer(), 'renderer'),
+    retry(() => c.rendererLocked(), 'rendererLocked'),
+  ]);
+  console.log(`chain ${chainId}   ProofKeys ${c.address}`);
+  console.log(`renderer sekarang  ${current}`);
+  if (locked) die('renderer sudah dikunci di kontrak — seninya tidak bisa diganti lagi, dan itu disengaja.');
+  if (owner.toLowerCase() !== from.toLowerCase())
+    die(`hanya owner (${owner}) yang bisa mengganti renderer; kunci ini ${from}`);
+
+  const soon = '0x' + '11'.repeat(20);
+  const args = (types, vals) => ethers.utils.defaultAbiCoder.encode(types, vals).slice(2);
+  const plan = [
+    ['ProofParts', b.parts, ''],
+    ['ProofRenderer', b.renderer, args(['address'], [soon])],
+  ];
+  console.log('\nyang akan dikirim:');
+  const limitOf = {};
+  let gas = 0n;
+  for (const [name, art, ctorHex] of plan) {
+    const g = (await retry(() => signer.estimateGas({ data: '0x' + art.bytecode + ctorHex }),
+      `estimasi ${name}`, 2)).toBigInt();
+    limitOf[name] = g; gas += g;
+    console.log(`  ${name.padEnd(14)} ${(art.deployedSize / 1024).toFixed(1)} KB  ${g.toString().padStart(9)} gas`);
+  }
+  const SET_GAS = 60000n;
+  gas += SET_GAS;
+  console.log(`  ${'setRenderer'.padEnd(14)} ${' '.repeat(7)}${SET_GAS.toString().padStart(9)} gas  di ProofKeys yang sudah ada`);
+
+  const price = await retry(() => provider.getGasPrice(), 'harga gas');
+  const balance = await signer.getBalance();
+  const maxFee = price.toBigInt() * 2n;
+  let spent = 0n, hold = 0n;
+  for (const [name] of plan) {
+    const need = (limitOf[name] * 12n / 10n) * maxFee + spent;
+    if (need > hold) hold = need;
+    spent += limitOf[name] * price.toBigInt();
+  }
+  const cost = price.toBigInt() * gas;
+  console.log(`\n  total     ${gas} gas @ ${ethers.utils.formatUnits(price, 'gwei')} gwei`);
+  console.log(`  perkiraan biaya  ${eth(cost, 8)} ETH`);
+  console.log(`  harus dipegang   ${eth(hold, 8)} ETH   (satu transaksi terberat, selebihnya kembali)`);
+  console.log(`  saldo Anda       ${eth(balance, 8)} ETH`);
+  const floor = hold > cost ? hold : cost;
+  if (balance.toBigInt() < floor)
+    console.log(`\n  SALDO KURANG — butuh sekitar ${eth(floor - balance.toBigInt(), 8)} ETH lagi.`);
+
+  if (!confirm) {
+    console.log('\nDRY RUN — tambahkan --confirm untuk benar-benar mengganti seninya.');
+    return;
+  }
+
+  const factory = art => new ethers.ContractFactory(art.abi, art.bytecode, signer);
+  const fee = await feeFields(provider);
+  const lim = name => ({ gasLimit: ethers.BigNumber.from(limitOf[name]).mul(12).div(10), ...fee });
+
+  console.log('\nmengirim…');
+  const parts = await factory(b.parts).deploy(lim('ProofParts'));
+  await parts.deployTransaction.wait();
+  console.log(`  ProofParts     ${parts.address}`);
+  const renderer = await factory(b.renderer).deploy(parts.address, lim('ProofRenderer'));
+  await renderer.deployTransaction.wait();
+  console.log(`  ProofRenderer  ${renderer.address}`);
+
+  await send('setRenderer', c, 'setRenderer', [renderer.address], { confirm: true });
+
+  // The receipt says the transaction succeeded, not that the pointer moved.
+  const after = await retry(() => c.renderer(), 'renderer setelah ganti');
+  if (after.toLowerCase() !== renderer.address.toLowerCase())
+    die(`setRenderer terkirim tetapi kontrak masih menunjuk ${after}`);
+  console.log(`\nrenderer sekarang  ${after}`);
+
+  const rec = loadDeployed(chainId) || { chainId, owner };
+  (rec.previousRenderers ??= []).push({ parts: rec.parts ?? null, renderer: current,
+    replacedAt: new Date().toISOString() });
+  rec.parts = parts.address;
+  rec.renderer = renderer.address;
+  fs.mkdirSync(OUT, { recursive: true });
+  fs.writeFileSync(deployedFile(chainId), JSON.stringify(rec, null, 2));
+  console.log(`tersimpan di out/keys.${chainId}.json`);
+  console.log('\nlalu lihat satu kunci yang sudah tercetak, jangan percaya bahwa seninya berubah:');
+  console.log(`  node contracts/keys.js state`);
+}
+
 async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   if (!signer) die('DEPLOY_PK belum diisi');
   const owner = argv.owner || (await signer.getAddress());
@@ -651,6 +756,8 @@ const USAGE = `
     state                          fase, harga, suplai, dan seed — termasuk
                                    menghitung ulang seed yang sudah terbit
     deploy --owner 0x…             ProofParts -> ProofRenderer -> ProofKeys
+    renderer                       ganti seninya di koleksi yang sudah berdiri:
+                                   ProofParts + ProofRenderer baru, lalu setRenderer
     phase 1|2|3|closed             buka fase berikutnya, atau tutup mint
     prices <fase1Eth> <fase2Eth> <fase3Eth>
     commit <secret> [--ahead 600]  komitkan seed musim, dipatok ke satu blok
@@ -715,6 +822,7 @@ const USAGE = `
 
   if (cmd === 'deploy') return cmdDeploy(argv, ctx, chainId, confirm);
   if (cmd === 'state') return cmdState(ctx, chainId, argv);
+  if (cmd === 'renderer') return cmdRenderer(argv, ctx, chainId, confirm);
 
   const c = await keysContract(ctx.provider, ctx.signer, chainId, argv.at);
 

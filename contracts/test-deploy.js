@@ -605,6 +605,58 @@ const ROOT = path.join(__dirname, '..');
     fs.rmSync(OUT2, { recursive: true, force: true });
   }
 
+  /* ═══════ the art, replaced under a collection that already sold ═══════ */
+  head('ganti renderer di koleksi yang sudah berdiri');
+  {
+    // Changing the engraving must never mean deploying ProofKeys again: a
+    // second collection lives at a new address and every key already sold
+    // points at the old one. This is the only path that changes what a holder
+    // owns, so it reads the pointer back instead of trusting the receipt.
+    const c = at(owner);
+    const before = await c.renderer();
+    const uriBefore = await c.tokenURI(1);
+
+    const dry = await keys('renderer');
+    ok(dry.code === 0 && /DRY RUN/.test(dry.out), 'renderer tanpa --confirm tidak mengirim');
+    ok((await c.renderer()) === before, 'dan kontrak masih menunjuk renderer lama');
+    ok(/setRenderer/.test(dry.out), 'dry run menyebut setRenderer, bukan deploy ProofKeys');
+    ok(!/ProofKeys\s+\d+\.\d KB/.test(dry.out), 'dan tidak ada ProofKeys di rencananya');
+
+    const stranger = ethers.Wallet.createRandom();
+    const notOwner = await new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), 'renderer', '--confirm'], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: stranger.privateKey,
+               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: OUT, KEYS_CONTRACT: c.address, KEYS_ENV: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+    ok(notOwner.code !== 0 && /hanya owner/.test(notOwner.out),
+      'kunci yang bukan owner ditolak sebelum apa pun dikirim');
+    ok((await c.renderer()) === before, 'dan renderer tidak bergerak');
+
+    const go = await keys('renderer', '--confirm');
+    ok(go.code === 0, 'renderer --confirm berhasil');
+    const after = await c.renderer();
+    ok(after !== before, `renderer berpindah (${before} -> ${after})`);
+    ok(new RegExp(after, 'i').test(go.out), 'dan alamat barunya dibaca ulang dari kontrak, bukan dari struk');
+
+    const uriAfter = await c.tokenURI(1);
+    ok(uriAfter.startsWith('data:application/json;base64,'),
+      'token yang sudah tercetak masih punya tokenURI setelah seninya diganti');
+    const meta = JSON.parse(Buffer.from(uriAfter.split(',')[1], 'base64').toString());
+    ok(typeof meta.image === 'string' && meta.image.includes('svg'),
+      'dan renderer baru yang menggambarnya — metadata-nya utuh, bukan kosong');
+    // Both renderers here are built from the same source, so identical output
+    // is the correct answer; a difference would mean the build moved mid-test.
+    ok(uriAfter === uriBefore, 'isinya sama, karena yang di-deploy adalah sumber yang sama');
+
+    const rec = JSON.parse(fs.readFileSync(path.join(OUT, 'keys.46630.json'), 'utf8'));
+    ok(rec.renderer === after, 'catatan deploy menyimpan renderer baru');
+    ok(rec.keys === c.address, 'dan ProofKeys-nya tetap yang sama');
+    ok(rec.previousRenderers?.at(-1)?.renderer === before,
+      'renderer lama disimpan, bukan ditimpa — alamatnya masih dibaca marketplace lama');
+  }
+
   /* ═══════ money out ═══════ */
   head('withdraw');
   {

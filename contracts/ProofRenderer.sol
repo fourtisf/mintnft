@@ -4,12 +4,12 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/Base64.sol";
 
 interface IProofParts {
-    function bg(uint8 i, string memory a, string memory b, string memory uid) external pure returns (bytes memory);
+    function bg(uint8 i, uint16 ph, string memory a, string memory b, string memory uid) external pure returns (bytes memory);
     function fit(uint8 i, string memory a, string memory skin) external pure returns (bytes memory);
     function head(string memory skin, string memory a, string memory b) external pure returns (bytes memory);
     function hood(uint8 i, string memory a) external pure returns (bytes memory);
     function over(uint8 i, string memory a) external pure returns (bytes memory);
-    function eyes(uint8 i, string memory a, string memory b) external pure returns (bytes memory);
+    function eyes(uint8 i, uint16 ph, string memory a, string memory b) external pure returns (bytes memory);
     function mask(uint8 i, string memory a) external pure returns (bytes memory);
     function aura(uint8 i, string memory a, string memory uid) external pure returns (bytes memory);
 }
@@ -134,7 +134,7 @@ contract ProofRenderer {
         return string(abi.encodePacked(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">',
             _defs(a, b, uid),
-            parts.bg(t.bg, a, b, uid),
+            parts.bg(t.bg, t.ph, a, b, uid),
             parts.aura(t.aura, a, uid),
             _figure(t, a, b, skin),
             _crt(uid),
@@ -158,7 +158,7 @@ contract ProofRenderer {
             // Blink: a dip to near zero, then a softer flicker later.
             '<g><animate attributeName="opacity" values="1;1;.05;1;1;.7;1"',
             ' keyTimes="0;0.62;0.645;0.67;0.88;0.925;1" dur="5.6s" repeatCount="indefinite"/>',
-            parts.eyes(t.eyes, a, b), '</g>',
+            parts.eyes(t.eyes, t.ph, a, b), '</g>',
             parts.mask(t.mask, a),
             parts.over(t.hood, a),
             '</g>'
@@ -172,10 +172,15 @@ contract ProofRenderer {
             '<animate attributeName="opacity" values="0;.55;0;0" keyTimes="0;.3;.62;1" dur="3.8s" repeatCount="indefinite"/></rect>');
     }
 
+    /// @dev Scanlines, then grain. Flat vector on flat black is what reads
+    ///      cheap; film grain is the cheapest thing that stops it. The filter
+    ///      only darkens — a noise plate that lifts the blacks is fog, not
+    ///      film — and a renderer that skips filters loses the grain, nothing else.
     function _crt(string memory uid) internal pure returns (bytes memory) {
         return abi.encodePacked(
             '<rect width="600" height="600" fill="url(#sl', uid, ')" opacity=".085">',
-            '<animateTransform attributeName="patternTransform" type="translate" values="0 0;0 7" dur="1.1s" repeatCount="indefinite"/></rect>');
+            '<animateTransform attributeName="patternTransform" type="translate" values="0 0;0 7" dur="1.1s" repeatCount="indefinite"/></rect>',
+            '<rect width="600" height="600" filter="url(#gr', uid, ')" opacity=".5"/>');
     }
 
     function _plate(uint256 id, uint8 tier, string memory a) internal pure returns (bytes memory) {
@@ -183,7 +188,7 @@ contract ProofRenderer {
             '<rect x="34" y="514" width="152" height="52" rx="10" fill="#0A0C0E" stroke="', a,
             '" stroke-width=".9" opacity=".94"/>',
             '<text x="50" y="538" font-family="monospace" font-size="15" font-weight="600" fill="', a,
-            '">', _pad4(id), '</text>',
+            '">', _pad4(id, false), '</text>',
             '<text x="50" y="554" font-family="monospace" font-size="8" letter-spacing="1.6" fill="#585E68">TIER ',
             _roman(tier), '</text>');
     }
@@ -195,14 +200,29 @@ contract ProofRenderer {
             '<linearGradient id="fl', uid, '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="', a,
             '" stop-opacity="0"/><stop offset="1" stop-color="', a, '" stop-opacity=".13"/></linearGradient>',
             '<radialGradient id="ch', uid, '" cx="50%" cy="26%" r="72%"><stop offset="0" stop-color="', a,
-            '" stop-opacity=".17"/><stop offset="1" stop-color="', a, '" stop-opacity="0"/></radialGradient>',
+            '" stop-opacity=".21"/><stop offset="1" stop-color="', a, '" stop-opacity="0"/></radialGradient>',
             '<linearGradient id="mo', uid, '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="', a,
             '" stop-opacity=".16"/><stop offset="1" stop-color="', b, '" stop-opacity=".02"/></linearGradient>',
             '<linearGradient id="nf', uid, '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="', b,
             '" stop-opacity=".15"/><stop offset=".55" stop-color="', a,
             '" stop-opacity=".04"/><stop offset="1" stop-color="#05070A" stop-opacity=".9"/></linearGradient>',
             '<radialGradient id="vg', uid, '" cx="50%" cy="42%" r="70%"><stop offset=".55" stop-color="#000" stop-opacity="0"/>',
-            '<stop offset="1" stop-color="#000" stop-opacity=".72"/></radialGradient>',
+            '<stop offset="1" stop-color="#000" stop-opacity=".84"/></radialGradient>',
+            '<radialGradient id="kl', uid, '" cx="50%" cy="40%" r="44%"><stop offset="0" stop-color="', a,
+            '" stop-opacity=".09"/><stop offset="1" stop-color="', a, '" stop-opacity="0"/></radialGradient>',
+            '<radialGradient id="rl', uid, '" cx="14%" cy="86%" r="64%"><stop offset="0" stop-color="', b,
+            '" stop-opacity=".13"/><stop offset="1" stop-color="', b, '" stop-opacity="0"/></radialGradient>',
+            '<linearGradient id="rf', uid, '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="', a,
+            '" stop-opacity="0"/><stop offset="1" stop-color="', a, '" stop-opacity=".09"/></linearGradient>',
+            '<linearGradient id="cn', uid, '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="', a,
+            '" stop-opacity=".11"/><stop offset="1" stop-color="', a, '" stop-opacity="0"/></linearGradient>',
+            '<pattern id="gu', uid, '" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(34)">',
+            '<line x1="7" y1="0" x2="7" y2="14" stroke="', a, '" stroke-width="1"/></pattern>',
+            '<pattern id="gv', uid, '" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(-34)">',
+            '<line x1="7" y1="0" x2="7" y2="14" stroke="', b, '" stroke-width="1"/></pattern>',
+            '<filter id="gr', uid, '" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise"',
+            ' baseFrequency=".8" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="matrix"',
+            ' values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .34 .34 .34 0 -.42"/></filter>',
             '<radialGradient id="au', uid, '"><stop offset="0" stop-color="', a,
             '" stop-opacity=".4"/><stop offset="1" stop-color="', a, '" stop-opacity="0"/></radialGradient>',
             '<pattern id="sl', uid, '" width="7" height="7" patternUnits="userSpaceOnUse">',
@@ -214,7 +234,7 @@ contract ProofRenderer {
     function tokenURI(uint256 tokenId, bytes32 seed) external view returns (string memory) {
         T memory t = traits(tokenId, seed);
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(abi.encodePacked(
-            '{"name":"Proof Key ', _pad4(tokenId),
+            '{"name":"Proof Key ', _pad4(tokenId, true),
             '","description":"One of 1111 Proof Keys. Tier sets how many seconds early each signal reaches the holder. Artwork and animation are generated on-chain from the token id and the season seed.",',
             '"attributes":[',
             '{"trait_type":"Tier","value":"',
@@ -264,12 +284,13 @@ contract ProofRenderer {
         if (t == 0) return unicode"—";
         return t == 3 ? "III" : (t == 2 ? "II" : "I");
     }
-    function _pad4(uint256 v) internal pure returns (bytes memory) {
+    function _pad4(uint256 v, bool hash) internal pure returns (bytes memory) {
         bytes memory s = _u(v);
-        if (s.length >= 4) return abi.encodePacked("#", s);
+        bytes memory h = hash ? bytes("#") : bytes("");
+        if (s.length >= 4) return abi.encodePacked(h, s);
         bytes memory z = new bytes(4 - s.length);
         for (uint256 i; i < z.length; i++) z[i] = "0";
-        return abi.encodePacked("#", z, s);
+        return abi.encodePacked(h, z, s);
     }
     function _u(uint256 v) internal pure returns (bytes memory) {
         if (v == 0) return "0";

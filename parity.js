@@ -75,6 +75,45 @@ const seed=Buffer.from('7f'.repeat(32),'hex');
   bad.forEach(([c,t])=>console.log(`  #${c.id} chain[hood=${c.hood} eyes=${c.eyes} bg=${c.bg}] browser[hood=${t.hoodI} eyes=${t.eyesI} bg=${t.bgI}]`));
 
   // gas kasus terburuk
+  /* The engraving itself, not just its traits. traits() matching proved the two
+     sides agree on what a key is; it could never see that the drift on chain
+     was six bright dots where the page drew a field of eighteen faint ones,
+     because both called it Ashfall. This compares the drawing.
+
+     Two things are normalised away, and they are the whole of what still
+     differs: dur=, because the page desyncs each token's animation by its
+     phase and threading that into every part signature is a wider change than
+     it earns; and font-family=, because the page can name JetBrains Mono and a
+     wallet cannot. Anything else that differs is the art differing. */
+  const selS=keccak256(Buffer.from('svg(uint256,bytes32)')).slice(0,4);
+  const norm=(x,uid)=>x
+    .replace(new RegExp('(#|id=")(fl|ch|mo|nf|vg|kl|rl|rf|cn|gu|gv|gr|au|sl)'+uid,'g'),'$1$2')
+    .replace(/ dur="[^"]*"/g,'').replace(/ font-family="[^"]*"/g,'')
+    // ".8" and "0.8" are one number spelled two ways; both sides get the same
+    // spelling so a real difference in the digits still shows
+    .replace(/(^|[^0-9])0\./g,'$1.')
+    .replace(/\s+/g,' ').replace(/> </g,'><').trim();
+  let svgOk=0;const svgBad=[];
+  for(let id=1;id<=666;id++){
+    const r=await vm.evm.runCall({caller:from,to:addr,gasLimit:BigInt(900e6),
+      data:Buffer.concat([selS,Buffer.from(BigInt(id).toString(16).padStart(64,'0'),'hex'),seed])});
+    if(r.execResult.exceptionError){svgBad.push([id,'svg() gagal',String(r.execResult.exceptionError)]);continue}
+    const rv=r.execResult.returnValue,len=Number('0x'+rv.slice(32,64).toString('hex'));
+    const c=norm(rv.slice(64,64+len).toString('utf8')
+      .replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,''),'k');
+    const b=norm(W.keySVG(id,'full').body,'f'+id);
+    if(c===b){svgOk++;continue}
+    const A=c.split('><'),B=b.split('><');
+    let k=0;while(k<A.length&&A[k]===B[k])k++;
+    if(svgBad.length<4)svgBad.push([id,A[k]||'(habis)',B[k]||'(habis)']);
+  }
+  console.log(`UKIRAN         ${svgOk} / 666 SVG sama persis (dur dan font-family dikecualikan)`);
+  if(svgOk!==666){
+    console.log('GAGAL: kontrak menggambar kunci yang berbeda dari yang dilihat pembeli');
+    svgBad.forEach(([id,a,b])=>console.log(`  #${id}\n    kontrak ${a.slice(0,150)}\n    situs   ${b.slice(0,150)}`));
+    process.exitCode=1;
+  }
+
   console.log('\ngas tokenURI:');
   let worst=0,wid=0;
   for(const id of [1,42,137,264,412,666]){

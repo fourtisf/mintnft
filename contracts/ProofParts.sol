@@ -15,26 +15,37 @@ contract ProofParts {
 
     /* ─────────── backgrounds ─────────── */
 
-    function bg(uint8 i, string memory a, string memory b, string memory uid)
+    function bg(uint8 i, uint16 ph, string memory a, string memory b, string memory uid)
         external pure returns (bytes memory)
     {
         bytes memory base = abi.encodePacked('<rect width="600" height="600" fill="#090B0D"/>');
 
-        if (i == 0)        // Chamber — studio falloff
+        if (i == 0)        // Chamber — studio falloff, under one overhead shaft
             base = abi.encodePacked(base,
                 '<rect width="600" height="600" fill="url(#ch', uid, ')"/>',
+                '<path d="M236 0H364L522 600H78Z" fill="url(#cn', uid, ')"/>',
                 '<rect y="392" width="600" height="208" fill="url(#fl', uid, ')"/>');
-        else if (i == 1)   // Halation — bloom behind the head
+        else if (i == 1)   // Halation — bloom behind the head, ringed by its own lens
             base = abi.encodePacked(base,
                 '<circle cx="300" cy="238" r="268" fill="url(#ch', uid, ')"/>',
+                '<circle cx="300" cy="238" r="206" fill="none" stroke="', a,
+                '" stroke-width=".8" opacity=".11"/>',
+                '<circle cx="300" cy="238" r="248" fill="none" stroke="', a,
+                '" stroke-width=".8" opacity=".07"/>',
                 '<ellipse cx="300" cy="238" rx="150" ry="150" fill="', a, '" opacity=".07"/>');
-        else if (i == 2)   // Monolith — a slab it stands against
+        else if (i == 2)   // Monolith — a slab it stands against, bevelled, on a plinth
             base = abi.encodePacked(base,
                 '<rect x="150" y="46" width="300" height="470" rx="26" fill="url(#mo', uid, ')"/>',
                 '<rect x="150" y="46" width="300" height="470" rx="26" fill="none" stroke="', a,
-                '" stroke-width="1.1" opacity=".3"/>');
+                '" stroke-width="1.1" opacity=".3"/>',
+                '<rect x="162" y="58" width="276" height="446" rx="20" fill="none" stroke="', b,
+                '" stroke-width=".8" opacity=".16"/>',
+                '<path d="M182 49H418" stroke="#FFFFFF" stroke-width="1" opacity=".07"/>',
+                '<path d="M118 516H482" stroke="', a, '" stroke-width="1" opacity=".22"/>');
         else if (i == 3)   // Aperture — partial arcs, never full rings
             base = abi.encodePacked(base,
+                '<circle cx="300" cy="300" r="140" fill="none" stroke="', a,
+                '" stroke-width=".8" opacity=".09"/>',
                 '<path d="M130 300A170 170 0 0 1 470 300" fill="none" stroke="', a,
                 '" stroke-width="1.2" opacity=".26" stroke-linecap="round" transform="rotate(-24 300 300)"/>',
                 '<path d="M76 300A224 224 0 0 1 524 300" fill="none" stroke="', a,
@@ -45,28 +56,57 @@ contract ProofParts {
         else if (i == 4)   // Nightfall — horizon behind the shoulders
             base = abi.encodePacked(base,
                 '<rect width="600" height="600" fill="url(#nf', uid, ')"/>',
+                '<ellipse cx="300" cy="408" rx="300" ry="54" fill="url(#ch', uid, ')" opacity=".32"/>',
                 '<line x1="0" y1="408" x2="600" y2="408" stroke="', a,
                 '" stroke-width=".9" opacity=".26"/>');
         else               // Ashfall — drifting particles
-            base = abi.encodePacked(base, _ash(b), '<rect width="600" height="600" fill="url(#ch',
+            base = abi.encodePacked(base,
+                '<circle cx="118" cy="146" r="54" fill="', b, '" opacity=".032"/>',
+                '<circle cx="486" cy="330" r="38" fill="', b, '" opacity=".028"/>',
+                '<circle cx="214" cy="486" r="66" fill="', b, '" opacity=".022"/>',
+                _ash(ph, b), '<rect width="600" height="600" fill="url(#ch',
                 uid, ')" opacity=".6"/>');
 
-        // Vignette on every backdrop, then a ground shadow. These two layers
-        // are most of the difference between "premium" and "pasted on".
-        return abi.encodePacked(base,
+        return abi.encodePacked(base, _frame(a, uid));
+    }
+
+    /// @dev The layers every backdrop ends with: two lights, a vignette, the
+    ///      guilloché the plate is named after, its edge and registration
+    ///      marks, then the floor and the shadow the figure casts on it. These
+    ///      are most of the difference between "premium" and "pasted on".
+    function _frame(string memory a, string memory uid) internal pure returns (bytes memory) {
+        return abi.encodePacked(
+            '<rect width="600" height="600" fill="url(#kl', uid, ')"/>',
+            '<rect width="600" height="600" fill="url(#rl', uid, ')"/>',
             '<rect width="600" height="600" fill="url(#vg', uid, ')"/>',
+            '<rect width="600" height="600" fill="url(#gu', uid, ')" opacity=".05"/>',
+            '<rect width="600" height="600" fill="url(#gv', uid, ')" opacity=".038"/>',
+            '<rect x="14" y="14" width="572" height="572" rx="18" fill="none" stroke="', a,
+            '" stroke-width="1" opacity=".14"/>',
+            '<path d="M300 14V32M300 586V568M14 300H32M586 300H568" stroke="', a,
+            '" stroke-width="1.2" opacity=".3"/>',
+            '<rect y="452" width="600" height="148" fill="url(#rf', uid, ')"/>',
             '<ellipse cx="300" cy="588" rx="212" ry="34" fill="#000" opacity=".5"/>');
     }
 
-    function _ash(string memory b) internal pure returns (bytes memory o) {
-        uint16[13] memory xs = [uint16(64),148,232,316,400,484,110,194,278,362,446,530,86];
-        uint16[13] memory ys = [uint16(92),218,54,340,166,282,410,128,466,244,368,180,520];
-        for (uint256 i; i < 13; i++) {
-            o = abi.encodePacked(o, '<circle cx="', _u(xs[i]), '" cy="', _u(ys[i]),
-                '" r="', _u(1 + (i % 4)), '" fill="', b, '" opacity=".', _u(6 + (i % 5) * 3),
-                '"><animate attributeName="cy" values="', _u(ys[i]), ';', _u(ys[i] + 38), ';',
-                _u(ys[i]), '" dur="', _u(7 + (i % 5)), 's" repeatCount="indefinite"/></circle>');
+    /// @dev Positions come off the token's own phase, as they do on the site.
+    ///      They were a fixed table here and phase-derived there, and the
+    ///      opacity printed ".6" where the page printed "0.06" — the wallet
+    ///      drew six bright dots over a drift of twenty-six.
+    function _ash(uint16 ph, string memory b) internal pure returns (bytes memory o) {
+        for (uint256 i; i < 18; i++) {
+            uint256 x = (uint256(ph) * 7 + i * 97) % 580 + 10;
+            uint256 y = (uint256(ph) * 3 + i * 151) % 560 + 20;
+            o = abi.encodePacked(o, '<circle cx="', _u(x), '" cy="', _u(y),
+                '" r="', _u(1 + (i % 4)), '" fill="', b, '" opacity="0.', _o2(6 + (i % 5) * 3),
+                '"><animate attributeName="cy" values="', _u(y), ';', _u(y + 38), ';',
+                _u(y), '" dur="', _u(7 + (i % 5)), 's" repeatCount="indefinite"/></circle>');
         }
+    }
+
+    /// @dev Two digits, always. "0." + _u(6) reads as six tenths, not six hundredths.
+    function _o2(uint256 v) internal pure returns (bytes memory) {
+        return v < 10 ? abi.encodePacked('0', _u(v)) : _u(v);
     }
 
     /* ─────────── outfit ─────────── */
@@ -76,7 +116,7 @@ contract ProofParts {
             '<path d="M96 600C96 500 176 434 300 434C420 434 504 500 504 600Z" fill="', DARK, '"/>');
         if (i == 1) return abi.encodePacked(o,
             '<path d="M226 452L260 540L300 470L340 540L374 452" fill="none" stroke="', a,
-            '" stroke-width="2.2" opacity=".8"/>');
+            '" stroke-width="2.25" opacity=".8"/>');
         if (i == 2) return abi.encodePacked(o,
             '<path d="M110 596C118 512 168 468 214 452L232 520Z" fill="', skin, '" opacity=".85"/>',
             '<path d="M490 596C482 512 432 468 386 452L368 520Z" fill="', skin, '" opacity=".85"/>',
@@ -152,7 +192,7 @@ contract ProofParts {
 
     /* ─────────── eyes: the focal point ─────────── */
 
-    function eyes(uint8 i, string memory a, string memory b) external pure returns (bytes memory) {
+    function eyes(uint8 i, uint16 ph, string memory a, string memory b) external pure returns (bytes memory) {
         if (i == 0) return abi.encodePacked(
             '<rect x="238" y="249" width="124" height="26" rx="13" fill="', a, '" opacity=".28"/>',
             '<rect x="244" y="254" width="112" height="16" rx="8" fill="', b, '"/>');
@@ -176,7 +216,7 @@ contract ProofParts {
             for (uint256 j; j < 7; j++)
                 o = abi.encodePacked(o, '<rect x="', _u(242 + j * 17),
                     '" y="252" width="7" height="20" rx="3" fill="', b,
-                    '" opacity=".', _u(55 + (j % 3) * 22), '"/>');
+                    '" opacity="0.', _u(55 + ((j + ph) % 3) * 22), '"/>');
             return o;
         }
         if (i == 5) return abi.encodePacked(
@@ -238,10 +278,13 @@ contract ProofParts {
             '<circle cx="300" cy="255" r="172" fill="none" stroke="', a,
             '" stroke-width="2.2" opacity=".42" stroke-dasharray="26 14">',
             '<animateTransform attributeName="transform" type="rotate" from="0 300 255" to="360 300 255" dur="22s" repeatCount="indefinite"/></circle>');
+        // 26 radial ticks, every third one long. A dashed circle stood in for
+        // this and drew tangential dashes instead of spokes — the same trait
+        // name over a different crown. The head is fixed at x=300, so the path
+        // is a constant here exactly as it is arithmetic on the page.
         if (i == 3) return abi.encodePacked(
             '<g opacity=".45"><animateTransform attributeName="transform" type="rotate" from="360 300 255" to="0 300 255" dur="30s" repeatCount="indefinite"/>',
-            '<circle cx="300" cy="255" r="180" fill="none" stroke="', a,
-            '" stroke-width="2" stroke-dasharray="3 18"/></g>');
+            '<path d="M476 255L496 255M471 297L480 299M456 337L464 341M432 371L447 385M400 400L406 407M363 419L366 428M322 430L325 449M280 430L279 439M239 420L236 428M201 401L190 417M169 373L163 379M145 338L137 342M130 299L110 304M124 257L115 257M129 215L120 213M143 175L125 166M167 140L160 134M198 112L193 104M235 91L228 73M276 81L275 72M318 80L319 71M360 89L366 71M397 108L402 101M430 136L436 130M454 170L472 161M470 209L479 207" stroke="', a, '" stroke-width="2"/></g>');
         return "";
     }
 

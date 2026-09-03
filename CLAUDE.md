@@ -107,7 +107,7 @@ Deploy on a small VPS; Postgres and Redis in Docker.
 | Path | State |
 |---|---|
 | `signal-engine/` | Working JS. Screener, scorer, integrity chain, API, analytics, notifier. Tested against fixtures and a simulated market. **Never run against live data.** |
-| `contracts/` | Compile clean. 666/666 trait parity with the prototype, 1.61M gas worst case. `test-keys.js` is 111 assertions on a real EVM; `keys.js` is the deploy and admin CLI, and `test-deploy.js` drives it as a command against a JSON-RPC node over a real socket. **Nothing has been sent to a real network.** |
+| `contracts/` | Compile clean. 666/666 trait parity with the prototype and 666/666 on the SVG itself, 2.44M gas worst case. `test-keys.js` is 111 assertions on a real EVM; `keys.js` is the deploy and admin CLI, and `test-deploy.js` drives it as a command against a JSON-RPC node over a real socket. **Nothing has been sent to a real network.** |
 | `contracts/keys.js` | The only thing here that sends a transaction. Every subcommand is a dry run until `--confirm`. Key from the environment, never an argument. |
 | Mint on the site | `/api/keys` and `/api/keys/state` read the chain; the page builds the calldata and the visitor's wallet signs it. This process never holds a key. |
 | `schema.sql` | Postgres DDL. It now runs; it did not before — an index expression over a `timestamptz` is only STABLE and Postgres rejected the file outright, which is what "structurally verified" had been standing in for. |
@@ -138,7 +138,8 @@ node test-pg.js      # the Postgres driver, if TEST_DATABASE_URL is set; skips l
 node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgres
 
 cd ..
-node parity.js       # contracts vs prototype, must print 666 / 666
+node parity.js       # contracts vs prototype: traits, the engraving before
+                     # reveal, and the SVG byte for byte. All three must print 666
 node compile.js      # every contract's deployed size against the 24KB limit
 node contracts/test-keys.js  # the mint, the phases, the cap, the reveal, the
                              # money out — and that bestTierOf no longer costs
@@ -233,7 +234,21 @@ continuing. Everything else is recoverable; that one is not.
    `sourceRef`, and `signal-engine/test-anchor.js` runs `toCsv` → `verifyCsv`
    for a call with volume and one without. Nothing had ever exercised that
    round trip, on the one artefact an outsider actually holds.
-8. ~~**Volume is recorded but not hashed.**~~ Done. `canonical()` now carries a
+8. **The art on chain is one deploy behind the art on the site.** `parity.js`
+   now compares the SVG itself and not only the traits, and the first thing it
+   found was that Ashfall drew six bright dots on chain where the page drew a
+   drift of twenty-six, and that the spoke crown was a dashed circle. Those are
+   fixed in the source; the collection at
+   `0xe0b0EBDbfAD58d803B4AB654e9508aa6803550Ec` still points at the renderer
+   deployed before them. `node contracts/keys.js renderer --confirm` deploys a
+   new ProofParts and ProofRenderer and moves the pointer — never a second
+   ProofKeys, which would be a second collection at a new address. Two things
+   the SVG check still normalises away, and they are the whole of what differs:
+   `dur=`, because the page desyncs each token's animation by its phase and
+   threading that through every part signature is a wider change than it earns,
+   and `font-family=`, because the page can name JetBrains Mono and a wallet
+   cannot.
+9. ~~**Volume is recorded but not hashed.**~~ Done. `canonical()` now carries a
    field list per hash version, a row is re-hashed under the version it was
    written with, and `entryVolumeH1`/`entryVolumeM5` are frozen from v3.
    `test-hashversion.js` pins the v2 canonical form and digest as literals, so
