@@ -288,6 +288,11 @@ head("membuka kunci");
   // Before reveal there is nothing to open: the seed has not been drawn, so a
   // tile that opened would be drawing what nobody can derive.
   const shut = await boot({ state: baseState({ tokens: [5] }) });
+  const collTiers = () => [...shut.doc.querySelectorAll("#coll .gk-meta b")].map(b => b.textContent);
+  ok(collTiers().length > 0 && collTiers().every(t => /^T(I|II|III)$/.test(t)),
+    "etalase koleksi tetap memperlihatkan ukirannya — itu yang dijual");
+  ok([...shut.doc.querySelectorAll("[data-sample-note]")].every(el => !el.hidden),
+    "dengan keterangan bahwa itu contoh dan pembagiannya belum dilakukan");
   ok(tile(shut, 5).querySelector(".openlbl") === null, "sebelum reveal tidak ada tombol buka");
   ok(!tile(shut, 5).classList.contains("unopened"), "dan kartunya tidak berkedip menjanjikan sesuatu");
   click(shut, 5);
@@ -298,6 +303,8 @@ head("membuka kunci");
     "dan tidak ada tier yang muncul karena ditekan");
 
   const open = await boot({ state: baseState({ revealed: true, tokens: [5] }) });
+  ok([...open.doc.querySelectorAll("[data-sample-note]")].every(el => el.hidden),
+    "setelah reveal keterangan contoh itu hilang — pembagiannya sudah dilakukan");
   ok(tile(open, 5).classList.contains("unopened"), "setelah reveal kartunya menawarkan dibuka");
   ok(tile(open, 5).querySelector(".openlbl")?.textContent === "Open", "dengan tombolnya");
   click(open, 5);
@@ -308,28 +315,25 @@ head("membuka kunci");
     "dan tier-nya muncul — dari seed yang sudah terbit, bukan dari klik");
 }
 
-head("gambar sebelum seed terbit");
+head("contoh dan milik sendiri dipisah");
 {
-  // The panel opened on finished art with a tier and a rarity rank while the
-  // season's seed had not been drawn, on a sale that was already taking money.
-  const sealed = await boot();
-  ok(sealed.txt("keyTier") === "Sealed until reveal",
-    "kontrak bilang belum reveal, jadi panel bilang tersegel — bukan tier karangan");
-  ok(!/Rank \d+ \/ 666/.test(sealed.doc.getElementById("keyTier").textContent),
-    "dan tidak ada peringkat kelangkaan untuk undian yang belum dijalankan");
-  ok(sealed.doc.querySelector('#revealSeg button[data-r="0"]').classList.contains("on"),
-    "tombolnya ikut berdiri di 'Before reveal', bukan menyalahi apa yang digambar");
+  // The rule is not "hide the art". It is "never claim a token is something
+  // the draw has not decided". The stage, the marquee and the collection are
+  // drawn from a placeholder seed and say so; only a key somebody owns is
+  // sealed. Sealing the showcase too left a live sale as 666 grey circles.
+  const before = await boot({ state: baseState({ tokens: [5] }) });
+  ok(before.txt("keyTier") !== "Sealed until reveal",
+    "panggung contoh tetap memperlihatkan ukiran — bukan lingkaran kosong");
+  ok([...before.doc.querySelectorAll("[data-sample-note]")].every(el => !el.hidden),
+    "dengan keterangan bahwa pembagiannya belum dilakukan");
+  ok(before.doc.querySelector('#mineGrid [data-mine="5"] .gk-meta b').textContent === "sealed",
+    "sementara kunci yang benar-benar dipegang tetap tersegel");
 
-  // It is a preview control and stays one: a visitor may look at what revealed
-  // art will be, and that choice is not undone by the next poll.
-  sealed.doc.querySelector('#revealSeg button[data-r="1"]')
-    .dispatchEvent(new sealed.win.MouseEvent("click", { bubbles: true }));
+  // The preview control still shows what a sealed key looks like.
+  before.doc.querySelector('#revealSeg button[data-r="0"]')
+    .dispatchEvent(new before.win.MouseEvent("click", { bubbles: true }));
   await sleep(60);
-  ok(sealed.txt("keyTier") !== "Sealed until reveal", "pratinjau setelah reveal masih bisa dilihat");
-
-  const open = await boot({ state: baseState({ revealed: true }) });
-  ok(open.txt("keyTier") !== "Sealed until reveal",
-    "dan begitu chain bilang sudah reveal, panel membuka karya jadinya");
+  ok(before.txt("keyTier") === "Sealed until reveal", "dan pratinjau tersegel masih bisa dilihat");
 }
 
 head("memilih dompet");

@@ -475,19 +475,34 @@ function renderTraits(id){
    every visitor a finished key with a tier and a rarity rank for a season whose
    seed had not been drawn. The toggle beside it is a preview control and stays
    one; what the chain says is what it opens on. */
+/* Two different questions, and conflating them cost a day.
+
+   `revealed` drives the showcase: the big stage, the marquee and the
+   collection grid, every one of which is drawn from a placeholder seed and
+   labelled as a preview. Sealing those left a live sale looking like 666 grey
+   circles, which sells nothing and was not what the rule was protecting.
+
+   `chainRevealed` is what the contract says, and it governs the only thing
+   that is a claim about a real token: the keys a wallet actually holds. */
 let revealed=true;
-// Until /api/keys/state answers, nothing has been established either way, and
-// a visitor who has already chosen a preview state keeps it.
-let revealedKnown=false;
+let chainRevealed=false;
 
 function setRevealedFromChain(is){
-  if(revealedKnown)return;
-  revealedKnown=true;
-  if(revealed===is)return;
-  revealed=is;
-  document.querySelectorAll("#revealSeg button").forEach(b=>
-    b.classList.toggle("on",(b.dataset.r==="1")===is));
-  drawKey(preview);renderMarquee();renderColl(true);
+  // Paint regardless: on the first answer the flag already matches the default,
+  // and an early return there left the caption hidden on exactly the sale it
+  // exists for.
+  const moved=chainRevealed!==is;
+  chainRevealed=is;
+  paintSampleNote();
+  if(moved)renderMine();
+}
+
+/* Said out loud wherever finished art appears while the draw has not run.
+   The art is real; which key ends up with it is not decided yet. */
+function paintSampleNote(){
+  document.querySelectorAll("[data-sample-note]").forEach(el=>{
+    el.hidden=chainRevealed;
+  });
 }
 function sealedSVG(id,detail){
   const grid=detail==="grid";
@@ -845,26 +860,26 @@ const markOpened=id=>{
 
 function mineTile(id){
   const n="#"+String(id).padStart(4,"0");
-  const shut=!revealed||!openedSet().has(id);
-  const art=shut?sealedSVG(id,"card"):ART(id,"card");
-  return `<button class="gk mine-key${revealed&&shut?" unopened":""}" data-mine="${id}">
+  const shut=!chainRevealed||!openedSet().has(id);
+  const art=shut?sealedSVG(id,"card"):keySVG(id,"card");
+  return `<button class="gk mine-key${chainRevealed&&shut?" unopened":""}" data-mine="${id}">
     <span class="gk-art"><svg viewBox="0 0 600 600">${art.body}</svg>
-      ${revealed&&shut?'<span class="openlbl">Open</span>':""}</span>
+      ${chainRevealed&&shut?'<span class="openlbl">Open</span>':""}</span>
     <span class="gk-meta"><span>${n}</span>
-      <b>${shut?(revealed?"open it":"sealed"):"T"+ROMAN[art.tier]}</b></span></button>`;
+      <b>${shut?(chainRevealed?"open it":"sealed"):"T"+ROMAN[art.tier]}</b></span></button>`;
 }
 
 document.getElementById("mineGrid")?.addEventListener("click",e=>{
   const b=e.target.closest("[data-mine]");if(!b)return;
   const id=+b.dataset.mine;
-  if(!revealed){
+  if(!chainRevealed){
     paintMsg("The season seed is published after minting closes. Every key opens then.","");
     document.getElementById("mintMsg").hidden=false;
     return;
   }
   if(openedSet().has(id))return void drawKey(id);
   markOpened(id);
-  const art=ART(id,"card");
+  const art=keySVG(id,"card");
   const svg=b.querySelector(".gk-art svg");
   b.querySelector(".openlbl")?.remove();
   b.classList.remove("unopened");
@@ -1148,7 +1163,6 @@ document.getElementById("mineCta")?.addEventListener("click",()=>{
 document.getElementById("revealSeg").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   revealed=b.dataset.r==="1";
-  revealedKnown=true;      // a deliberate choice outlives the next poll
   [...e.currentTarget.children].forEach(x=>x.classList.toggle("on",x===b));
   drawKey(preview);renderMarquee();renderColl(true);
 });
