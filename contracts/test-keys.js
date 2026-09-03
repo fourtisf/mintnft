@@ -461,9 +461,17 @@ async function main() {
       const len = Number(bufferToBigInt(r.ret.subarray(32, 64)));
       return { s: r.ret.subarray(64, 64 + len).toString() };
     };
-    const sealed = await read(1);
-    ok(sealed.s.includes('SEALED') && sealed.s.includes('Unrevealed'),
-      'sebelum reveal token terbaca tersegel, bukan tier karangan');
+    // The engraving is the buyer's from the moment they own it; only the tier
+    // waits. Before, the whole picture waited, and a key was a grey circle for
+    // as long as the season ran.
+    const early = await read(1);
+    ok(early.s.startsWith('data:application/json;base64,'),
+      'sebelum reveal token sudah menyerahkan ukirannya');
+    const earlyJson = Buffer.from(early.s.split(',')[1], 'base64').toString();
+    ok(/"trait_type":"Tier","value":"Not drawn yet"/.test(earlyJson),
+      'dengan tier yang mengaku belum ditarik, bukan Tier I');
+    ok(/"trait_type":"Headwear"/.test(earlyJson) && /"image"/.test(earlyJson),
+      'dan trait beserta gambarnya sudah lengkap');
     ok((await read(2)).err === 'ERC721NonexistentToken', 'token yang tidak ada menolak');
 
     await send(k, 'setPhase(uint8)', u(0));
@@ -472,8 +480,18 @@ async function main() {
     await send(k, 'reveal(bytes32,bytes32)',
       Buffer.concat([b32(secret), b32(keccak256(Buffer.from('eth blok uri')))]));
     const open = await read(1);
-    ok(open.s && open.s.startsWith('data:application/json;base64,') && !open.s.includes('SEALED'),
-      'setelah reveal token menyerahkan artwork sungguhan');
+    ok(open.s && open.s.startsWith('data:application/json;base64,'),
+      'setelah reveal token tetap menyerahkan artwork');
+    const openJson = Buffer.from(open.s.split(',')[1], 'base64').toString();
+    ok(/"trait_type":"Tier","value":"(I|II|III)"/.test(openJson), 'kini dengan tier yang sudah ditarik');
+    // What a holder was shown all season has to be what they end up holding.
+    // The image differs by the tier plate and nothing else, so the check is on
+    // the traits themselves rather than on two base64 blobs.
+    const attrs = j => JSON.parse(j).attributes
+      .filter(a => a.trait_type !== "Tier")
+      .map(a => a.trait_type + "=" + a.value).join(",");
+    ok(attrs(earlyJson) === attrs(openJson) && attrs(earlyJson).includes("Headwear="),
+      'dan selain tier, tidak satu pun trait berubah saat reveal');
 
     ok((await send(k, 'lockRenderer()')).ok, 'lockRenderer berjalan');
     ok((await send(k, 'setRenderer(address)', addr32(ALICE))).err === 'Locked',

@@ -1249,13 +1249,17 @@ function nextR(s){
 
 /* ── seed derivation, mirroring ProofRenderer._seed32 ── */
 const SEASON_SEED=0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7fn;
-function seedFor(id){
-  let x=SEASON_SEED,f=0;
+/* Mirrors ProofRenderer._seed32. A zero seed folds to zero, which is what the
+   engraving is drawn from: the token number and nothing else. */
+function seedFrom(seedBig,id){
+  let x=seedBig,f=0;
   for(let i=0;i<8;i++){f=(f^Number(x&0xffffffffn))>>>0;x>>=32n}
   let s=(f+Math.imul(id,2654435761))>>>0;
   for(let i=0;i<3;i++) s=nextR(s)[0];
   return s;
 }
+const seedFor=id=>seedFrom(0n,id);
+
 
 const ROMAN=["","I","II","III"];
 
@@ -1290,9 +1294,11 @@ const idxI=(v,len)=>Math.floor(v*len/P32);
 const TRAIT_CACHE={};
 function keyTraits(id){
   if(TRAIT_CACHE[id])return TRAIT_CACHE[id];
+  // The engraving comes from the token number alone, so it exists the moment a
+  // key is minted. Only the tier waits for the season seed — that is the half
+  // worth timing a purchase around. Mirrors ProofRenderer.traits() exactly;
+  // parity.js fails the moment either side moves.
   let s=seedFor(id),v;
-  [s,v]=nextR(s); const roll=Math.floor(v*10000/P32);
-  const tier=roll<991?3:roll<3994?2:1;
   let hood,eyes,mask,fit,pal,bg,aura,tone,ph;
   [s,v]=nextR(s); hood=wpickI(v,W_HOOD);
   [s,v]=nextR(s); eyes=wpickI(v,W_EYES);
@@ -1303,6 +1309,12 @@ function keyTraits(id){
   [s,v]=nextR(s); aura=wpickI(v,W_AURA);
   [s,v]=nextR(s); tone=wpickI(v,W_TONE);
   [s,v]=nextR(s); ph  =Math.floor(v*1000/P32);
+  let tier=0;
+  if(SEASON_SEED){
+    let [,r]=nextR(seedFrom(SEASON_SEED,id));
+    const roll=Math.floor(r*10000/P32);
+    tier=roll<991?3:roll<3994?2:1;
+  }
   /* guards: combinations that render as a shapeless dark blob */
   if(hood===3&&eyes===7&&bg===4) bg=0;          // bare head, hollow eyes, dark backdrop
   if(bg>=4&&aura===0&&fit===0) aura=1;          // nothing to separate figure from ground

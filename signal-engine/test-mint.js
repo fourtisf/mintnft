@@ -48,13 +48,14 @@ const S = {
   totalMinted: sel("totalMinted()"), seasonCap: sel("seasonCap()"),
   maxPerWallet: sel("MAX_PER_WALLET()"), revealed: sel("revealed()"),
   recommitCount: sel("recommitCount()"),
+  seed: sel("seed()"),
   mintedBy: sel("mintedBy(address)"),
   tokensOfOwner: sel("tokensOfOwner(address)"),
 };
 
 const P1 = 700000000000000n, P2 = 1700000000000000n, P3 = 3300000000000000n;
 
-const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0, tokens = [],
+const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0, tokens = [], seed = 0,
                  now = P2 } = {}) => ({
   [S.phase]: word(phase),
   [S.price]: word(now),
@@ -66,6 +67,7 @@ const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0, 
   [S.maxPerWallet]: word(5),
   [S.revealed]: word(revealed),
   [S.recommitCount]: word(0),
+  [S.seed]: word(seed),
   [S.mintedBy]: word(mintedBy),
   // A uint256[]: offset, length, then the ids.
   [S.tokensOfOwner]: "0x" + word(32).slice(2) + word(tokens.length).slice(2)

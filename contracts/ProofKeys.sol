@@ -345,21 +345,13 @@ contract ProofKeys is ERC721, ERC2981, Ownable, ReentrancyGuard {
         }
     }
 
+    /// @notice The engraving is available from the moment the key exists —
+    ///         renderer.traits() draws it from the token number. `seed` is zero
+    ///         until reveal(), and the renderer reads that as a tier not yet
+    ///         drawn, so what changes at reveal is one line of metadata rather
+    ///         than the whole picture.
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
-        if (!revealed) {
-            return string(abi.encodePacked(
-                "data:application/json;utf8,",
-                '{"name":"Proof Key #', _toString(tokenId),
-                '","description":"Unrevealed. Tier and artwork are derived from the season seed once it is published.",',
-                '"image":"data:image/svg+xml;utf8,',
-                "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600'>",
-                "<rect width='600' height='600' fill='%230A0C0E'/>",
-                "<circle cx='300' cy='300' r='170' fill='none' stroke='%235B7CFA' stroke-width='1' stroke-dasharray='6 8'/>",
-                "<text x='300' y='308' text-anchor='middle' font-family='monospace' font-size='18' fill='%235B7CFA'>SEALED</text>",
-                "</svg>\"}"
-            ));
-        }
         return renderer.tokenURI(tokenId, seed);
     }
 

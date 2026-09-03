@@ -25,6 +25,7 @@ const CALL = {
   maxPerWallet: sel("MAX_PER_WALLET()"),
   revealed: sel("revealed()"),
   recommitCount: sel("recommitCount()"),
+  seed: sel("seed()"),
 };
 const MINTED_BY = sel("mintedBy(address)");
 const TOKENS_OF = sel("tokensOfOwner(address)");
@@ -138,6 +139,10 @@ export class KeysReader {
       // Public on-chain either way. Printing it is the difference between a
       // safeguard anyone can check and one only a reader who goes looking can.
       recommitCount: Number(word(raw.recommitCount)),
+      // The page draws the engraving without it and the tier only with it, so
+      // an unrevealed season sends nothing rather than a row of zeroes that
+      // would compute a tier for every key.
+      seed: word(raw.seed) === 0n ? null : String(raw.seed),
     };
 
     if (address) {

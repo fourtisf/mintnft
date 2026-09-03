@@ -70,12 +70,21 @@ contract ProofRenderer {
 
     /* ─────────── traits ─────────── */
 
+    /// @notice Two draws, deliberately separate.
+    ///
+    ///         The engraving comes from the token number alone, so it exists
+    ///         the moment a key is minted and never changes. A buyer sees what
+    ///         they bought instead of a placeholder for however long the season
+    ///         runs.
+    ///
+    ///         The tier comes from the season seed, which is committed before
+    ///         minting opens and published after it closes. That is the half
+    ///         worth timing a purchase around, and it is the half nobody —
+    ///         including the deployer — can see in advance. A zero seed means
+    ///         the draw has not run: tier 0, rendered as undrawn rather than
+    ///         as Tier I.
     function traits(uint256 tokenId, bytes32 seed) public pure returns (T memory t) {
-        uint32 s = _seed32(seed, tokenId); uint32 v;
-
-        (s, v) = _next(s);
-        uint256 roll = (uint256(v) * 10000) >> 32;
-        t.tier = roll < 991 ? 3 : (roll < 3994 ? 2 : 1);
+        uint32 s = _seed32(bytes32(0), tokenId); uint32 v;
 
         (s, v) = _next(s); t.hood = _pick(v, _w([uint16(20),16,14,13,12,10,9,6], 8));
         (s, v) = _next(s); t.eyes = _pick(v, _w([uint16(18),16,15,13,12,11,9,6], 8));
@@ -86,6 +95,13 @@ contract ProofRenderer {
         (s, v) = _next(s); t.aura = _pick(v, _w([uint16(38),28,22,12,0,0,0,0], 4));
         (s, v) = _next(s); t.tone = _pick(v, _w([uint16(34),28,22,16,0,0,0,0], 4));
         (s, v) = _next(s); t.ph   = uint16((uint256(v) * 1000) >> 32);
+
+        if (seed != bytes32(0)) {
+            (uint32 d, uint32 r) = _next(_seed32(seed, tokenId));
+            d;
+            uint256 roll = (uint256(r) * 10000) >> 32;
+            t.tier = roll < 991 ? 3 : (roll < 3994 ? 2 : 1);
+        }
 
         t = _guard(t);
     }
@@ -201,7 +217,8 @@ contract ProofRenderer {
             '{"name":"Proof Key ', _pad4(tokenId),
             '","description":"One of 1111 Proof Keys. Tier sets how many seconds early each signal reaches the holder. Artwork and animation are generated on-chain from the token id and the season seed.",',
             '"attributes":[',
-            '{"trait_type":"Tier","value":"', _roman(t.tier), '"},',
+            '{"trait_type":"Tier","value":"',
+            t.tier == 0 ? "Not drawn yet" : _roman(t.tier), '"},',
             '{"trait_type":"Headwear","value":"', _name(0, t.hood), '"},',
             '{"trait_type":"Eyes","value":"', _name(1, t.eyes), '"},',
             '{"trait_type":"Mask","value":"', _name(2, t.mask), '"},',
@@ -242,6 +259,9 @@ contract ProofRenderer {
         return "#39414C";
     }
     function _roman(uint8 t) internal pure returns (string memory) {
+        // 0 is not Tier I. It is a draw that has not happened, and the plate
+        // and the metadata both have to say so rather than round down.
+        if (t == 0) return unicode"—";
         return t == 3 ? "III" : (t == 2 ? "II" : "I");
     }
     function _pad4(uint256 v) internal pure returns (bytes memory) {

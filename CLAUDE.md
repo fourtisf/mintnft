@@ -287,6 +287,16 @@ continuing. Everything else is recoverable; that one is not.
   would let anyone time a transaction onto a Tier III id. `reveal()` refuses
   unless the phase is Closed and `setPhase` will not reopen afterwards. A
   season 2 needs its own commitment, not a second bite at this one.
+- **The engraving is drawn from the token number; only the tier waits for the
+  seed.** `ProofRenderer.traits()` folds a zero seed for appearance and the
+  season seed for tier alone, so a buyer owns a finished key the moment they
+  mint and the draw stays as unguessable as before — the tier is the half worth
+  timing a purchase around, and it is the half nobody can see in advance. A zero
+  seed means the draw has not run: tier 0, rendered "Not drawn yet", never
+  Tier I. `parity.js` proves both halves — 666/666 against the prototype at the
+  sample seed, and 666/666 identical engravings at seed zero with no tier drawn.
+  The first collection sealed the whole picture until reveal and was redeployed
+  for this; keys #0001 and #0002 of that one are abandoned on purpose.
 - Head position is fixed at x=300 in the artwork. The old per-token nudge was
   invisible and forced every shape to be arithmetic instead of a constant
   string, which matters enormously inside a contract.

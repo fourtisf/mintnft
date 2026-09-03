@@ -51,6 +51,27 @@ const seed=Buffer.from('7f'.repeat(32),'hex');
     if(same)ok++;else if(bad.length<3)bad.push([c,t]);
   }
   console.log(`UJI PARITAS  ${ok} / 666 token cocok persis`);
+
+  // The state every buyer sees for the whole season: the engraving is already
+  // final, the tier has not been drawn. If a zero seed ever moved a single
+  // trait, the key someone bought would change under them at reveal.
+  const zero=Buffer.alloc(32);
+  const callZ=id=>vm.evm.runCall({caller:from,to:addr,gasLimit:BigInt(900e6),
+    data:Buffer.concat([selT,Buffer.from(BigInt(id).toString(16).padStart(64,'0'),'hex'),zero])});
+  let same=0,drawn=0;
+  for(const c of chain){
+    const r=await callZ(c.id);
+    const rv=r.execResult.returnValue,w=[];
+    for(let i=0;i<10;i++) w.push(Number('0x'+rv.slice(i*32,(i+1)*32).toString('hex')));
+    if(w[0]!==0)drawn++;
+    if(w[1]===c.hood&&w[2]===c.eyes&&w[3]===c.mask&&w[4]===c.fit&&w[5]===c.pal&&
+       w[6]===c.bg&&w[7]===c.aura&&w[8]===c.tone&&w[9]===c.ph)same++;
+  }
+  console.log(`SEBELUM REVEAL  ${same} / 666 ukiran sama persis, ${drawn} tier tertarik`);
+  if(same!==666||drawn!==0){
+    console.log('GAGAL: ukiran harus sudah final sebelum reveal, dan tier belum ditarik');
+    process.exitCode=1;
+  }
   bad.forEach(([c,t])=>console.log(`  #${c.id} chain[hood=${c.hood} eyes=${c.eyes} bg=${c.bg}] browser[hood=${t.hoodI} eyes=${t.eyesI} bg=${t.bgI}]`));
 
   // gas kasus terburuk

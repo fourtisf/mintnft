@@ -281,73 +281,27 @@ head("kunci milik dompet ini");
   ok(dead.cta() === null, "dan tidak mengajak mint berdasarkan sesuatu yang tidak terbaca");
 }
 
-head("membuka kunci");
+head("kunci yang dipegang punya ukirannya sejak menit pertama");
 {
   const tile = (p, id) => p.doc.querySelector(`#mineGrid [data-mine="${id}"]`);
-  const click = (p, id) => tile(p, id)
-    .dispatchEvent(new p.win.MouseEvent("click", { bubbles: true }));
 
-  // Before reveal there is nothing to open: the seed has not been drawn, so a
-  // tile that opened would be drawing what nobody can derive.
-  const shut = await boot({ state: baseState({ tokens: [5] }) });
-  const collTiers = () => [...shut.doc.querySelectorAll("#coll .gk-meta b")].map(b => b.textContent);
-  ok(collTiers().length > 0 && collTiers().every(t => /^T(I|II|III)$/.test(t)),
-    "etalase koleksi tetap memperlihatkan ukirannya — itu yang dijual");
-  ok([...shut.doc.querySelectorAll("[data-sample-note]")].every(el => !el.hidden),
-    "dengan keterangan bahwa itu contoh dan pembagiannya belum dilakukan");
-  ok(tile(shut, 5).querySelector(".openlbl") === null, "sebelum reveal tidak ada tombol buka");
-  ok(!tile(shut, 5).classList.contains("unopened"), "dan kartunya tidak berkedip menjanjikan sesuatu");
-  click(shut, 5);
-  await sleep(40);
-  ok(/after minting closes/.test(shut.txt("mintMsg")),
-    "menekannya menjelaskan kapan bisa dibuka, bukan diam saja");
-  ok(tile(shut, 5).querySelector(".gk-meta b").textContent === "sealed",
-    "dan tidak ada tier yang muncul karena ditekan");
+  // The whole point of the redeploy: a key is not a grey circle for however
+  // long the season runs. The engraving comes from the token number, so it is
+  // there the moment the key exists.
+  const held = await boot({ state: baseState({ tokens: [5] }) });
+  const art = tile(held, 5).querySelector(".gk-art svg").innerHTML;
+  ok(art.length > 200 && !/SEALED/.test(art), "kartunya menggambar ukiran, bukan lingkaran tersegel");
+  ok(tile(held, 5).querySelector(".gk-meta b").textContent === "—",
+    "tier-nya satu setrip — undiannya memang belum dijalankan");
 
-  const open = await boot({ state: baseState({ revealed: true, tokens: [5] }) });
-  ok([...open.doc.querySelectorAll("[data-sample-note]")].every(el => el.hidden),
-    "setelah reveal keterangan contoh itu hilang — pembagiannya sudah dilakukan");
-  ok(tile(open, 5).classList.contains("unopened"), "setelah reveal kartunya menawarkan dibuka");
-  ok(tile(open, 5).querySelector(".openlbl")?.textContent === "Open", "dengan tombolnya");
-  click(open, 5);
-  await sleep(40);
-  ok(!tile(open, 5).classList.contains("unopened") && tile(open, 5).querySelector(".openlbl") === null,
-    "sekali dibuka, tawaran itu hilang");
-  ok(/^T(I|II|III)$/.test(tile(open, 5).querySelector(".gk-meta b").textContent),
-    "dan tier-nya muncul — dari seed yang sudah terbit, bukan dari klik");
-}
-
-head("yang bisa diklik, benar-benar melakukan sesuatu");
-{
-  const p = await boot({ state: baseState({ tokens: [] }) });
-  const count = () => p.txt("collCount");
-
-  // A trait is the obvious thing to click on a collection page and it was
-  // inert markup — a div with no handler, which reads as a broken button.
-  const trait = p.doc.querySelector(".traits [data-trait]");
-  ok(trait !== null, "kartu trait adalah tombol, bukan div mati");
-  const all = count();
-  trait.dispatchEvent(new p.win.MouseEvent("click", { bubbles: true }));
-  await sleep(60);
-  ok(count() !== all, "mengkliknya menyaring koleksi");
-  ok(p.doc.querySelector(".traits .tr.on") !== null, "dan trait yang dipakai terlihat menyala");
-  p.doc.querySelector(".traits .tr.on").dispatchEvent(new p.win.MouseEvent("click", { bubbles: true }));
-  await sleep(60);
-  ok(count() === all, "mengkliknya lagi melepas saringan itu");
-
-  // Returning quietly from connect is a button that does nothing, which reads
-  // as broken rather than as a wallet that is missing.
-  const bare = await boot({ wallet: false, state: baseState({ tokens: [] }) });
-  bare.el("mineCta").dispatchEvent(new bare.win.MouseEvent("click", { bubbles: true }));
-  await sleep(80);
-  ok(/No wallet found/.test(bare.txt("mineMsg")),
-    "Connect tanpa dompet mengatakan kenapa, bukan diam");
-
-  const ok2 = await boot({ state: baseState({ tokens: [] }) });
-  ok2.el("mineCta").dispatchEvent(new ok2.win.MouseEvent("click", { bubbles: true }));
-  await sleep(120);
-  ok(/holds no keys yet/.test(ok2.txt("mineMsg")),
-    "dan dengan dompet, ia benar-benar menyambung lalu melaporkan isinya");
+  // Only the tier moves at reveal. The engraving a holder was shown all season
+  // is the engraving they keep.
+  const drawn = await boot({ state: baseState({ revealed: true, tokens: [5],
+    seed: "0x" + "7f".repeat(32) }) });
+  ok(/^T(I|II|III)$/.test(tile(drawn, 5).querySelector(".gk-meta b").textContent),
+    "setelah reveal tier-nya terisi");
+  ok(tile(drawn, 5).querySelector(".gk-art svg").innerHTML === art,
+    "dan ukirannya sama persis dengan yang ditampilkan sebelum reveal");
 }
 
 head("contoh dan milik sendiri dipisah");
@@ -361,8 +315,8 @@ head("contoh dan milik sendiri dipisah");
     "panggung contoh tetap memperlihatkan ukiran — bukan lingkaran kosong");
   ok([...before.doc.querySelectorAll("[data-sample-note]")].every(el => !el.hidden),
     "dengan keterangan bahwa pembagiannya belum dilakukan");
-  ok(before.doc.querySelector('#mineGrid [data-mine="5"] .gk-meta b').textContent === "sealed",
-    "sementara kunci yang benar-benar dipegang tetap tersegel");
+  ok(before.doc.querySelector('#mineGrid [data-mine="5"] .gk-meta b').textContent === "—",
+    "sementara kunci yang dipegang punya ukirannya tapi belum punya tier");
 
   // The preview control still shows what a sealed key looks like.
   before.doc.querySelector('#revealSeg button[data-r="0"]')

@@ -203,14 +203,34 @@ function nextR(s){
 }
 
 /* ── seed derivation, mirroring ProofRenderer._seed32 ── */
-const SEASON_SEED=0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7fn;
-function seedFor(id){
-  let x=SEASON_SEED,f=0;
+/* The engraving needs no seed. The tier does, and this page does not have one
+   until the contract publishes it — so before reveal every tier here is a dash,
+   the same thing the contract's own metadata says.
+
+   SAMPLE_SEED is the placeholder the prototype and parity.js share. It is used
+   only to show what a revealed collection looks like, under a caption that says
+   the assignment has not happened. It is never the season's seed. */
+const SAMPLE_SEED=0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7fn;
+let seasonSeed=null;
+
+/* Declared here, not beside the code that uses them: the rarity tables are
+   built at load time and read a tier, so a `let` further down is a temporal
+   dead zone the whole page falls into. */
+let revealed=true;
+let chainRevealed=false;
+
+const SEASON_SEED_OF=()=>seasonSeed??(revealed?SAMPLE_SEED:null);
+/* Mirrors ProofRenderer._seed32. A zero seed folds to zero, which is what the
+   engraving is drawn from: the token number and nothing else. */
+function seedFrom(seedBig,id){
+  let x=seedBig,f=0;
   for(let i=0;i<8;i++){f=(f^Number(x&0xffffffffn))>>>0;x>>=32n}
   let s=(f+Math.imul(id,2654435761))>>>0;
   for(let i=0;i<3;i++) s=nextR(s)[0];
   return s;
 }
+const seedFor=id=>seedFrom(0n,id);
+
 
 const ROMAN=["","I","II","III"];
 
@@ -242,12 +262,15 @@ function wpickI(v,w){
 }
 const idxI=(v,len)=>Math.floor(v*len/P32);
 
-const TRAIT_CACHE={};
+let TRAIT_CACHE={};
 function keyTraits(id){
-  if(TRAIT_CACHE[id])return TRAIT_CACHE[id];
+  const ck=id+":"+(SEASON_SEED_OF()??"none");
+  if(TRAIT_CACHE[ck])return TRAIT_CACHE[ck];
+  // The engraving comes from the token number alone, so it exists the moment a
+  // key is minted. Only the tier waits for the season seed — that is the half
+  // worth timing a purchase around. Mirrors ProofRenderer.traits() exactly;
+  // parity.js fails the moment either side moves.
   let s=seedFor(id),v;
-  [s,v]=nextR(s); const roll=Math.floor(v*10000/P32);
-  const tier=roll<991?3:roll<3994?2:1;
   let hood,eyes,mask,fit,pal,bg,aura,tone,ph;
   [s,v]=nextR(s); hood=wpickI(v,W_HOOD);
   [s,v]=nextR(s); eyes=wpickI(v,W_EYES);
@@ -258,6 +281,13 @@ function keyTraits(id){
   [s,v]=nextR(s); aura=wpickI(v,W_AURA);
   [s,v]=nextR(s); tone=wpickI(v,W_TONE);
   [s,v]=nextR(s); ph  =Math.floor(v*1000/P32);
+  let tier=0;
+  const ss=SEASON_SEED_OF();
+  if(ss){
+    let [,r]=nextR(seedFrom(ss,id));
+    const roll=Math.floor(r*10000/P32);
+    tier=roll<991?3:roll<3994?2:1;
+  }
   /* guards: combinations that render as a shapeless dark blob */
   if(hood===3&&eyes===7&&bg===4) bg=0;          // bare head, hollow eyes, dark backdrop
   if(bg>=4&&aura===0&&fit===0) aura=1;          // nothing to separate figure from ground
@@ -269,7 +299,7 @@ function keyTraits(id){
     palI:pal,pal:PAL[pal],        bgI:bg,bg:BG_N[bg],
     auraI:aura,aura:AURA_N[aura], toneI:tone,tone:TONE_N[tone],
     toneC:TONE_C[tone], ph};
-  TRAIT_CACHE[id]=t;return t;
+  TRAIT_CACHE[ck]=t;return t;
 }
 
 /* ─────────── character renderer ───────────
@@ -487,8 +517,13 @@ function renderTraits(id){
 
    `chainRevealed` is what the contract says, and it governs the only thing
    that is a claim about a real token: the keys a wallet actually holds. */
-let revealed=true;
-let chainRevealed=false;
+function setSeasonSeed(hex){
+  const v=/^0x[0-9a-fA-F]{64}$/.test(String(hex??""))&&BigInt(hex)!==0n?BigInt(hex):null;
+  if(v===seasonSeed)return;
+  seasonSeed=v;
+  TRAIT_CACHE={};
+  drawKey(preview);renderMarquee();renderColl(true);renderMine();
+}
 
 function setRevealedFromChain(is){
   // Paint regardless: on the first answer the flag already matches the default,
@@ -848,28 +883,26 @@ function renderMine(){
   grid.querySelectorAll("[data-lazy]").forEach(el=>keyIO.observe(el));
 }
 
-/* Opening is a real event, not a flourish: before reveal() the artwork does
-   not exist, so a tile that let itself be opened would be drawing something
-   nobody can derive. The button appears only once the chain says the seed is
-   out, and each key opens once — which is what localStorage is for, and why
-   it not being there costs nothing but a second opening. */
-const OPENED="nekara.opened";
-const openedSet=()=>{
-  try{return new Set(JSON.parse(localStorage.getItem(OPENED)??"[]"))}catch{return new Set}
-};
-const markOpened=id=>{
-  try{const s=openedSet();s.add(id);localStorage.setItem(OPENED,JSON.stringify([...s]))}catch{}
-};
+/* The tier of a key somebody owns comes from the season seed or from nowhere.
+   The showcase may fall back to a sample seed to show what a revealed
+   collection looks like; a key with an owner may not. */
+function ownedTier(id){
+  if(!seasonSeed)return 0;
+  const [,r]=nextR(seedFrom(seasonSeed,id));
+  const roll=Math.floor(r*10000/P32);
+  return roll<991?3:roll<3994?2:1;
+}
 
 function mineTile(id){
   const n="#"+String(id).padStart(4,"0");
-  const shut=!chainRevealed||!openedSet().has(id);
-  const art=shut?sealedSVG(id,"card"):keySVG(id,"card");
-  return `<button class="gk mine-key${chainRevealed&&shut?" unopened":""}" data-mine="${id}">
-    <span class="gk-art"><svg viewBox="0 0 600 600">${art.body}</svg>
-      ${chainRevealed&&shut?'<span class="openlbl">Open</span>':""}</span>
+  const art=keySVG(id,"card");
+  const tier=ownedTier(id);
+  // The engraving is the holder's from the moment they own it. What waits is
+  // the tier, and only that.
+  return `<button class="gk mine-key" data-mine="${id}">
+    <span class="gk-art"><svg viewBox="0 0 600 600">${art.body}</svg></span>
     <span class="gk-meta"><span>${n}</span>
-      <b>${shut?(chainRevealed?"open it":"sealed"):"T"+ROMAN[art.tier]}</b></span></button>`;
+      <b>${tier?"T"+ROMAN[tier]:"—"}</b></span></button>`;
 }
 
 /* Clicking a key changes the stage, which by then is well above the fold. The
@@ -894,21 +927,8 @@ document.getElementById("traits")?.addEventListener("click",e=>{
 
 document.getElementById("mineGrid")?.addEventListener("click",e=>{
   const b=e.target.closest("[data-mine]");if(!b)return;
-  const id=+b.dataset.mine;
-  if(!chainRevealed){
-    paintMsg("The season seed is published after minting closes. Every key opens then.","");
-    document.getElementById("mintMsg").hidden=false;
-    return;
-  }
-  if(openedSet().has(id))return void drawKey(id);
-  markOpened(id);
-  const art=keySVG(id,"card");
-  const svg=b.querySelector(".gk-art svg");
-  b.querySelector(".openlbl")?.remove();
-  b.classList.remove("unopened");
-  svg.innerHTML=art.body;
-  svg.classList.remove("blooming");void svg.offsetWidth;svg.classList.add("blooming");
-  b.querySelector(".gk-meta b").textContent="T"+ROMAN[art.tier];
+  drawKey(+b.dataset.mine);
+  document.getElementById("keyArt")?.scrollIntoView({behavior:"smooth",block:"center"});
 });
 
 function paintMsg(text,kind){
@@ -989,7 +1009,10 @@ async function loadMintState(){
     const r=await fetch(API+"/keys/state"+(who?"?address="+who:""),noStore());
     const j=await r.json();
     MINT.state=j.state??null;
-    if(MINT.state)setRevealedFromChain(!!MINT.state.revealed);
+    if(MINT.state){
+      setRevealedFromChain(!!MINT.state.revealed);
+      setSeasonSeed(MINT.state.seed);
+    }
   }catch{
     // Unreachable is a state, not a zero.
     MINT.state=null;

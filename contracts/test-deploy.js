@@ -314,7 +314,11 @@ const ROOT = path.join(__dirname, '..');
     await (await c.setPhase(2)).wait();
     await (await c.mintPublic(1, { value: await c.currentPrice() })).wait();
     const uri = await c.tokenURI(1);
-    ok(uri.includes('SEALED'), 'token pertama terbaca tersegel lewat renderer sungguhan');
+    const meta = JSON.parse(Buffer.from(uri.split(',')[1], 'base64').toString());
+    ok(/^data:image\/svg\+xml/.test(meta.image ?? ''),
+      'token pertama menyerahkan ukirannya lewat renderer sungguhan');
+    ok(meta.attributes.some(a => a.trait_type === 'Tier' && a.value === 'Not drawn yet'),
+      'dengan tier yang belum ditarik, karena seed musim belum terbit');
     await (await c.setPhase(0)).wait();
   }
 
