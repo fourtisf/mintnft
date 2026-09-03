@@ -762,14 +762,11 @@ function dueFor(st,n,unit){
   let t=0n;for(let i=0;i<n;i++)t+=wei(list[i]);return t;
 }
 const w256=v=>BigInt(v).toString(16).padStart(64,"0");
-const b32=h=>String(h).replace(/^0x/,"").padStart(64,"0");
-
-/* mintPublic(uint256) and mintAllowlist(uint256,bytes32[]). The selectors come
-   from the engine, which derives them from the signatures — a selector typed
-   in here would go on matching a function after it was renamed. */
-function calldata(sel,q,proof){
-  if(!proof)return sel+w256(q);
-  return sel+w256(q)+w256(0x40)+w256(proof.length)+proof.map(b32).join("");
+/* mintPublic(uint256). The selector comes from the engine, which derives it
+   from the signature — one typed in here would go on matching a function
+   after it was renamed. */
+function calldata(sel,q){
+  return sel+w256(q);
 }
 
 function paintMsg(text,kind){
