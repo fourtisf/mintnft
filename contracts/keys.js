@@ -188,6 +188,66 @@ const reachReport = r => {
   return `\nmenguji ${r.host}:${r.port} per keluarga alamat:\n${rows.join('\n')}\n${blame}`;
 };
 
+/**
+ * An endpoint that answers eth_chainId is not therefore an endpoint that can
+ * deploy. Free tiers exist that serve a handful of methods and reject the rest
+ * with -32601, and the first three commands here happen to be inside that
+ * handful — so the endpoint reads healthy right up to the call that matters.
+ * Discovering it mid-deploy costs a half-finished collection and a nonce that
+ * blocks the retry, so ask for every method the deploy will use, before
+ * anything is sent.
+ *
+ * eth_sendRawTransaction is deliberately not probed: the only honest probe is
+ * a transaction. It is reported as untested rather than assumed present.
+ */
+const DEPLOY_METHODS = a => [
+  ['eth_chainId', []],
+  ['eth_blockNumber', []],
+  ['eth_gasPrice', []],
+  ['eth_getBalance', [a, 'latest']],
+  ['eth_getTransactionCount', [a, 'latest']],
+  ['eth_getBlockByNumber', ['latest', false]],
+  ['eth_call', [{ to: a, data: '0x' }, 'latest']],
+  ['eth_estimateGas', [{ from: a, to: a, value: '0x0' }]],
+  ['eth_getTransactionReceipt', ['0x' + '00'.repeat(32)]],
+];
+
+async function methodSupport(url, address) {
+  const rows = [];
+  for (const [method, params] of DEPLOY_METHODS(address)) {
+    try {
+      const r = await withTimeout(fetch(url, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      }), method, 15000);
+      const j = await r.json();
+      // A null result is an answer. A receipt that does not exist is not a
+      // method that does not exist, and the two must not print alike.
+      if (!j.error) rows.push({ method, how: 'ada' });
+      else rows.push({ method, how: j.error.code === -32601 ? 'TIDAK ADA' : 'galat',
+                       why: `${j.error.code}: ${j.error.message}` });
+    } catch (e) {
+      rows.push({ method, how: 'gagal', why: e.message });
+    }
+  }
+  return rows;
+}
+
+/** Prints the probe and answers one question: can this endpoint deploy. */
+async function reportMethods(url, address) {
+  const rows = await methodSupport(url, address);
+  console.log('\n  metode yang dipakai deploy:');
+  for (const r of rows) console.log(`    ${r.method.padEnd(28)}${r.how}${r.why ? '  ' + r.why : ''}`);
+  console.log(`    ${'eth_sendRawTransaction'.padEnd(28)}tidak diuji — satu-satunya ujinya adalah mengirim`);
+
+  const bad = rows.filter(r => r.how !== 'ada');
+  if (!bad.length) return true;
+  console.error(`\n${bad.length} metode tidak dilayani endpoint ini: ${bad.map(b => b.method).join(', ')}.\n`
+    + 'Deploy akan berhenti di tengah — sebagian kontrak sudah berdiri, dan nonce\n'
+    + 'yang bukan nol menghalangi percobaan ulang. Ganti endpoint dulu.');
+  return false;
+}
+
 /* ─────────── Ethereum mainnet, read only ─────────── */
 
 /**
@@ -320,6 +380,12 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   const balance = await signer.getBalance();
   console.log(`chain ${chainId}   deployer ${await signer.getAddress()}   saldo ${eth(balance)} ETH`);
   console.log(`owner  ${owner}\n`);
+
+  // Three transactions go out back to back. An endpoint that serves the first
+  // and refuses the third leaves a collection half-built, so the question is
+  // asked once, here, while nothing has been sent.
+  if (!(await reportMethods(env('DEPLOY_RPC'), await signer.getAddress()))) process.exit(1);
+  console.log('');
 
   const existing = loadDeployed(chainId);
   if (existing && !argv.again) {
@@ -544,8 +610,17 @@ const USAGE = `
   const confirm = !!argv.confirm;
 
   if (cmd === 'ping') {
-    console.log(`DEPLOY_RPC  ${env('DEPLOY_RPC')}\n  chain ${chainId}, blok `
-      + `${await retry(() => ctx.provider.getBlockNumber(), 'DEPLOY_RPC')}`);
+    console.log(`DEPLOY_RPC  ${env('DEPLOY_RPC')}\n  chain ${chainId}`);
+
+    // Before any ethers call: a missing method surfaces through ethers as a
+    // retried "bad response", which reads like a flaky endpoint rather than
+    // one that will never answer.
+    if (ctx.signer && !(await reportMethods(env('DEPLOY_RPC'), await ctx.signer.getAddress()))) {
+      process.exitCode = 1;
+      return;
+    }
+
+    console.log(`  blok ${await retry(() => ctx.provider.getBlockNumber(), 'DEPLOY_RPC')}`);
     if (ctx.signer) {
       const a = await ctx.signer.getAddress();
       const [bal, nonce] = await Promise.all([
@@ -554,6 +629,7 @@ const USAGE = `
       ]);
       console.log(`  deployer ${a}  saldo ${eth(bal)} ETH  transaksi terkirim ${nonce}`);
     }
+
     if (!env('ETH_RPC')) return void console.log('\nETH_RPC belum diisi — commit dan reveal butuh itu');
     const l1 = await ethMainnet();
     console.log(`\nETH_RPC     ${env('ETH_RPC')}\n  chain 1, blok ${await l1.head()}`);

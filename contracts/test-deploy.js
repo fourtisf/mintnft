@@ -199,6 +199,60 @@ const ROOT = path.join(__dirname, '..');
     await new Promise(res => html.close(res));
   }
 
+  /* ═══════ an endpoint that serves some methods and not others ═══════ */
+  head('endpoint yang melayani sebagian metode saja');
+  {
+    // A real free tier did exactly this: eth_chainId answered, eth_blockNumber
+    // came back -32601. Every early command sits inside the methods it does
+    // serve, so the endpoint reads healthy until the call that matters — and
+    // the call that matters is in the middle of a three-transaction deploy.
+    const partial = require('node:http').createServer((req, res) => {
+      let body = '';
+      req.on('data', c => { body += c; });
+      req.on('end', () => {
+        const { id, method } = JSON.parse(body);
+        const answer = method === 'eth_blockNumber'
+          ? { id, jsonrpc: '2.0', error: { code: -32601, message: 'the method eth_blockNumber does not exist/is not available' } }
+          : { id, jsonrpc: '2.0', result: method === 'eth_chainId' ? '0xb626' : '0x1' };
+        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(answer));
+      });
+    });
+    await new Promise(r => partial.listen(0, '127.0.0.1', r));
+    const url = `http://127.0.0.1:${partial.address().port}`;
+
+    const r = await new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), 'ping'], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: url, DEPLOY_PK: owner.privateKey,
+               ETH_RPC: '', RPC_TIMEOUT_MS: '5000', RPC_ATTEMPTS: '2',
+               KEYS_OUT: OUT, KEYS_CONTRACT: '', KEYS_ENV: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+
+    ok(r.code !== 0, 'ping menolak endpoint yang tidak bisa menyelesaikan deploy');
+    ok(/eth_blockNumber\s+TIDAK ADA/.test(r.out), 'menyebut metode mana yang hilang');
+    ok(/eth_chainId\s+ada/.test(r.out), 'sambil mengakui yang memang dilayani — bukan vonis borongan');
+    ok(/-32601/.test(r.out), 'beserta kode galat aslinya');
+    ok(/setengah|berhenti di tengah/.test(r.out), 'dan mengatakan akibatnya kalau tetap diteruskan');
+    ok(!/saldo/.test(r.out), 'berhenti sebelum membaca apa pun lagi, bukan lima kali coba lagi');
+    ok(/tidak diuji/.test(r.out),
+      'eth_sendRawTransaction dilaporkan tidak diuji, bukan dianggap ada');
+
+    const d = await new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), 'deploy', '--owner', owner.address], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: url, DEPLOY_PK: owner.privateKey,
+               ETH_RPC: '', RPC_TIMEOUT_MS: '5000', RPC_ATTEMPTS: '2',
+               KEYS_OUT: OUT, KEYS_CONTRACT: '', KEYS_ENV: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+    ok(d.code !== 0 && /TIDAK ADA/.test(d.out),
+      'dan deploy menanyakannya sendiri, tidak bergantung pada operator menjalankan ping dulu');
+    ok(!/DRY RUN/.test(d.out), 'berhenti sebelum mencetak rencana yang tidak bisa dijalankan');
+
+    await new Promise(res => partial.close(res));
+  }
+
   /* ═══════ ping ═══════ */
   head('ping');
   {
