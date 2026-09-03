@@ -372,11 +372,28 @@ async function send(label, contract, method, args, { confirm, value = 0 } = {}) 
 
   if (!confirm) { console.log('\n  DRY RUN — tambahkan --confirm untuk benar-benar mengirim.'); return null; }
 
-  const tx = await contract[method](...args, { value, gasLimit: gas.mul(12).div(10) });
+  const tx = await contract[method](...args,
+    { value, gasLimit: gas.mul(12).div(10), ...(await feeFields(contract.provider)) });
   console.log(`  tx      ${tx.hash}`);
   const r = await tx.wait();
   console.log(`  block   ${r.blockNumber}  gas terpakai ${r.gasUsed.toString()}`);
   return r;
+}
+
+/**
+ * Nitro prices gas from one L2 base fee and has no priority-fee auction worth
+ * bidding into, but ethers still guesses EIP-1559 numbers meant for Ethereum:
+ * on this chain it offered 2.4 gwei against a base fee of 0.455. The fee itself
+ * would refund down — the reserve does not. A sender must hold
+ * gasLimit x maxFeePerGas up front, so a five-fold guess turns a wallet with
+ * twice the money it needs into INSUFFICIENT_FUNDS.
+ *
+ * So the fee is stated rather than guessed, from the price this chain just
+ * quoted, doubled for the minutes between reading it and landing.
+ */
+async function feeFields(provider) {
+  const price = await retry(() => provider.getGasPrice(), 'harga gas');
+  return { maxFeePerGas: price.mul(2), maxPriorityFeePerGas: ethers.BigNumber.from(0) };
 }
 
 /* ─────────── subcommands ─────────── */
@@ -469,6 +486,10 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
     + 'harga, commit, fase, reveal, withdraw');
   console.log(`\n  total     ${gas} gas @ ${ethers.utils.formatUnits(price, 'gwei')} gwei`);
   console.log(`  perkiraan biaya  ${eth(cost, 8)} ETH${estimated ? '' : '   (dari pengukuran lokal — node menolak mengestimasi)'}`);
+  // The number that decides whether this goes through is not the fee: it is
+  // what the sender must hold while each transaction is in flight.
+  const reserve = (gas * 12n / 10n) * price.toBigInt() * 2n;
+  console.log(`  ditahan sementara ${eth(reserve, 8)} ETH   (batas gas x fee maksimum, dikembalikan)`);
   console.log(`  saldo Anda       ${eth(balance, 8)} ETH`);
 
   // On Nitro the fee also carries the cost of posting this data to Ethereum,
@@ -478,8 +499,10 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   console.log('  mengirim data kontrak ke Ethereum, yang tidak terlihat dari sini.');
   console.log('  Kirim lebih dari angka di atas, jangan pas-pasan.');
 
-  if (balance.toBigInt() < cost) {
-    console.log(`\n  SALDO KURANG — butuh sekitar ${eth(cost - balance.toBigInt(), 8)} ETH lagi, di chain ${chainId}.`);
+  if (balance.toBigInt() < reserve) {
+    console.log(`\n  SALDO KURANG — butuh sekitar ${eth(reserve - balance.toBigInt(), 8)} ETH lagi, di chain ${chainId}.`);
+    console.log('  Sebagian besar itu ditahan, bukan dibelanjakan: selisihnya kembali');
+    console.log('  begitu transaksinya masuk blok.');
   }
 
   if (!confirm) {
@@ -493,7 +516,8 @@ async function cmdDeploy(argv, { provider, signer }, chainId, confirm) {
   // The margin is the same 20% the admin path uses: the number came from an
   // estimate against this chain, and a deploy that runs out of gas mid-flight
   // costs the fee and leaves nothing behind.
-  const lim = name => ({ gasLimit: ethers.BigNumber.from(limitOf[name]).mul(12).div(10) });
+  const fee = await feeFields(provider);
+  const lim = name => ({ gasLimit: ethers.BigNumber.from(limitOf[name]).mul(12).div(10), ...fee });
 
   console.log('\nmengirim…');
   const parts = await factory(b.parts).deploy(lim('ProofParts'));

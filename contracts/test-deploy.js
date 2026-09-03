@@ -290,6 +290,37 @@ const ROOT = path.join(__dirname, '..');
     ok(!fs.existsSync(deployedPath), 'tidak ada alamat yang ditulis');
   }
 
+  /* ═══════ what the sender must hold, not what it will spend ═══════ */
+  head('dana yang ditahan selama transaksi terbang');
+  {
+    // The dry run said the deploy cost 0.0044 and the wallet held 0.0073, so it
+    // said go — and the send came back INSUFFICIENT_FUNDS. A sender has to hold
+    // gasLimit x maxFeePerGas while each transaction is in flight, and only the
+    // difference comes back. Quoting the fee and checking the balance against
+    // something smaller is a dry run that clears a deploy it cannot pay for.
+    const poor = ethers.Wallet.createRandom();
+    const OUT5 = fs.mkdtempSync(path.join(os.tmpdir(), 'nekara-hold-'));
+    const run = (pk, out) => new Promise(resolve => {
+      execFile('node', [path.join(__dirname, 'keys.js'), 'deploy', '--owner', owner.address], {
+        cwd: ROOT,
+        env: { ...process.env, DEPLOY_RPC: rpc.url, DEPLOY_PK: pk,
+               ETH_RPC: l1.url, DEPLOY_POLL_MS: '10', KEYS_OUT: out, KEYS_CONTRACT: '', KEYS_ENV: '' },
+      }, (err, stdout, stderr) => resolve({ code: err ? err.code ?? 1 : 0, out: stdout + stderr }));
+    });
+
+    const rich = await run(owner.privateKey, OUT5);
+    ok(/ditahan sementara\s+[\d.]+ ETH/.test(rich.out),
+      'dry run menyebut berapa yang harus dipegang, bukan hanya berapa yang habis');
+    ok(!/SALDO KURANG/.test(rich.out), 'dan dompet yang cukup diloloskan');
+
+    const broke = await run(poor.privateKey, OUT5);
+    ok(/SALDO KURANG/.test(broke.out), 'dompet kosong ditolak');
+    ok(/ditahan, bukan dibelanjakan/.test(broke.out),
+      'dengan penjelasan bahwa sebagian besarnya kembali — bukan angka yang terbaca sebagai biaya');
+
+    fs.rmSync(OUT5, { recursive: true, force: true });
+  }
+
   /* ═══════ an estimate that works small and fails big ═══════ */
   head('estimasi yang sanggup kecil tapi tidak sanggup besar');
   {
