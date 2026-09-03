@@ -480,6 +480,69 @@ async function main() {
       'renderer terkunci selamanya, termasuk dari owner');
   }
 
+  /* ═══════════════ resale share ═══════════════ */
+  head('royalti dan metadata koleksi');
+  {
+    block = at(4500);
+    const k = await fresh();
+
+    const str = r => {
+      const len = Number(bufferToBigInt(r.ret.subarray(32, 64)));
+      return r.ret.subarray(64, 64 + len).toString();
+    };
+    const supports = async id => {
+      const r = await send(k, 'supportsInterface(bytes4)',
+        Buffer.concat([Buffer.from(id, 'hex'), Buffer.alloc(28)]));
+      return r.ok && bufferToBigInt(r.ret) === 1n;
+    };
+    // A marketplace decides whether a collection has royalties by asking this
+    // one question. Adding ERC2981 to a contract whose supportsInterface still
+    // answers no is the failure that looks exactly like success.
+    ok(await supports('2a55205a'), 'supportsInterface mengakui ERC-2981');
+    ok(await supports('80ac58cd'), 'dan ERC-721 tidak hilang karenanya');
+    ok(!(await supports('deadbeef')), 'sementara antarmuka karangan tetap ditolak');
+
+    const royalty = async (sale) => {
+      const r = await send(k, 'royaltyInfo(uint256,uint256)', Buffer.concat([u(1), u(sale)]));
+      return { to: '0x' + r.ret.subarray(12, 32).toString('hex'),
+               amount: bufferToBigInt(r.ret.subarray(32, 64)) };
+    };
+    const d = await royalty(10000);
+    ok(d.to.toLowerCase() === OWNER.toString().toLowerCase(),
+      'royalti default menunjuk owner, bukan deployer atau alamat kosong');
+    ok(d.amount === 500n, 'dan 5% — 500 dari 10000');
+
+    ok((await send(k, 'setRoyalty(address,uint96)',
+      Buffer.concat([addr32(ALICE), u(250)]), { from: STRANGER })).err === 'OwnableUnauthorizedAccount',
+      'orang lain tidak bisa mengalihkan royalti ke dirinya sendiri');
+
+    const moved = await send(k, 'setRoyalty(address,uint96)', Buffer.concat([addr32(ALICE), u(250)]));
+    ok(moved.ok && has(moved.logs, 'RoyaltySet(address,uint96)'), 'owner memindahkannya, dengan event');
+    const after = await royalty(10000);
+    ok(after.to.toLowerCase() === ALICE.toString().toLowerCase() && after.amount === 250n,
+      'dan pembacaan berikutnya memakai angka baru');
+
+    // The ceiling is what makes "5%" readable as a promise: a buyer today can
+    // see the worst case for as long as they hold the key.
+    ok((await send(k, 'setRoyalty(address,uint96)',
+      Buffer.concat([addr32(OWNER), u(1001)]))).err === 'BadRoyalty',
+      'di atas 10% ditolak, termasuk dari owner');
+    ok((await send(k, 'setRoyalty(address,uint96)', Buffer.concat([addr32(OWNER), u(1000)]))).ok,
+      'tepat 10% masih boleh — batasnya inklusif');
+
+    const ci = str(await send(k, 'contractURI()', Buffer.alloc(0), { gas: 900e6 }));
+    ok(ci.startsWith('data:application/json'), 'contractURI adalah data URI, bukan URL ke server');
+    ok(ci.includes('"name":"Proof Keys"'), 'berisi nama koleksi');
+    ok(ci.includes('data:image/svg+xml'), 'dan logonya ikut di dalam chain');
+    // w3.org here is the SVG namespace, which is a name and never fetched.
+    // Anything else would be a host this collection's identity depends on.
+    const fetched = (ci.match(/https?:\/\/[^'"\s)]+/g) || [])
+      .filter(x => !x.startsWith('http://www.w3.org/2000/svg')
+                && !x.startsWith('https://nekara.xyz/'));
+    ok(fetched.length === 0,
+      `tidak ada host lain yang harus tetap hidup agar koleksi ini punya identitas${fetched.length ? ' — ' + fetched.join(', ') : ''}`);
+  }
+
   /* ═══════════════ money out ═══════════════ */
   head('withdraw dan reentrancy');
   {

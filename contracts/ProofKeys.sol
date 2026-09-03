@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/common/ERC2981.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
@@ -21,7 +22,7 @@ interface IProofRenderer {
 ///         Tier is NOT known at mint. It is derived from a single season seed
 ///         committed before minting opens and revealed after it closes, so
 ///         nobody - including the deployer - can pick which token gets Tier III.
-contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
+contract ProofKeys is ERC721, ERC2981, Ownable, ReentrancyGuard {
     /* ─────────── supply ─────────── */
 
     uint256 public constant MAX_SUPPLY     = 1111;
@@ -56,6 +57,22 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     uint256 public priceThree = 0.0033 ether;   // ~$10
 
     mapping(address => uint256) public mintedBy;
+
+    /* ─────────── royalty ─────────── */
+
+    /// @notice A share of every resale, declared on-chain under ERC-2981.
+    ///
+    ///         Declared, not enforced: the standard is an interface a
+    ///         marketplace may read and honour, and several do not. Treat what
+    ///         arrives as a share of resales, never as all of them. It is here
+    ///         because it costs almost nothing and cannot be added to a
+    ///         deployed contract — not because it guarantees anything.
+    uint96 public constant DEFAULT_ROYALTY_BPS = 500;    // 5%
+
+    /// @dev The ceiling exists so a buyer can read one number today and know
+    ///      what the worst case is for as long as they hold the key. Without
+    ///      it, "5%" is a promise the owner can revise after the sale.
+    uint96 public constant MAX_ROYALTY_BPS = 1000;       // 10%
 
     /* ─────────── reveal ─────────── */
 
@@ -113,6 +130,7 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     event SeasonOpened(uint256 seasonCap);
     event PricesSet(uint256 priceOne, uint256 priceTwo, uint256 priceThree);
     event RendererLocked(address renderer);
+    event RoyaltySet(address receiver, uint96 bps);
 
     /* ─────────── errors ─────────── */
 
@@ -131,12 +149,14 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     error BadPrice();
     error Locked();
     error TransferFailed();
+    error BadRoyalty();
 
     constructor(address renderer_, address owner_)
         ERC721("Proof Keys", "PROOF")
         Ownable(owner_)
     {
         renderer = IProofRenderer(renderer_);
+        _setDefaultRoyalty(owner_, DEFAULT_ROYALTY_BPS);
     }
 
     /* ─────────── minting ─────────── */
@@ -386,6 +406,41 @@ contract ProofKeys is ERC721, Ownable, ReentrancyGuard {
     function lockRenderer() external onlyOwner {
         rendererLocked = true;
         emit RendererLocked(address(renderer));
+    }
+
+    /// @notice Moves the resale share, or the address it pays. Bounded by
+    ///         MAX_ROYALTY_BPS, so this can lower the number a holder was told
+    ///         but never raise it past the ceiling they bought under.
+    function setRoyalty(address receiver, uint96 bps) external onlyOwner {
+        if (bps > MAX_ROYALTY_BPS) revert BadRoyalty();
+        _setDefaultRoyalty(receiver, bps);
+        emit RoyaltySet(receiver, bps);
+    }
+
+    /// @notice Collection-level metadata: the name, blurb and logo a
+    ///         marketplace shows above the grid. On-chain for the same reason
+    ///         the artwork is — a collection whose identity is fetched from a
+    ///         web server is one that changes the day that server does.
+    function contractURI() public pure returns (string memory) {
+        return string(abi.encodePacked(
+            "data:application/json;utf8,",
+            '{"name":"Proof Keys",',
+            '"description":"666 access keys to the Proof register. Tier decides how many seconds early a published signal reaches the holder: Tier I 10s, Tier II 5s, Tier III instant. Tier is drawn from a season seed committed before minting opened and revealed only after it closed, so nobody - the deployer included - chose which key got which.",',
+            '"external_link":"https://nekara.xyz/keys",',
+            '"image":"data:image/svg+xml;utf8,',
+            "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600'>",
+            "<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>",
+            "<stop offset='0' stop-color='%235B7CFA'/><stop offset='1' stop-color='%239B6DFF'/>",
+            "</linearGradient></defs>",
+            "<rect width='600' height='600' fill='%23090B0D'/>",
+            "<circle cx='300' cy='300' r='170' fill='none' stroke='url(%23g)' stroke-width='2'/>",
+            "<text x='300' y='312' text-anchor='middle' font-family='monospace' font-size='34' fill='url(%23g)'>PROOF</text>",
+            "</svg>\"}"
+        ));
+    }
+
+    function supportsInterface(bytes4 id) public view override(ERC721, ERC2981) returns (bool) {
+        return super.supportsInterface(id);
     }
 
     function withdraw(address payable to) external onlyOwner nonReentrant {
