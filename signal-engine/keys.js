@@ -27,6 +27,22 @@ const CALL = {
   recommitCount: sel("recommitCount()"),
 };
 const MINTED_BY = sel("mintedBy(address)");
+const TOKENS_OF = sel("tokensOfOwner(address)");
+
+/** A uint256[] comes back as offset, length, then the elements. Nothing here
+ *  trusts the length: a node that answers with a truncated body would
+ *  otherwise turn into a list of keys the holder does not own. */
+function words(hexResult) {
+  const body = String(hexResult ?? "").replace(/^0x/, "");
+  if (body.length < 128) return [];
+  const at = i => body.slice(i * 64, (i + 1) * 64);
+  const offset = Number(BigInt("0x" + at(0))) / 32;
+  const len = Number(BigInt("0x" + at(offset)));
+  const have = body.length / 64 - offset - 1;
+  const out = [];
+  for (let i = 0; i < Math.min(len, have); i++) out.push(Number(BigInt("0x" + at(offset + 1 + i))));
+  return out;
+}
 
 /**
  * The two selectors the browser needs to build a transaction. They are derived
@@ -128,6 +144,15 @@ export class KeysReader {
       state.address = address.toLowerCase();
       state.mintedBy = Number(word(raw.mintedBy));
       state.remaining = Math.max(0, state.maxPerWallet - state.mintedBy);
+      // What the wallet holds now, not what it once minted: a key that was
+      // sold on is gone from here and still counted by mintedBy, which is the
+      // per-wallet limit and never moves.
+      //
+      // Read on its own and allowed to fail on its own. A node that cannot
+      // answer this one should cost the holder their list, not the price and
+      // the supply and the mint button along with it.
+      try { state.tokens = words(await this.#call(TOKENS_OF + addrArg(address))); }
+      catch { state.tokens = null; }
       Object.assign(state, this.entitlement(address, state));
     }
 

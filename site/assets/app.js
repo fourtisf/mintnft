@@ -787,6 +787,48 @@ function calldata(sel,q){
   return sel+w256(q);
 }
 
+/* ── your keys ────────────────────────────────────────────────────────────
+   tokensOfOwner() on the contract, not a count and not a guess: a wallet that
+   minted five and sold three holds two, while mintedBy still reads five
+   because that is the per-wallet limit and it never moves. The empty state
+   has to tell those apart from "no wallet connected", which is not a fact
+   about the wallet at all. */
+function renderMine(){
+  const grid=document.getElementById("mineGrid");
+  const empty=document.getElementById("mineEmpty");
+  const msg=document.getElementById("mineMsg");
+  const cta=document.getElementById("mineCta");
+  const count=document.getElementById("mineCount");
+  if(!grid)return;
+
+  const st=MINT.state;
+  // The address the state was actually read for, not the page's own idea of
+  // it: tokens belong to whoever the engine was asked about.
+  const who=st?.address??MINT.wallet??SESSION.address;
+  const ids=Array.isArray(st?.tokens)?st.tokens:null;
+
+  const blank=(text,button)=>{
+    grid.innerHTML="";
+    count.textContent="";
+    msg.textContent=text;
+    cta.textContent=button??"";
+    cta.hidden=!button;
+    empty.hidden=false;
+  };
+
+  if(!MINT.id?.configured)return blank("The collection is not deployed yet.",null);
+  // A dead RPC is not an empty wallet, and must never be drawn as one.
+  if(!st)return blank("Cannot reach the chain, so what this wallet holds is unknown.",null);
+  if(!who)return blank("Connect a wallet to see the keys it holds.","Connect a wallet");
+  if(!ids)return blank("This wallet's keys could not be read from the chain.",null);
+  if(!ids.length)return blank("This wallet holds no keys yet.",
+    st.canMint?"Mint your first key":null);
+
+  empty.hidden=true;
+  count.textContent=ids.length===1?"1 key":`${ids.length} keys`;
+  grid.innerHTML=ids.map(heroTile).join("");
+}
+
 function paintMsg(text,kind){
   const el=document.getElementById("mintMsg");
   if(!el)return;
@@ -871,6 +913,20 @@ async function loadMintState(){
     MINT.state=null;
   }
   syncMint();
+  renderMine();
+}
+
+/* Listing what a wallet holds needs its address and nothing else. Asking for a
+   signature first would be charging for a read. */
+async function connectForKeys(){
+  const eth=await chooseWallet();
+  if(!eth)return;
+  try{
+    const [addr]=await eth.request({method:"eth_requestAccounts"});
+    if(!addr)return;
+    MINT.wallet=addr.toLowerCase();
+    await loadMintState();
+  }catch{ /* a reader declining is not an error worth shouting about */ }
 }
 
 /* The wallet has to be on the right chain before anything is signed. Sending a
@@ -1040,6 +1096,11 @@ function renderColl(reset){
   document.querySelectorAll("[data-lazy]").forEach(el=>keyIO.observe(el));
 }
 document.getElementById("loadMore").addEventListener("click",()=>renderColl(false));
+document.getElementById("mineCta")?.addEventListener("click",()=>{
+  if(MINT.wallet??SESSION.address)document.getElementById("mintBtn")
+    ?.scrollIntoView({behavior:"smooth",block:"center"});
+  else connectForKeys();
+});
 document.getElementById("revealSeg").addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   revealed=b.dataset.r==="1";

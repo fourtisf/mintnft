@@ -606,6 +606,12 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .drw .x:hover{color:var(--tx);background:var(--surface-2)}
 .small{margin-top:20px;padding-top:14px;border-top:1px solid var(--border);font-size:11.5px;color:var(--tx-3);line-height:1.8}
 
+/* your keys */
+.mine-empty{text-align:center;padding:44px 20px;border:1px dashed var(--border-hi);border-radius:var(--r);
+  background:var(--surface);box-shadow:inset 0 1px 0 rgba(255,255,255,.045)}
+.mine-empty p{color:var(--tx-2);font-size:13.5px;margin-bottom:18px}
+#mineGrid:empty{display:none}
+
 /* wallet picker */
 .wpick{position:fixed;z-index:152;left:50%;top:50%;transform:translate(-50%,-48%) scale(.98);
   width:min(360px,92vw);background:var(--surface);border:1px solid var(--border-hi);border-radius:var(--r);

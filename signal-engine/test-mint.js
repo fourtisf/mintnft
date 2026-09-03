@@ -49,11 +49,12 @@ const S = {
   maxPerWallet: sel("MAX_PER_WALLET()"), revealed: sel("revealed()"),
   recommitCount: sel("recommitCount()"),
   mintedBy: sel("mintedBy(address)"),
+  tokensOfOwner: sel("tokensOfOwner(address)"),
 };
 
 const P1 = 700000000000000n, P2 = 1700000000000000n, P3 = 3300000000000000n;
 
-const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0,
+const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0, tokens = [],
                  now = P2 } = {}) => ({
   [S.phase]: word(phase),
   [S.price]: word(now),
@@ -66,6 +67,9 @@ const chain = ({ phase = 2, minted = 12, cap = 666, mintedBy = 0, revealed = 0,
   [S.revealed]: word(revealed),
   [S.recommitCount]: word(0),
   [S.mintedBy]: word(mintedBy),
+  // A uint256[]: offset, length, then the ids.
+  [S.tokensOfOwner]: "0x" + word(32).slice(2) + word(tokens.length).slice(2)
+    + tokens.map(t => word(t).slice(2)).join(""),
 });
 
 const reader = (opts = {}, values = chain(), fetchOpts = {}) => new KeysReader({
@@ -105,6 +109,8 @@ head("membaca chain");
   ok(state.price === String(P2) && state.priceOne === String(P1) && state.priceThree === String(P3),
     "harga sekarang dan ketiga harga fase dikirim sebagai wei string");
   ok(state.remaining === 5, "sisa jatah dompet dihitung dari mintedBy on-chain");
+  ok(Array.isArray(state.tokens) && state.tokens.length === 0,
+    "tanpa key, daftar miliknya kosong — kosong, bukan tidak ada");
   ok(state.canMint === true && state.method === "public" && state.unitPrice === state.price,
     "fase publik: boleh mint, dengan harga publik");
 }
@@ -131,6 +137,25 @@ head("penolakan dan alasannya");
 
   const out = (await reader({}, chain({ minted: 666 })).state(HOLDER)).state;
   ok(out.canMint === false && out.why === "the season is sold out", "sudah habis");
+
+  {
+    const held = (await reader({}, chain({ tokens: [7, 144, 661] })).state(HOLDER)).state;
+    ok(held.tokens.join() === "7,144,661", "id yang dipegang terbaca dari tokensOfOwner");
+
+    // Sold on: mintedBy is the per-wallet limit and never falls, tokens is now.
+    const sold = (await reader({}, chain({ mintedBy: 5, tokens: [3] })).state(HOLDER)).state;
+    ok(sold.mintedBy === 5 && sold.tokens.join() === "3",
+      "yang pernah dicetak dan yang masih dipegang dilaporkan terpisah");
+
+    // One selector the node refuses must not take the price and the supply with it.
+    const partial = chain({ tokens: [1] });
+    delete partial[sel("tokensOfOwner(address)")];
+    const degraded = (await reader({}, partial).state(HOLDER)).state;
+    ok(degraded !== null && degraded.totalMinted === 12,
+      "node yang menolak tokensOfOwner tidak mematikan panel mint");
+    ok(degraded.tokens === null,
+      "dan daftarnya null — tidak terbaca, bukan dompet yang kosong");
+  }
 
   const full = (await reader({}, chain({ mintedBy: 5 })).state(HOLDER)).state;
   ok(full.canMint === false && /already holds its 5/.test(full.why),

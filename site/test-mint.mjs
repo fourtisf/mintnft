@@ -245,6 +245,40 @@ head("tanpa dompet di browser");
   ok(/No wallet found/.test(p.msg()), "dikatakan tidak ada dompet");
 }
 
+head("kunci milik dompet ini");
+{
+  const mine = p => ({
+    empty: () => !p.el("mineEmpty").hidden,
+    msg: () => p.txt("mineMsg"),
+    cta: () => (p.el("mineCta").hidden ? null : p.txt("mineCta")),
+    tiles: () => [...p.doc.querySelectorAll("#mineGrid .hgk")].map(b => b.dataset.key),
+    count: () => p.txt("mineCount"),
+  });
+
+  const held = mine(await boot({ state: baseState({ tokens: [7, 144] }) }));
+  ok(held.tiles().join() === "7,144", "kunci yang dipegang digambar satu per satu");
+  ok(held.count() === "2 keys", "beserta jumlahnya");
+  ok(!held.empty(), "dan tidak ada ajakan mint di atas dompet yang sudah punya");
+
+  // mintedBy is the per-wallet limit and never falls; tokens is what is held
+  // now. A wallet that minted five and sold three holds two.
+  const sold = mine(await boot({ state: baseState({ mintedBy: 5, remaining: 0, tokens: [3, 9] }) }));
+  ok(sold.tiles().length === 2, "yang dihitung apa yang dipegang sekarang, bukan yang pernah dicetak");
+
+  const none = mine(await boot({ state: baseState({ tokens: [] }) }));
+  ok(none.empty() && /holds no keys yet/.test(none.msg()), "dompet kosong dikatakan kosong");
+  ok(none.cta() === "Mint your first key", "dan diarahkan untuk mint lebih dulu");
+
+  const shut = mine(await boot({ state: baseState({ tokens: [], canMint: false, why: "minting is closed" }) }));
+  ok(shut.cta() === null, "tapi tidak diajak mint saat mint memang tertutup");
+
+  // Three different silences that must not read alike.
+  const dead = mine(await boot({ state: null }));
+  ok(/Cannot reach the chain/.test(dead.msg()) && dead.tiles().length === 0,
+    "RPC mati dibaca sebagai tidak tahu, bukan sebagai dompet kosong");
+  ok(dead.cta() === null, "dan tidak mengajak mint berdasarkan sesuatu yang tidak terbaca");
+}
+
 head("gambar sebelum seed terbit");
 {
   // The panel opened on finished art with a tier and a rarity rank while the
