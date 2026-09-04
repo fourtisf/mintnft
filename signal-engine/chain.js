@@ -31,7 +31,14 @@ const BURN_ADDRESSES = ["0x0000000000000000000000000000000000000000",
 const SEL_TOTAL_SUPPLY = "0x18160ddd";
 const SEL_BALANCE_OF   = "0x70a08231";
 
-const EVM_CHAINS = { ethereum: "ETH_RPC", base: "BASE_RPC", bsc: "BSC_RPC" };
+/* Dexscreener's chain id is the key, because that is the only name this file
+   ever sees. Robinhood Chain is here because it is where the desk is pointed,
+   but read what the EVM path below actually establishes before counting it as
+   coverage: it burns down to one field, and a Pons launch locks its Uniswap V3
+   position rather than burning an LP token, so that field is never set and the
+   gate abstains. Honest, and no protection — the same state as an unset RPC. */
+const EVM_CHAINS = { ethereum: "ETH_RPC", base: "BASE_RPC", bsc: "BSC_RPC",
+                     robinhood: "ROBINHOOD_RPC" };
 
 const pct = n => (n * 100).toFixed(0) + "%";
 

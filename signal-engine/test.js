@@ -50,7 +50,7 @@ const chainCase = (chainId, chains) => {
   const pair = { ...FIXTURES.strong, chainId };
   return evaluate(pair, { ...CONFIG, chains }, new Map());
 };
-const FOUR = CONFIG.chains;
+const FOUR = ["solana", "base", "bsc", "ethereum"];
 const chainChecks = [
   ["solana lolos", chainCase("solana", FOUR).fire === true],
   ["base lolos", chainCase("base", FOUR).fire === true],
@@ -62,8 +62,12 @@ const chainChecks = [
   ["rantai tanpa nama ditahan", chainCase(undefined, FOUR).vetoIds?.includes("tracked_chain") === true],
   ["daftar kosong = tanpa batas", chainCase("sui", []).fire === true],
   ["ditolak sebelum gate lain menilainya", chainCase("sui", FOUR).vetoIds[0] === "tracked_chain"],
+  // Defaultnya semua rantai, dan itu keputusan pemilik. Diuji di sini supaya
+  // sebuah daftar yang menyelinap masuk sebagai default terlihat, bukan
+  // ditemukan lewat call yang tidak pernah menyala.
+  ["default: tanpa batas", CONFIG.chains.length === 0],
 ];
-console.log(`\nrantai yang ditembak — ${FOUR.join(", ")}:`);
+console.log(`\nrantai — gate diuji dengan ${FOUR.join(", ")}:`);
 for (const [label, ok] of chainChecks) {
   console.log(`  ${ok ? "ok   " : "GAGAL"}  ${label}`);
   if (!ok) process.exitCode = 1;

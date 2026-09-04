@@ -40,13 +40,13 @@ const list = (name, dflt) => {
 };
 
 export const CONFIG = {
-  /* The chains this desk actually claims. Discovery returns whatever chain a
-     team filed a profile for — Sui, Tron, Robinhood Chain, anything Dexscreener
-     lists — and nothing downstream read the chain at all. So the site said four
-     chains while the register was free to fire on thirty, and the first live
-     call was on a chain the copy does not mention.
-     CHAINS= (empty) lifts the restriction; the log prints which it is. */
-  chains: list("CHAINS", ["solana", "base", "bsc", "ethereum"]),
+  /* Which chains this desk fires on. Empty is the default and means all of
+     them — the owner's call, and the honest one while discovery is still being
+     measured: a chain we refuse never appears in the Triage table, so a filter
+     set early is a filter nobody can ever argue with. The gate stays because
+     narrowing later must not need a code change, and the startup log prints
+     which of the two is in force so it is never a guess. */
+  chains: list("CHAINS", []),
   minLiquidityUsd: num("MIN_LIQUIDITY_USD", 15_000),
   minAgeMinutes: 20,          // the first minutes belong to snipers
   maxAgeHours: 72,
