@@ -91,6 +91,34 @@ const quoteChecks = [
   ["token acak tetap ditolak", quoteCase("SHIBAMOON").includes("sane_quote")],
   ["daftarnya bisa disetel dari env", CONFIG.quoteWhitelist.includes("USDG")],
 ];
+/* Apa yang boleh DIPANGGIL, bukan apa yang diterima sebagai uang. Dua sisi dari
+   ide yang sama dan hanya satu yang pernah ada. Di Solana itu tidak pernah jadi
+   masalah; di Robinhood Chain aset unggulannya adalah saham AS yang
+   ditokenisasi — ERC-20 biasa dengan ticker aslinya sebagai simbol, berdagang
+   di pool DEX melawan USDG, lewat umpan yang sama. Bagi setiap aturan di
+   rules.js, NVDA/USDG dan sepasang memecoin bentuknya identik. */
+const baseCase = symbol => evaluate(
+  { ...FIXTURES.strong, chainId: "robinhood", baseToken: { ...FIXTURES.strong.baseToken, symbol } },
+  ANY, new Map()).vetoIds ?? [];
+const baseChecks = [
+  ["memecoin biasa tidak tersentuh gate ini", !baseCase("LANDWOLF").includes("sane_base")],
+  ["NVDA ditahan — meja ini tidak memanggil saham", baseCase("NVDA").includes("sane_base")],
+  ["TSLA juga, huruf kecil sekalipun", baseCase("tsla").includes("sane_base")],
+  ["USDG ditahan sebagai basis, meskipun diterima sebagai kutipan",
+    baseCase("USDG").includes("sane_base") && CONFIG.quoteWhitelist.includes("USDG")],
+  ["WETH ditahan — kalau kita menyebutnya uang, kita tidak juga menyebutnya taruhan",
+    baseCase("WETH").includes("sane_base")],
+  ["tanpa simbol ditahan: yang tidak bisa ditetapkan bukan yang aman",
+    baseCase("").includes("sane_base")],
+  ["ditolak lebih dulu daripada pita kapnya, supaya alasannya benar",
+    baseCase("NVDA")[0] === "sane_base"],
+];
+console.log(`\nyang tidak dipanggil — ${CONFIG.denyBaseSymbols.length} simbol di daftar tolak:`);
+for (const [label, ok] of baseChecks) {
+  console.log(`  ${ok ? "ok   " : "GAGAL"}  ${label}`);
+  if (!ok) process.exitCode = 1;
+}
+
 console.log(`\nkutipan yang diterima — ${CONFIG.quoteWhitelist.join(", ")}:`);
 for (const [label, ok] of quoteChecks) {
   console.log(`  ${ok ? "ok   " : "GAGAL"}  ${label}`);

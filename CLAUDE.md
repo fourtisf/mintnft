@@ -276,6 +276,30 @@ continuing. Everything else is recoverable; that one is not.
    Read the `rejects` list in `/api/triage`, which carries the actual figure each
    candidate was refused on, before moving either end.
 
+4c. **The desk had no rule about what it will not call.** `quoteWhitelist` says
+   what a pair may be priced *in*; nothing said what a pair may be priced *on*.
+   Harmless on Solana and Base, where the feeds only surface memecoins. Robinhood
+   Chain is not that: its flagship assets are **tokenized US equities**, deployed
+   as ordinary ERC-20s whose symbol is the literal ticker — TSLA, NVDA, SPY,
+   SPCX — trading against USDG in DEX pools on the same chain, through the same
+   feeds, with Chainlink feeds behind them. To every rule in `rules.js`,
+   `NVDA/USDG` and a memecoin pair are the same shape, and a register calling a
+   3% drift in NVDA a signal is a different product and a worse one.
+
+   `sane_base` refuses them, early — a stock token refused on its market cap
+   would teach the reader that the cap band is the problem, and it is not.
+   `denyBaseSymbols` folds in the whole quote whitelist (if we call it money we
+   do not also call it a bet), the stablecoins and the wrapped natives.
+
+   **The stock half of that list is incomplete by construction** and must not be
+   read as coverage: Robinhood lists new tickers whenever it chooses, and only
+   the four confirmed live are shipped. `DENY_BASE_SYMBOLS` is how the rest get
+   added today. What would actually close it is reading Robinhood's own
+   published stock-token contract list rather than matching symbols at all —
+   `docs.robinhood.com/chain/contracts` enumerates them, one contract per ticker,
+   and an address match is a fact where a symbol match is a guess. A gate that
+   catches TSLA and misses ORCL is not a gate that catches stocks.
+
 4. **Score weights are reasoned, not measured.** Do not tune them on a handful
    of calls. Read `/api/analytics/bands` after ~100 settled calls.
 5. **Tier latency is an unresolved product problem.** Several hundred holders

@@ -94,6 +94,43 @@ export const CONFIG = {
   quoteWhitelist: list("QUOTE_WHITELIST",
     ["SOL", "WETH", "ETH", "WBNB", "BNB", "USDC", "USDT", "USDG"]).map(s => s.toUpperCase()),
 
+  /* What this desk refuses to *call*, as opposed to what it accepts as money.
+     The two lists were the same idea pointed opposite ways and only one of them
+     existed: quoteWhitelist says what a pair may be priced in, and nothing said
+     what a pair may be priced *on*.
+
+     That was harmless while the desk was on Solana and Base, where the feeds
+     only ever surface memecoins. Robinhood Chain is not that: its flagship
+     assets are tokenized US equities, deployed as ordinary ERC-20s with the
+     literal ticker as the symbol — TSLA, NVDA, SPY, SPCX — trading in DEX pools
+     against USDG, on the same chain, through the same feeds. To every rule in
+     this file NVDA/USDG and a memecoin pair are the same shape. A register that
+     called a 3% drift in NVDA a signal would be a different product, and a
+     worse one.
+
+     Three groups, and they are not equally strong:
+       - Anything in quoteWhitelist, folded in below. If we call it money we do
+         not also call it a bet. Complete and factual.
+       - Stablecoins and wrapped natives. Complete enough: the set is small,
+         well known, and does not turn over.
+       - Tokenized equities. **Incomplete by construction** — Robinhood lists
+         new tickers whenever it chooses, and no list written here stays right.
+         Only the four confirmed live are shipped; DENY_BASE_SYMBOLS is how the
+         rest get added, and gap 4c in CLAUDE.md says what would actually close
+         it. A gate that catches TSLA and misses ORCL must not be read as a gate
+         that catches stocks. */
+  denyBaseSymbols: list("DENY_BASE_SYMBOLS", [
+    // stablecoins
+    "USDG", "USDC", "USDT", "DAI", "USDE", "USDS", "PYUSD", "FRAX", "TUSD",
+    "BUSD", "USDP", "GUSD", "LUSD", "RLUSD", "USD1", "FDUSD", "CRVUSD", "GHO",
+    // wrapped natives and staked derivatives — the denominator, not the bet
+    "WETH", "ETH", "WBTC", "BTC", "CBBTC", "WSOL", "SOL", "WBNB", "BNB",
+    "STETH", "WSTETH", "WEETH", "ARB",
+    // Robinhood Chain stock tokens, the ones confirmed live. See the note above:
+    // this part of the list is a floor, never a claim of coverage.
+    "TSLA", "NVDA", "SPY", "SPCX",
+  ]).map(s => s.toUpperCase()),
+
   // ── on-chain, in chain.js ─────────────────────────────────────────────
   // These veto on facts the chain states rather than on trading data, and
   // they only run on a candidate the rules above already accepted — an RPC
@@ -258,6 +295,24 @@ export const GATES = [
     id: "has_identity",
     check: p => (p.info?.socials?.length ?? 0) > 0 || (p.info?.websites?.length ?? 0) > 0,
     fail: () => `No socials and no site — nothing behind the ticker`,
+  },
+  {
+    /* Early, next to tracked_chain and for the same reason: a stock token
+       refused on its market cap teaches the reader that the cap band is the
+       problem. It is not. We do not call stocks. */
+    id: "sane_base",
+    check: (p, c) => {
+      const s = (p.baseToken?.symbol ?? "").toUpperCase();
+      if (!s) return false;
+      return !c.denyBaseSymbols.includes(s)
+          && !c.quoteWhitelist.includes(s);
+    },
+    fail: p => {
+      const s = (p.baseToken?.symbol ?? "").toUpperCase();
+      return s
+        ? `${s} is money or an instrument, not a bet — this desk calls memecoins`
+        : `The provider gave no symbol, so what this pair is cannot be established`;
+    },
   },
   {
     id: "sane_quote",
