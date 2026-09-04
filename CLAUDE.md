@@ -159,8 +159,9 @@ node test-anchor.js  # what is built, published, refused, and provable to a thir
 node test-exits.js   # what an exit rule would really have returned, and that a
                      # trailing stop is walked over observed prices rather than
                      # handed 75% of a peak nobody sold at
-node test-exit-alert.js   # the stop walked live and alerted while the call is
-                          # still open, once, and never before the public leg
+node test-exit-alert.js   # the stop walked live and recorded and never
+                          # announced, and the progress updates that replaced
+                          # it: once per milestone, never before the public leg
 node test-tgbot.js   # the alert bot: link codes, filters, and that a tier is
                      # read from the chain at send time rather than stored
 node test-mint.js    # what the mint panel is told, and what it is never told
@@ -395,6 +396,21 @@ continuing. Everything else is recoverable; that one is not.
 
 ## Things that are decided, do not relitigate
 
+- **The channel carries the call, then how far it ran. Nothing else.** The exit
+  alert was removed on the owner's instruction, and so was the `Stop` row on the
+  outcome card. **The rule was not removed**: the poller still walks the trailing
+  stop forward, still freezes the fill on the mark, and the Hindsight table and
+  the call page still read it — an `[EXIT]` line still goes to the log, because
+  an operator watching a fill is not the same as broadcasting one. Deleting a
+  message is the easiest way to quietly delete a rule, and `test-exit-alert.js`
+  asserts both halves so the two can never be confused later.
+  What replaced it is `formatProgress`, on **milestones** (1.5, 2, 3, 5, 10, 25,
+  50, 100×) rather than on every poll — the poller runs every twenty seconds and
+  a channel repeating "1.04x" is a channel nobody reads by the time something
+  moves. The transition is read off the stored mark rather than held in memory,
+  so a restart never re-announces a number the channel already has, and an
+  update waits `PUBLIC_DELAY_S` like everything else: a 2× posted early tells
+  the free channel a call exists before the free channel is due the call.
 - **The trailing stop is recorded, not recomputed.** The poller walks it forward
   over every observation it makes and freezes the fill on the mark. Everything
   downstream — the Hindsight table, the card, the share text — reads that value

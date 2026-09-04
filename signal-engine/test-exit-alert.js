@@ -1,21 +1,30 @@
 /**
- * The exit, alerted while the call is still open.
+ * The stop, walked and recorded and never announced. And what is announced
+ * instead: how far the call has run.
  *
- * Entry signals are a commodity. The half nobody publishes is where the rule
- * would have got out, because that is the half you can be wrong about in
- * public — which is the whole shape of this product, so it belongs here.
+ * The exit alert was removed from the channel on the owner's instruction —
+ * signals, then progress. Removing a message is the easiest way to quietly
+ * remove a rule, so the first thing here is that the stop still fills, still
+ * walks forward over every observation, and still lands on the mark, with
+ * nothing going out about it.
  *
- * Two things this proves that the Hindsight table could not:
+ * Then the thing that replaced it. Three properties, and all three are the
+ * ones that go wrong:
  *
- *   The stop is walked forward over every observation, not over the series the
- *   register publishes. `samples` is decimated at 96 and thinned to 24 again
- *   before anything downstream can walk it, and an exit recomputed from 24
- *   points is a different number on the one figure a holder acted on.
+ *   The stop is walked over every observation, not over the series the register
+ *   publishes. `samples` is decimated at 96 and thinned to 24 again before
+ *   anything downstream can walk it, and an exit recomputed from 24 points is a
+ *   different number on the one figure a holder acted on.
  *
- *   The broadcast waits the public leg. Sending a call to Telegram the moment
- *   it fired put the free channel ahead of every paid tier — Tier I pays for
+ *   A milestone is announced once. The poller runs every twenty seconds and the
+ *   transition is read off the stored mark, so neither a second poll nor a
+ *   restart repeats a number the channel already has.
+ *
+ *   The broadcast waits the public leg. Sending anything to Telegram the moment
+ *   it happened put the free channel ahead of every paid tier — Tier I pays for
  *   ten seconds and the message was already out. A product that sells seconds
- *   cannot give them away on the side.
+ *   cannot give them away on the side, and that is as true of a 2x update as it
+ *   is of the call itself.
  */
 import { rmSync } from "node:fs";
 import { FileStore } from "./store.js";
@@ -174,7 +183,7 @@ head("pesan yang masuk ke channel");
 }
 
 /* ═══════ through the engine, which is where the alert comes from ═══════ */
-head("alert keluar sekali, dan membawa angkanya");
+head("kemajuan keluar sekali per tonggak, dan stop-nya tidak keluar sama sekali");
 {
   rmSync(DATA, { force: true });
   const store = new FileStore(DATA);
@@ -184,24 +193,27 @@ head("alert keluar sekali, dan membawa angkanya");
   sent.length = 0;
   pairs = [pair(ENTRY * 4)];
   await eng.refresh(store.liveCalls());
-  ok(!sent.some(t => /EXIT RULE/.test(t)), "naik ke 4x saja tidak mengirim apa pun");
+  const up = sent.filter(t => /📈/.test(t));
+  ok(up.length === 1, `satu pesan kemajuan terkirim (${up.length})`);
+  ok(/4\.00x/.test(up[0] ?? ""), "dan angkanya diukur dari call, bukan dari titik terendah");
+  ok(/Since/.test(up[0] ?? ""), "berikut sudah berapa lama sejak call-nya");
 
+  pairs = [pair(ENTRY * 4.1)];
+  await eng.refresh(store.liveCalls());
+  ok(sent.filter(t => /📈/.test(t)).length === 1,
+    "naik sedikit lagi di dalam tonggak yang sama tidak mengirim ulang");
+
+  pairs = [pair(ENTRY * 5.2)];
+  await eng.refresh(store.liveCalls());
+  ok(sent.filter(t => /📈/.test(t)).length === 2, "tonggak berikutnya mengirim");
+
+  sent.length = 0;
   pairs = [pair(ENTRY * 2.9)];
   await eng.refresh(store.liveCalls());
-  const exit = sent.filter(t => /EXIT RULE/.test(t));
-  ok(exit.length === 1, `satu pesan exit terkirim (${exit.length})`);
-  ok(/3\.00x/.test(exit[0] ?? "") || /4\.00x/.test(exit[0] ?? ""),
-    "pesannya menyebut puncak yang diikuti stop");
-  ok(/2\.90x/.test(exit[0] ?? ""), "dan harga isiannya");
-  ok(/upper bound, not advice/.test(exit[0] ?? ""),
-    "dengan batasnya sendiri di dalam pesan — sampel, tanpa slippage, bukan nasihat");
-
-  pairs = [pair(ENTRY * 2.5)];
-  await eng.refresh(store.liveCalls());
-  ok(sent.filter(t => /EXIT RULE/.test(t)).length === 1,
-    "poll berikutnya tidak mengirim ulang");
-
-  ok(store.mark(call.seq).exitX === 2.9, "dan isiannya tersimpan di mark, bukan hanya dikirim");
+  ok(store.mark(call.seq).exitX === 2.9,
+    "stop tetap terisi dan tersimpan di mark — yang dihapus pesannya, bukan aturannya");
+  ok(!sent.length, "dan tidak ada apa pun yang keluar soal itu");
+  ok(!sent.some(t => /EXIT RULE/.test(t)), "channel tidak pernah lagi menyebut exit");
   eng.stop();
 }
 
@@ -220,8 +232,10 @@ head("saluran publik menunggu jatahnya");
   await eng.refresh(store.liveCalls());
   ok(sent.length === 0,
     "tidak ada yang keluar ke channel selama jendela publik belum terbuka");
+  ok(store.mark(1).peakX >= 4,
+    "walaupun sudah 4x — yang ditahan adalah siarannya, bukan pengamatannya");
   ok(store.mark(1).exitAt,
-    "walaupun stop-nya sudah terisi — yang ditahan adalah siarannya, bukan aturannya");
+    "dan stop-nya pun sudah terisi, tercatat tanpa pernah diumumkan");
   eng.stop();
 }
 
@@ -237,8 +251,8 @@ head("call yang jendelanya sudah lewat disiarkan langsung");
   await eng.refresh(store.liveCalls());
   pairs = [pair(ENTRY * 2.9)];
   await eng.refresh(store.liveCalls());
-  ok(sent.some(t => /EXIT RULE/.test(t)),
-    "call dua jam lalu sudah lewat jatah publiknya, jadi exit-nya langsung keluar");
+  ok(sent.some(t => /📈/.test(t)),
+    "call dua jam lalu sudah lewat jatah publiknya, jadi kemajuannya langsung keluar");
   eng.stop();
 }
 

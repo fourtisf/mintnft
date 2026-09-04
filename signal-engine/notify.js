@@ -5,8 +5,6 @@
  * can judge the call, and when it fails the receipt is already public.
  */
 import { ticker } from "./og.js";   // one rule for how a symbol is displayed
-import { TRAIL_DROP } from "./analytics.js";
-const TRAIL_DROP_PCT = TRAIL_DROP * 100;
 
 const esc = s => String(s).replace(/[_*[\]()~`>#+=|{}.!-]/g, m => "\\" + m);
 const usd = n => n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M`
@@ -92,23 +90,41 @@ export function formatSignal(sig, seq) {
  * what to do: the stop is walked over sampled prices with no slippage, so it is
  * an upper bound on a trailing stop and not a fill anyone is promised.
  */
-export function formatExit(row) {
-  const held = row.exitSeconds != null
-    ? (row.exitSeconds < 3600 ? `${Math.round(row.exitSeconds / 60)}m` : `${(row.exitSeconds / 3600).toFixed(1)}h`)
-    : null;
+/**
+ * Where a call is now, against where it was called.
+ *
+ * The exit alert used to live here and was removed on the owner's instruction:
+ * the channel carries the call and then how far it ran, and nothing else. The
+ * stop is still walked and still recorded on the mark — the Hindsight table and
+ * the call page both read it — it simply is not announced. Removing the message
+ * did not remove the rule, and the two must not be confused later.
+ *
+ * Sent on milestones rather than on every poll, because the poller runs every
+ * twenty seconds and a channel that says "1.04x" three times a minute is a
+ * channel nobody reads by the time something actually moves.
+ */
+export const PROGRESS_MILESTONES = [1.5, 2, 3, 5, 10, 25, 50, 100];
+
+/** The highest milestone a multiple has reached, or 0 for none. */
+export const milestoneOf = x =>
+  PROGRESS_MILESTONES.filter(m => (x ?? 0) >= m).pop() ?? 0;
+
+export function formatProgress(row) {
+  const since = row.firedAt ? (Date.now() - Date.parse(row.firedAt)) / 1000 : null;
+  const held = since == null ? null
+    : since < 3600 ? `${Math.round(since / 60)}m` : `${(since / 3600).toFixed(1)}h`;
   return [
-    `🟠 *EXIT RULE* · \\#${pad4(row.seq)} ${esc(ticker(row.symbol))}`,
+    `📈 *${(row.nowX ?? 1).toFixed(2)}x* · \#${pad4(row.seq)} ${esc(ticker(row.symbol))}`,
     ``,
     "```",
-    `High followed  ${(row.exitHighX ?? 1).toFixed(2)}x`,
-    `Stop filled    ${(row.exitX ?? 1).toFixed(2)}x`,
-    ...(held ? [`Held           ${held}`] : []),
+    `Now      ${(row.nowX ?? 1).toFixed(2)}x`,
+    `Peak     ${(row.peakX ?? 1).toFixed(2)}x`,
+    ...(held ? [`Since    ${held}`] : []),
     "```",
     ...ca(row.tokenAddress),
     `${link("Chart", chartUrl(row))} · ${link("Record on nekara.xyz", callUrl(row.seq))}`,
     ``,
-    `_A ${Math.round(TRAIL_DROP_PCT)}% trailing stop, walked over the prices this service observed\\._`,
-    `_Sampled, not continuous, and without slippage \\— an upper bound, not advice\\._`,
+    `_Measured from the call, not from the low\. The record is the same either way\._`,
   ].join("\n");
 }
 
@@ -127,7 +143,6 @@ export function formatOutcome(row) {
     row.secondsTo2x
       ? `To 2x    ${Math.round(row.secondsTo2x / 60)}m`
       : `To 2x    never`,
-    ...(row.exitX != null ? [`Stop     ${row.exitX.toFixed(2)}x`] : []),
     "```",
     `Fired on: ${esc((row.reasons ?? [])[0] ?? "n/a")}`,
     ``,

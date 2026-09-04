@@ -20,7 +20,8 @@ import { publishAnchor } from "./anchor.js";
 import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
 import { KeysReader } from "./keys.js";
 import { TIER_DELAY_S } from "./gating.js";
-import { Telegram, formatSignal, formatOutcome, formatExit } from "./notify.js";
+import { Telegram, formatSignal, formatOutcome, formatProgress,
+         milestoneOf } from "./notify.js";
 import { TelegramBot, LinkCodes } from "./tgbot.js";
 
 const HOT = 20_000, WARM = 300_000, DISCOVER = 60_000, ANCHOR = 86_400_000;
@@ -175,13 +176,22 @@ export function start({ store = new FileStore(), port = 8787,
           log(`[WIN] #${c.seq} $${c.symbol} hit ${after.peakX.toFixed(2)}x in ${after.secondsTo2x}s`);
         if (!before.isDead && after.isDead)
           log(`[DEAD] #${c.seq} $${c.symbol} fell to ${(after.nowX * 100).toFixed(0)}% of entry`);
-        // The half of a call nobody publishes, because it is the half you can
-        // be wrong about in public. Sent once, on the transition, like every
-        // other event here — a stop that fills twice is not a stop.
-        if (!before.exitAt && after.exitAt) {
+        // The stop is still walked and still recorded — the Hindsight table and
+        // the call page both read it. It is no longer announced, on the owner's
+        // instruction: the channel carries the call and how far it ran. Logged,
+        // because an operator watching a fill is not the same as broadcasting
+        // one, and removing the message must not quietly remove the rule.
+        if (!before.exitAt && after.exitAt)
           log(`[EXIT] #${c.seq} $${c.symbol} stop filled at ${after.exitX.toFixed(2)}x `
             + `from a high of ${after.exitHighX.toFixed(2)}x`);
-          broadcast(c, formatExit({ ...c, ...after }));
+        // How far it has run since the call. On milestones, because the poller
+        // runs every twenty seconds and a channel repeating 1.04x is a channel
+        // nobody is reading when something finally moves. The transition is read
+        // off the stored mark rather than held in memory, so a restart does not
+        // announce a milestone the channel already has.
+        if (milestoneOf(after.peakX) > milestoneOf(before.peakX)) {
+          log(`[${milestoneOf(after.peakX)}X] #${c.seq} $${c.symbol} at ${after.nowX.toFixed(2)}x`);
+          broadcast(c, formatProgress({ ...c, ...after }));
         }
         // Post the outcome when a call settles — wins and losses alike.
         if (before.state === "live" && after.state === "settled")
