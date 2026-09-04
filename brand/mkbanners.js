@@ -514,6 +514,105 @@ fs.writeFileSync('brand/banners/m2-mint-square.html', page(1080,1080,`
   <div class="mono" style="font-size:11px;margin-top:9px">${CA_SHOWN}</div>
 </div>`));
 
+/* ── launch ────────────────────────────────────────────────────────────── */
+
+/* The launch post. Three claims, and each one is a thing the product actually
+   does rather than a thing it aspires to — the register cannot delete a miss
+   because the schema refuses the statement, the keys buy seconds rather than
+   tips, and the reasons ship with the call. A launch banner that promises a
+   roadmap is a launch banner that has nothing to show. */
+const launch = (w, h) => page(w, h, `
+<div class="dots"></div><div class="aur"></div>
+<div style="position:absolute;inset:0;padding:${h > 1000 ? 80 : 64}px 74px ${h > 1000 ? 70 : 54}px;
+  display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center">
+  <div class="wm">${MARK}<span style="font-size:${h > 1000 ? 40 : 36}px">Nekara</span></div>
+  <div style="margin-top:${h > 1000 ? 40 : 34}px;display:flex;align-items:center;gap:11px">
+    <span style="width:9px;height:9px;border-radius:50%;background:var(--win);
+      box-shadow:0 0 0 5px rgba(62,207,142,.13)"></span>
+    <span class="eyebrow" style="color:var(--win)">Live now</span>
+  </div>
+  <h1 style="font-size:${h > 1000 ? 62 : 58}px;line-height:1.06;margin-top:20px">A public register of<br>
+    <span class="grad-tx">automated trading signals.</span></h1>
+  <p style="font-size:${h > 1000 ? 20 : 19}px;line-height:1.62;color:var(--tx-2);
+    max-width:${h > 1000 ? 800 : 860}px;margin-top:22px">Firing on Robinhood Chain. Every call published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
+
+  <div style="display:flex;flex-direction:${h > 1000 ? 'column' : 'row'};gap:${h > 1000 ? 18 : 22}px;
+    margin-top:${h > 1000 ? 44 : 42}px;width:100%;max-width:${h > 1000 ? 780 : 1180}px">
+    ${[['The reasons ship with the call',
+        'Score, liquidity, volume and the rule that fired \u2014 in the message, not in a thread.'],
+       ['A miss cannot be deleted',
+        'Append-only. The database itself refuses the statement, and the misses stay beside the wins.'],
+       ['666 keys buy seconds, not tips',
+        'A key moves you up the queue on the same call everyone gets. Nothing else.']]
+      .map(([t, d]) => `<div class="card" style="flex:1;padding:${h > 1000 ? '22px 24px' : '26px 26px'};text-align:left">
+        <div style="font-family:var(--display);font-weight:600;font-size:${h > 1000 ? 20 : 19}px;letter-spacing:-.02em">${t}</div>
+        <div style="font-size:${h > 1000 ? 15.5 : 15}px;line-height:1.55;color:var(--tx-2);margin-top:9px">${d}</div>
+      </div>`).join('')}
+  </div>
+
+  <div style="display:flex;align-items:center;gap:16px;margin-top:${h > 1000 ? 46 : 40}px">
+    <div style="padding:13px 24px;border-radius:var(--r);background:var(--grad);
+      font-family:var(--display);font-weight:600;font-size:18px;color:#fff">nekara.xyz</div>
+    <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
+  </div>
+</div>
+<div class="grain"></div>`);
+
+fs.writeFileSync('brand/banners/x3-launch.html', launch(1600, 900));
+fs.writeFileSync('brand/banners/x3-launch-square.html', launch(1080, 1080));
+
+/* ── phase 1 ───────────────────────────────────────────────────────────── */
+
+/* The one banner in this set that is a claim about a contract rather than about
+   the product, so it is the one that can be wrong in a way nobody can take
+   back. Posting it says the phase is open; the contract is the only thing that
+   decides whether that is true. Check before it goes out:
+     node contracts/keys.js state
+   The odds are printed rather than counts, because the draw is probabilistic
+   and a fixed count would be a different contract. */
+const mint = (w, h) => page(w, h, `
+<div class="dots"></div><div class="aur"></div>
+<div style="position:absolute;inset:0;padding:${h > 1000 ? 62 : 52}px ${h > 1000 ? 56 : 70}px ${h > 1000 ? 54 : 44}px;
+  display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:36px">
+    <div>
+      <div style="display:flex;align-items:center;gap:11px">
+        <span style="width:9px;height:9px;border-radius:50%;background:var(--win);
+          box-shadow:0 0 0 5px rgba(62,207,142,.13)"></span>
+        <span class="eyebrow" style="color:var(--win)">Phase 1 &middot; Live now</span>
+      </div>
+      <h2 style="font-size:${h > 1000 ? 46 : 46}px;line-height:1.08;margin-top:16px">Proof Keys, Season 1.<br>
+        <span class="grad-tx">666, and the draw is public.</span></h2>
+    </div>
+    <div class="wm" style="flex-shrink:0">${MARK}<span>Nekara</span></div>
+  </div>
+
+  <div style="display:flex;gap:${h > 1000 ? 16 : 18}px;justify-content:center;margin:auto 0">
+    ${h > 1000 ? KEY(1, 300) + KEY(3, 300) : KEY(1, 300) + KEY(3, 300) + KEY(16, 300) + KEY(13, 300)}
+  </div>
+  ${h > 1000 ? `<div style="display:flex;gap:16px;justify-content:center;margin-bottom:auto">
+    ${KEY(16, 300)}${KEY(13, 300)}</div>` : ''}
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-top:${h > 1000 ? 30 : 26}px">
+    <div style="display:flex;gap:${h > 1000 ? 30 : 42}px">
+      ${SPEC('Phase 1', '$2', 25)}${SPEC('Supply', '666', 25)}${SPEC('Max / wallet', '5', 25)}
+      ${SPEC('Tier odds', '9.91 / 30.03 / 60.06', h > 1000 ? 15 : 18)}
+    </div>
+    <div style="text-align:right;flex-shrink:0">
+      <div style="padding:11px 20px;border-radius:var(--r);background:var(--grad);
+        font-family:var(--display);font-weight:600;font-size:17px;color:#fff;display:inline-block">nekara.xyz/mint</div>
+      <div class="eyebrow" style="font-size:10px;margin-top:12px">Robinhood Chain &middot; 4663</div>
+      <div class="mono" style="font-size:11.5px;margin-top:6px;color:var(--tx-2)">${CA_SHOWN}</div>
+    </div>
+  </div>
+  <div class="eyebrow" style="font-size:10px;margin-top:${h > 1000 ? 20 : 16};text-align:center">
+    A key buys latency on the feed &middot; access, not an investment</div>
+</div>
+<div class="grain"></div>`);
+
+fs.writeFileSync('brand/banners/x4-mint-live.html', mint(1600, 900));
+fs.writeFileSync('brand/banners/x4-mint-live-square.html', mint(1080, 1080));
+
 if (!CA) console.error('  peringatan: out/keys.4663.json tidak terbaca — banner mint tanpa alamat kontrak');
 
-console.log('18 banner + 1 avatar ditulis');
+console.log('22 banner + 1 avatar ditulis');
