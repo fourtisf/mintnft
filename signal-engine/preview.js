@@ -20,7 +20,7 @@
  * measured, and the gate that kills everything is the one worth reading.
  */
 import { Engine } from "./engine.js";
-import { evaluate, CONFIG, SIGNALS } from "./rules.js";
+import { evaluate, CONFIG, SIGNALS, provided } from "./rules.js";
 import { formatSignal } from "./notify.js";
 import { Telegram } from "./notify.js";
 import { existsSync, readFileSync } from "node:fs";
@@ -120,12 +120,31 @@ if (SWEEP) {
         const e = (paid[r.id] ??= { n: 0, pts: 0 });
         e.n++; e.pts += r.pts;
       }
-    console.log("\n  rule                      paid  of      avg   max");
+    /* A rule returning nothing says nothing about why, and the two reasons are
+       not the same fact: the provider sent no field for it to read, or it read
+       one and the market did not qualify. Only the second is a judgement about
+       weights. The first means the threshold is set against points that cannot
+       be earned here, which is the scoring half of the rule about gates that
+       did not run. */
+    console.log("\n  rule                      paid  no data  didn't qualify   max");
+    let unreachable = 0;
     for (const sig of SIGNALS) {
       const e = paid[sig.id] ?? { n: 0, pts: 0 };
-      const avg = e.n ? (e.pts / e.n).toFixed(1) : "—";
-      const flag = e.n === 0 ? "   never paid on this chain" : "";
-      console.log(`  ${sig.id.padEnd(24)} ${String(e.n).padStart(4)}  ${String(cleared.length).padStart(3)}  ${String(avg).padStart(6)}  ${String(sig.max).padStart(4)}${flag}`);
+      const blind = cleared.filter(({ p }) => sig.needs.some(f => !provided(p, f))).length;
+      const no = cleared.length - e.n - blind;
+      if (e.n === 0 && blind === cleared.length) unreachable += sig.max;
+      const flag = e.n === 0
+        ? (blind === cleared.length ? "  ← cannot be earned: the field is not there"
+                                    : "  ← never paid, but the data was there")
+        : "";
+      console.log(`  ${sig.id.padEnd(24)} ${String(e.n).padStart(4)}  ${String(blind).padStart(7)}  ${String(no).padStart(14)}  ${String(sig.max).padStart(4)}${flag}`);
+    }
+    const MAX = SIGNALS.reduce((a, x) => a + x.max, 0);
+    if (unreachable) {
+      console.log(`\n  ${unreachable} of ${MAX} points cannot be earned on these candidates at all —`);
+      console.log(`  the provider does not carry the fields. That leaves ${MAX - unreachable} reachable`);
+      console.log(`  against a threshold of ${CONFIG.scoreToFire}${MAX - unreachable <= CONFIG.scoreToFire
+        ? ", so only a perfect score fires. That is a broken threshold, not a quiet market." : "."}`);
     }
     const best = cleared.reduce((a, b) => (b.ev.score > a.ev.score ? b : a));
     console.log(`\n  best was $${best.p.baseToken?.symbol} at ${best.ev.score}, ${CONFIG.scoreToFire - best.ev.score} short. It earned:`);

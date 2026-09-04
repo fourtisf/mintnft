@@ -213,6 +213,18 @@ export function flow(pair, window = "h1") {
   };
 }
 
+/** Whether a pair actually carries a field a rule reads. Absent is not zero:
+ *  a provider omitting the five-minute block and a five minutes with no trades
+ *  are different facts, and only the second is a market judgement. */
+export const provided = (pair, path) => {
+  let v = pair;
+  for (const k of path.split(".")) {
+    if (v == null || typeof v !== "object") return false;
+    v = v[k];
+  }
+  return v != null;
+};
+
 /* ─────────────────────────── gates ─────────────────────────── */
 
 export const GATES = [
@@ -370,9 +382,25 @@ export const GATES = [
 
 /* ─────────────────────────── score ─────────────────────────── */
 
+/**
+ * `needs` is what each rule reads, declared rather than inferred.
+ *
+ * A rule returning null says nothing about why. Two very different facts land
+ * on the same zero: the provider sent no five-minute block at all, so the rule
+ * could not be computed — or it was computed and the market did not qualify.
+ * The first is the scoring half of the rule this codebase already has about
+ * gates: a check that did not run must not read as a check that scored nothing,
+ * because a threshold set against points that can never be earned is a
+ * threshold nothing can reach.
+ *
+ * Nothing scores off this list. `preview.js --sweep` reads it to say which of
+ * the two happened, which is the only way to tell a weight that is wrong from a
+ * field the provider does not publish on this chain.
+ */
 export const SIGNALS = [
   {
     id: "volume_acceleration",
+    needs: ["volume.m5", "volume.h1"],
     max: 26,
     run: p => {
       const m5 = p.volume?.m5 ?? 0, h1 = p.volume?.h1 ?? 0;
@@ -385,6 +413,7 @@ export const SIGNALS = [
   },
   {
     id: "buy_pressure",
+    needs: ["txns.m5"],
     max: 22,
     run: p => {
       const t = p.txns?.m5;
@@ -399,6 +428,7 @@ export const SIGNALS = [
   },
   {
     id: "trader_growth",
+    needs: ["txns.m5", "txns.h1"],
     max: 18,
     run: p => {
       const m5 = (p.txns?.m5?.buys ?? 0) + (p.txns?.m5?.sells ?? 0);
@@ -414,6 +444,7 @@ export const SIGNALS = [
   },
   {
     id: "steady_climb",
+    needs: ["priceChange.m5", "priceChange.h1"],
     max: 14,
     run: (p, c) => {
       const m5 = p.priceChange?.m5 ?? 0, h1 = p.priceChange?.h1 ?? 0;
@@ -430,6 +461,7 @@ export const SIGNALS = [
   },
   {
     id: "depth",
+    needs: ["liquidity.usd"],
     max: 12,
     run: (p, c) => {
       const liq = p.liquidity?.usd ?? 0;
@@ -440,6 +472,7 @@ export const SIGNALS = [
   },
   {
     id: "sweet_spot_age",
+    needs: ["pairCreatedAt"],
     max: 8,
     run: p => {
       const h = (Date.now() - (p.pairCreatedAt ?? 0)) / 3600000;
@@ -449,6 +482,7 @@ export const SIGNALS = [
   },
   {
     id: "paid_attention",
+    needs: ["boosts.active"],
     max: 6,
     run: p => {
       const b = p.boosts?.active ?? 0;
@@ -458,6 +492,7 @@ export const SIGNALS = [
   },
   {
     id: "size_conviction",
+    needs: ["txns.h1", "volume.h1"],
     max: 16,
     run: (p, c) => {
       const f = flow(p, "m5") ?? flow(p, "h1");
@@ -469,6 +504,7 @@ export const SIGNALS = [
   },
   {
     id: "sustained_accumulation",
+    needs: ["txns.h1", "txns.h6", "volume.h1", "volume.h6"],
     max: 12,
     run: (p, c) => {
       const h1 = flow(p, "h1"), h6 = flow(p, "h6");

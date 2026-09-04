@@ -323,6 +323,25 @@ continuing. Everything else is recoverable; that one is not.
    first `preview.js --sweep` said so plainly: of 47 live candidates, 5 cleared
    every gate at the shipped $15K/$30K band and **0** reached the threshold;
    dropping the floor to $4K and the cap to $10K took that to 7 and still 0.
+
+   The second run named the mechanism. Three rules paid **nothing at all** on
+   Robinhood Chain — `volume_acceleration` (26), `trader_growth` (18) and
+   `steady_climb` (14). That is 58 of a 134 maximum, against a threshold of 76,
+   which leaves **exactly 76 reachable**: the desk could only fire on a
+   mathematically perfect score of every remaining rule. Not a quiet market — a
+   threshold nothing can reach. The best candidate seen, $HOODLIFE, scored 33.
+
+   All three read the **five-minute** block, and so `SIGNALS` now declares a
+   `needs` list per rule and `--sweep` splits a zero two ways: *no data* — the
+   provider sent no such field, so the rule could not be computed — and *did not
+   qualify* — it was computed and the market said no. This is the scoring half
+   of non-negotiable 9. A rule whose input is absent is not a rule that scored
+   nothing, and points that can never be earned must not sit inside a threshold.
+   Nothing scores off `needs`; it is read only to tell those two apart, which is
+   the only way to separate a wrong weight from a field Dexscreener does not
+   publish for this chain. **Read that column before anyone proposes moving
+   `SCORE_TO_FIRE`** — if the answer is "no data", lowering the threshold is
+   treating a data gap as a market opinion.
    So widening the band buys candidates and no calls, at the cost of thinner
    pools — the opposite of the trade it looks like. The rejection table cannot
    show this, because a candidate that clears every gate and then scores 32 is
