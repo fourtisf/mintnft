@@ -612,51 +612,71 @@ fs.writeFileSync('brand/banners/x3-launch-square.html', launch(1080, 1080));
      node contracts/keys.js state
    The odds are printed rather than counts, because the draw is probabilistic
    and a fixed count would be a different contract. */
+/* Four keys the same size is a catalogue. At the width X actually renders a
+   timeline card, four 336px squares of very dark artwork are four grey smudges,
+   and the one thing worth showing — that the engraving is drawn per token — is
+   the first thing lost. So: one key at a size where the plate and the engraving
+   are legible, and three beside it to say there are 665 more. Hierarchy is the
+   whole edit; nothing else here changed its mind. */
 const mint = (w, h) => page(w, h, `
 <div class="keylight"></div><div class="guil"></div><div class="dots" style="opacity:.45"></div>
-<div style="position:absolute;inset:0;padding:${h > 1000 ? 70 : 74}px ${h > 1000 ? 62 : 88}px ${h > 1000 ? 64 : 70}px;
-  display:flex;flex-direction:column">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:36px">
-    <div>
+<div style="position:absolute;inset:0;padding:${h > 1000 ? 74 : 78}px ${h > 1000 ? 66 : 88}px ${h > 1000 ? 66 : 72}px;
+  display:flex;flex-direction:${h > 1000 ? 'column' : 'row'};gap:${h > 1000 ? 34 : 62}px;align-items:${h > 1000 ? 'stretch' : 'center'}">
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:24px">
       <div style="display:flex;align-items:center;gap:10px">
         <span style="width:8px;height:8px;border-radius:50%;background:var(--win);
           box-shadow:0 0 0 5px rgba(62,207,142,.12)"></span>
         <span class="eyebrow" style="color:var(--win)">Phase 1 &middot; Live now</span>
       </div>
-      <h2 style="font-size:${h > 1000 ? 42 : 52}px;line-height:1.07;margin-top:${h > 1000 ? 14 : 18}px">Proof Keys, Season 1.<br>
-        <span class="grad-tx">666, and the draw is public.</span></h2>
+      ${h > 1000 ? `<div class="wm">${MARK}<span style="font-size:30px">Nekara</span></div>` : ''}
     </div>
-    <div class="wm" style="flex-shrink:0">${MARK}<span style="font-size:${h > 1000 ? 34 : 32}px">Nekara</span></div>
-  </div>
 
-  <div style="display:flex;gap:${h > 1000 ? 20 : 24}px;justify-content:center;margin:auto 0">
-    ${h > 1000 ? KEY(1, 252) + KEY(3, 252) : KEY(1, 336) + KEY(3, 336) + KEY(16, 336) + KEY(13, 336)}
-  </div>
-  ${h > 1000 ? `<div style="display:flex;gap:16px;justify-content:center;margin-bottom:auto;margin-top:16px">
-    ${KEY(16, 252)}${KEY(13, 252)}</div>` : ''}
+    <h2 style="font-size:${h > 1000 ? 50 : 58}px;line-height:1.05;margin-top:${h > 1000 ? 22 : 24}px">${h > 1000
+      ? 'Proof Keys, Season 1.<br><span class="grad-tx">666, and the draw is public.</span>'
+      : 'Proof Keys,<br>Season 1.<br><span class="grad-tx">666, and the draw<br>is public.</span>'}</h2>
 
-  <div class="band" style="display:flex;justify-content:space-between;align-items:center;gap:${h > 1000 ? 24 : 44}px;
-    padding:${h > 1000 ? 26 : 30}px 0;margin-top:${h > 1000 ? 34 : 30}px">
-    ${[['Phase 1', '$2'], ['Supply', '666'], ['Max / wallet', '5'],
-       ['Tier odds', '9.91 / 30.03 / 60.06']]
-      .map(([k, v], i) => `<div style="flex:${i === 3 ? 1.5 : 1};min-width:0">
-        <div class="eyebrow" style="font-size:10.5px">${k}</div>
-        <div style="font-family:var(--mono);font-size:${i === 3 ? (h > 1000 ? 19 : 22) : 27}px;margin-top:9px;white-space:nowrap">${v}</div>
-      </div>`).join('')}
-    <div style="flex-shrink:0"><div style="padding:13px 24px;border-radius:var(--r);background:var(--grad);
-      font-family:var(--display);font-weight:600;font-size:18px;color:#fff">nekara.xyz/mint</div></div>
-  </div>
+    <p style="font-size:${h > 1000 ? 18 : 18.5}px;line-height:1.62;color:var(--tx-2);
+      max-width:${h > 1000 ? 880 : 580}px;margin-top:${h > 1000 ? 20 : 28}px">A key buys latency on the feed — the same call everyone gets, further up the queue. The tier is drawn from a seed nobody could grind, on odds you can check yourself.</p>
 
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:30px;margin-top:${h > 1000 ? 26 : 24}px">
-    <div class="eyebrow" style="font-size:10.5px">A key buys latency on the feed &middot; access, not an investment</div>
-    <div style="text-align:right">
-      <div class="eyebrow" style="font-size:10px">Robinhood Chain &middot; 4663</div>
-      <div class="mono" style="font-size:11.5px;margin-top:6px;color:var(--tx-2)">${CA_SHOWN}</div>
+    <div class="band" style="display:flex;gap:${h > 1000 ? 34 : 40}px;padding:${h > 1000 ? 28 : 28}px 0;
+      margin-top:${h > 1000 ? 32 : 34}px">
+      ${[['Phase 1', '$2'], ['Supply', '666'], ['Max / wallet', '5']]
+        .map(([k, v]) => `<div>
+          <div class="eyebrow" style="font-size:10.5px">${k}</div>
+          <div style="font-family:var(--mono);font-size:${h > 1000 ? 30 : 32}px;margin-top:8px">${v}</div>
+        </div>`).join('')}
+      <div style="min-width:0">
+        <div class="eyebrow" style="font-size:10.5px">Tier odds</div>
+        <div style="font-family:var(--mono);font-size:${h > 1000 ? 19 : 19}px;margin-top:14px;white-space:nowrap">9.91 / 30.03 / 60.06</div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:16px;margin-top:${h > 1000 ? 34 : 32}px">
+      <div style="padding:14px 26px;border-radius:var(--r);background:var(--grad);
+        font-family:var(--display);font-weight:600;font-size:19px;color:#fff">nekara.xyz/mint</div>
+      <div>
+        <div class="eyebrow" style="font-size:10px">Robinhood Chain &middot; 4663</div>
+        <div class="mono" style="font-size:11.5px;margin-top:5px;color:var(--tx-2)">${CA_SHOWN}</div>
+      </div>
     </div>
   </div>
+
+  <div style="flex-shrink:0;display:flex;gap:${h > 1000 ? 18 : 20}px;align-items:center;
+    ${h > 1000 ? 'order:-1;justify-content:center;' : ''}">
+    ${KEY(3, h > 1000 ? 384 : 516)}
+    <div style="display:flex;flex-direction:column;gap:${h > 1000 ? 10 : 14}px">
+      ${[1, 16, 13].map(id => KEY(id, h > 1000 ? 120 : 162)).join('')}
+    </div>
+  </div>
+
+  ${h > 1000 ? '' : `<div class="wm" style="position:absolute;right:88px;top:70px">${MARK}<span style="font-size:31px">Nekara</span></div>`}
 </div>
+<div class="eyebrow" style="position:absolute;left:0;right:0;bottom:${h > 1000 ? 30 : 32}px;
+  text-align:center;font-size:10px">A key buys latency on the feed &middot; access, not an investment</div>
 ${PLATE(h > 1000 ? 40 : 38)}
-<div class="vig" style="opacity:.62"></div><div class="grain"></div>`);
+<div class="vig" style="opacity:.6"></div><div class="grain"></div>`);
 
 fs.writeFileSync('brand/banners/x4-mint-live.html', mint(1600, 900));
 fs.writeFileSync('brand/banners/x4-mint-live-square.html', mint(1080, 1080));
