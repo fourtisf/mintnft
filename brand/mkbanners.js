@@ -267,6 +267,81 @@ fs.writeFileSync('brand/banners/p6-callers.html', page(1600,900,`
   </div>
 </div>`));
 
+/* ── live ──────────────────────────────────────────────────────────────── */
+
+/* The desk started firing on Robinhood Chain, and the post that says so has one
+   job: show what actually lands in the channel. Not a claim about the product —
+   the message itself, with the reasons in it, because the reasons are the whole
+   difference between this and every other call channel.
+
+   Every figure is call #0055 as it was actually published, down to the address
+   and the three reasons the scorer wrote. A banner is a screenshot the moment
+   it is posted and can never be corrected afterwards, so mixing one call's
+   numbers under another call's name is the one thing it must not do — and the
+   first draft of this did exactly that. Its score is 22 and it stays 22: a
+   register whose marketing quietly picks a better number than the record is
+   the thing this was built to replace. */
+const alertRow = (k, v, mono) => `<div style="display:flex;justify-content:space-between;gap:24px;padding:9px 0">
+  <span style="font-family:var(--mono);font-size:15px;color:var(--tx-3);letter-spacing:.02em">${k}</span>
+  <span style="font-family:var(--mono);font-size:15px;color:${mono || 'var(--tx)'}">${v}</span></div>`;
+
+const alertCard = `<div class="card" style="padding:30px 32px 26px;width:100%">
+  <div style="display:flex;align-items:center;gap:11px">
+    <span style="width:9px;height:9px;border-radius:50%;background:var(--win);
+      box-shadow:0 0 0 4px rgba(62,207,142,.14)"></span>
+    <span style="font-family:var(--mono);font-size:16px;letter-spacing:.12em;color:var(--win)">SIGNAL</span>
+    <span style="font-family:var(--mono);font-size:16px;color:var(--tx-3)">#0055</span>
+    <span style="font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:-.02em;margin-left:2px">$STAQ</span>
+  </div>
+  <div style="font-family:var(--mono);font-size:13.5px;color:var(--tx-3);margin-top:9px;letter-spacing:.04em">
+    ROBINHOOD &middot; uniswap</div>
+
+  <div style="margin-top:22px;padding:16px 18px;border-radius:9px;background:var(--surface-2);
+    border:1px solid var(--border)">
+    ${alertRow('Entry MC', '$193K')}
+    ${alertRow('Liquidity', '$41K')}
+    ${alertRow('Volume 1h', '$11K')}
+    ${alertRow('Score', '22/100')}
+  </div>
+
+  <div class="eyebrow" style="margin-top:24px;font-size:11.5px">Why it fired</div>
+  <div style="margin-top:13px;display:flex;flex-direction:column;gap:11px">
+    ${['Liquidity $41K \u2014 deep enough to get back out',
+       'Climbing steadily \u2014 +4.1% on 5m, +47.2% on the hour',
+       '30 active boosts \u2014 someone is paying for eyes on it']
+      .map(r => `<div style="display:flex;gap:12px;align-items:baseline">
+        <span style="width:5px;height:5px;border-radius:50%;background:var(--accent);flex-shrink:0"></span>
+        <span style="font-size:16.5px;line-height:1.45;color:#C9CED6">${r}</span></div>`).join('')}
+  </div>
+
+  <div class="rule-l" style="margin:24px 0 16px"></div>
+  <div style="font-family:var(--mono);font-size:13px;color:var(--tx-3);word-break:break-all;line-height:1.5">
+    0xB553607D0c418223afFd765143c26Cf327495d06</div>
+</div>`;
+
+const live = (w, h) => page(w, h, `
+<div class="dots"></div><div class="aur"></div>
+<div style="position:absolute;inset:0;padding:${h > 1000 ? 76 : 64}px ${h > 1000 ? 64 : 74}px ${h > 1000 ? 62 : 48}px;
+  display:flex;flex-direction:${h > 1000 ? 'column' : 'row'};gap:${h > 1000 ? 44 : 68}px;
+  align-items:${h > 1000 ? 'stretch' : 'center'}">
+  <div style="flex:1;min-width:0">
+    <div class="wm">${MARK}<span>Nekara</span></div>
+    <div class="eyebrow" style="margin-top:${h > 1000 ? 40 : 46}px">Now live &middot; Robinhood Chain</div>
+    <h2 style="font-size:${h > 1000 ? 58 : 54}px;margin-top:20px">Signals, in the channel,<br><span class="grad-tx">the moment they fire.</span></h2>
+    <p style="font-size:${h > 1000 ? 20 : 19}px;line-height:1.64;color:var(--tx-2);max-width:640px;margin-top:24px">Every call arrives with the exact conditions that triggered it, then stays on a public register that is tracked to win, miss or dead. The ones that fail are never removed.</p>
+    <div style="display:flex;align-items:center;gap:14px;margin-top:${h > 1000 ? 36 : 40}px">
+      <div style="padding:13px 22px;border-radius:var(--r);background:var(--grad);
+        font-family:var(--display);font-weight:600;font-size:18px;letter-spacing:-.01em;color:#fff">t.me/nekaraxyz</div>
+      <div class="mono" style="font-size:15px">nekara.xyz</div>
+    </div>
+  </div>
+  <div style="width:${h > 1000 ? '100%' : '520px'};flex-shrink:0">${alertCard}</div>
+</div>
+<div class="grain"></div>`);
+
+fs.writeFileSync('brand/banners/x1-live.html', live(1600, 900));
+fs.writeFileSync('brand/banners/x2-live-square.html', live(1080, 1080));
+
 /* ── the first post ────────────────────────────────────────────────────── */
 
 /* the account's opening post. the rest of the set argues the product; this one
