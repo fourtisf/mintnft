@@ -14,7 +14,16 @@
  */
 import { Dexscreener } from "./dexscreener.js";
 import { evaluate, toSignal, CONFIG } from "./rules.js";
-import { ProfileSource, BoostSource, HeliusSource, EvmFactorySource, MergedSource } from "./sources.js";
+import { ProfileSource, BoostSource, HeliusSource, EvmFactorySource, PonsSource,
+         MergedSource } from "./sources.js";
+
+/* Only what is known. BSC is absent on purpose: PancakeSwap v3 is the pool
+   that matters there and its factory is not Uniswap's, so writing a plausible
+   address in would be the same bug in a new place. */
+const UNISWAP_V3_FACTORY = {
+  base: "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+  ethereum: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+};
 import { ChainInspector, chainVerdict } from "./chain.js";
 
 export class Engine {
@@ -31,11 +40,22 @@ export class Engine {
     // the gates are untouched, so a wider net can only mean more candidates
     // refused, never a looser filter. Whether the extra ones are worth the key
     // is a question for /api/triage after a few hours, not for this comment.
+    // The factory address is per chain, and it used to not be: every watcher
+    // took the constructor default, which is Uniswap v3 on Base. So an
+    // ETH_RPC or BSC_RPC watcher scanned an address that is not the factory
+    // there, returned nothing for ever, and still printed its name in the
+    // discovery line — a source that cannot work, reading exactly like a
+    // source finding nothing. A chain whose factory is not written down here
+    // is left out and says so, which is the same rule the RPCs already follow.
     const watchers = [];
     if (process.env.HELIUS_KEY?.trim()) watchers.push(new HeliusSource(this.api, { log }));
-    for (const [chain, env] of [["base", "BASE_RPC"], ["ethereum", "ETH_RPC"], ["bsc", "BSC_RPC"]])
-      if (process.env[env]?.trim())
-        watchers.push(new EvmFactorySource(this.api, { chain, rpc: process.env[env].trim(), log }));
+    for (const [chain, env] of [["base", "BASE_RPC"], ["ethereum", "ETH_RPC"], ["bsc", "BSC_RPC"]]) {
+      if (!process.env[env]?.trim()) continue;
+      const factory = UNISWAP_V3_FACTORY[chain];
+      if (!factory) { log(`[discovery] ${env} is set but no factory address is recorded for ${chain} — watcher left out`); continue; }
+      watchers.push(new EvmFactorySource(this.api, { chain, factory, rpc: process.env[env].trim(), log }));
+    }
+    if (process.env.ROBINHOOD_RPC?.trim()) watchers.push(new PonsSource(this.api, { log }));
 
     this.source = source ?? new MergedSource([
       new ProfileSource(this.api), new BoostSource(this.api), ...watchers,

@@ -109,14 +109,25 @@ export class HeliusSource {
   }
 }
 
-/** EVM factory logs. Set an RPC per chain. Same shape as the others. */
+/**
+ * EVM factory logs. Set an RPC per chain.
+ *
+ * `tokenTopics` is which indexed slots hold a token address, and it is an
+ * option rather than a constant because not every factory logs the same shape.
+ * Uniswap's PoolCreated indexes token0 and token1, so both are taken and the
+ * gates sort it out. A launchpad indexes the token it just minted and then the
+ * deployer — reading slot 2 there would price a wallet as if it were a token,
+ * spend a batch slot on it, and credit this source with a candidate that was
+ * never one.
+ */
 export class EvmFactorySource {
   constructor(api, { chain = "base", rpc = process.env.BASE_RPC,
                      factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD", // Uniswap v3, Base
                      topic = "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118",
+                     tokenTopics = [1, 2], name = null,
                      fetchImpl = globalThis.fetch, log = console.log } = {}) {
-    Object.assign(this, { api, chain, rpc, factory, topic, fetch: fetchImpl, log });
-    this.name = `evm-factory:${chain}`;
+    Object.assign(this, { api, chain, rpc, factory, topic, tokenTopics, fetch: fetchImpl, log });
+    this.name = name ?? `evm-factory:${chain}`;
     this.from = null;
   }
 
@@ -133,9 +144,10 @@ export class EvmFactorySource {
       }]);
       const tokens = new Set();
       for (const l of logs ?? []) {
-        // token0 and token1 are indexed; take both and let the gates sort it out
-        for (const t of (l.topics ?? []).slice(1, 3))
-          tokens.add("0x" + t.slice(26));
+        for (const i of this.tokenTopics) {
+          const t = l.topics?.[i];
+          if (t) tokens.add("0x" + t.slice(26));
+        }
       }
       if (!tokens.size) return [];
       const pairs = await this.api.tokensBatch(this.chain, [...tokens]);
@@ -148,6 +160,54 @@ export class EvmFactorySource {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
     return (await r.json()).result;
+  }
+}
+
+/* Pons, on Robinhood Chain. Both factories are verified on chain and their
+   source is public at github.com/ponsdotdev/ponsfamily; the topic below is
+   keccak of the V1 event signature as that repository's abi.json states it, not
+   a value copied off a block explorer.
+
+   V1 only, deliberately. A V1 launch mints a fixed supply straight into a
+   Uniswap V3 pool, so it is tradeable — and priceable by Dexscreener — in the
+   same transaction that creates it. A V2 launch opens on a bonding curve and
+   only becomes a pool when it graduates, which around one in a hundred do; the
+   token has no pair to read until then, and the age and liquidity gates would
+   refuse it anyway. Adding V2 means watching for the graduation, not the
+   launch, and that is a different event and a second source. */
+export const PONS_V1_FACTORY = "0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB";
+export const PONS_V2_FACTORY = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
+export const PONS_TOKEN_LAUNCHED =
+  "0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a";
+
+/**
+ * Every token Pons launches, from the factory's own logs.
+ *
+ * This is the one source that does not wait for a team to file a profile or
+ * pay for a boost — the launch itself is the notification, and it arrives in
+ * the block. That is the whole reason to point a desk at a launchpad, and it
+ * is also why the gates matter more here than anywhere else: Pons has minted
+ * six figures of tokens and roughly one in a hundred graduates, so the honest
+ * expectation is that almost everything this source produces gets refused.
+ * Refused candidates are the product working. `/api/triage` is where that
+ * shows, per source, and it is the number to read before deciding this earns
+ * its RPC.
+ *
+ * `TokenLaunched` indexes the token first, then the deployer, then the DEX
+ * factory — so only slot 1 is a token, and the other two are addresses that
+ * would come back from Dexscreener as nothing while still costing a lookup.
+ */
+export class PonsSource extends EvmFactorySource {
+  constructor(api, opts = {}) {
+    super(api, {
+      chain: "robinhood",
+      rpc: process.env.ROBINHOOD_RPC?.trim() || null,
+      factory: PONS_V1_FACTORY,
+      topic: PONS_TOKEN_LAUNCHED,
+      tokenTopics: [1],
+      name: "pons-launchpad",
+      ...opts,
+    });
   }
 }
 

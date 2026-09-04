@@ -195,8 +195,8 @@ continuing. Everything else is recoverable; that one is not.
 
 1. **The engine has never seen real market data.** Everything is fixture-tested.
    This is the first thing to fix and it unblocks every other judgement.
-2. **Discovery is wired but unmeasured.** `HeliusSource` and
-   `EvmFactorySource` now join the merged source whenever their key is set, so
+2. **Discovery is wired but unmeasured.** `HeliusSource`, `EvmFactorySource`
+   and `PonsSource` now join the merged source whenever their key is set, so
    the engine sees new pools rather than only tokens whose team filed a
    profile. Whether that earns the key is not yet known: `/api/triage` reports
    `scanned` and `fired` per source and the Triage page prints them, and
@@ -206,6 +206,29 @@ continuing. Everything else is recoverable; that one is not.
    key at all a watcher is left out of the list entirely rather than added and
    idle, and `chainChecks` stays `null`, which the site prints as "not
    checked" — honest, and no protection.
+   `PonsSource` is the one that does not wait to be told: it reads
+   `TokenLaunched` out of the Pons V1 factory's own logs on Robinhood Chain, so
+   a launch is discovered in the block that creates it rather than when someone
+   files a profile. Pons has minted six figures of tokens and roughly one in a
+   hundred graduates, so almost everything it produces should be refused — that
+   is the gates working, and `/api/triage` is where to read it. Only V1: a V2
+   launch opens on a bonding curve with no pair to price until it graduates, so
+   catching those means watching the graduation, which is a different event and
+   a second source. It needs `ROBINHOOD_RPC` and is left out entirely without
+   one. The factory addresses and the topic come from the verified source at
+   `github.com/ponsdotdev/ponsfamily`.
+
+   The EVM watchers were **all pointed at Base's Uniswap v3 factory**, because
+   every one of them took the constructor default. An `ETH_RPC` or `BSC_RPC`
+   watcher therefore scanned an address that is not the factory on its chain,
+   returned nothing for ever, and still printed its name in the discovery line —
+   a source that cannot work, reading exactly like a source finding nothing.
+   `UNISWAP_V3_FACTORY` in `engine.js` now holds one address per chain and a
+   chain missing from it is left out with a line saying so. **BSC is missing on
+   purpose**: PancakeSwap v3 is the pool that matters there and its factory is
+   not Uniswap's, so writing a plausible address in would be the same bug in a
+   new place.
+
 3. **Peak is observed, not candle-derived.** Dexscreener publishes no OHLCV, so
    peak is the highest value the poller actually saw. Recorded honestly as
    `peakSource:"observed"`. GeckoTerminal has free candles and would upgrade

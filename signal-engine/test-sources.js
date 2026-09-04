@@ -11,7 +11,7 @@
  * The attribution is frozen on the call, in a hashed field, so a source cannot
  * be credited afterwards with a winner it did not find.
  */
-import { MergedSource } from "./sources.js";
+import { MergedSource, PonsSource, PONS_V1_FACTORY, PONS_TOKEN_LAUNCHED } from "./sources.js";
 import { Triage } from "./triage.js";
 import { Engine } from "./engine.js";
 import { FIXTURES } from "./fixtures.js";
@@ -136,6 +136,60 @@ console.log("\nWATCHER HANYA IKUT KALAU ADA KUNCINYA");
   if (before == null) delete process.env.HELIUS_KEY; else process.env.HELIUS_KEY = before;
   ok(names().includes("dexscreener-profiles") && names().includes("dexscreener-boosts"),
     "the free sources are there either way — a watcher is added, never a replacement");
+}
+
+console.log("\nPONS, DARI LOG PABRIKNYA SENDIRI");
+{
+  /* Sumber ini tidak menunggu tim mengisi profil — peluncurannya sendiri yang
+     memberi tahu, dan itu datang di dalam blok. Yang diuji di sini adalah hal
+     yang tidak bisa dilihat dari luar sekali sudah jalan: alamat mana yang
+     ditanyakan, topik mana, dan slot mana yang dianggap token. Salah satu saja
+     meleset dan sumber ini mengembalikan nol selamanya — persis seperti sumber
+     yang bekerja dan tidak menemukan apa-apa. */
+  const DEPLOYER = "0x" + "d".repeat(40);
+  const TOKEN = "0x" + "1".repeat(40);
+  const pad = a => "0x" + a.slice(2).padStart(64, "0");
+
+  const asked = [];
+  const rpc = async (_url, init) => {
+    const body = JSON.parse(init.body);
+    asked.push(body);
+    if (body.method === "eth_blockNumber") return { json: async () => ({ result: "0x64" }) };
+    return { json: async () => ({ result: [{ topics: [PONS_TOKEN_LAUNCHED, pad(TOKEN), pad(DEPLOYER), pad(DEPLOYER)] }] }) };
+  };
+  const priced = [];
+  const api = { tokensBatch: async (chain, tokens) => { priced.push([chain, tokens]); return []; } };
+
+  const pons = new PonsSource(api, { rpc: "http://rpc", fetchImpl: rpc, log: () => {} });
+  await pons.candidates();
+
+  const getLogs = asked.find(b => b.method === "eth_getLogs")?.params?.[0] ?? {};
+  ok(pons.name === "pons-launchpad", "namanya sendiri, supaya Triage bisa memisahkan hasilnya");
+  ok(getLogs.address === PONS_V1_FACTORY, "yang ditanya adalah pabrik Pons V1, bukan default Uniswap");
+  ok(String(getLogs.topics?.[0]) === PONS_TOKEN_LAUNCHED, "dan topiknya TokenLaunched");
+  ok(priced[0]?.[0] === "robinhood", "harganya dibaca di robinhood — nama rantai yang dipakai Dexscreener");
+  ok(priced[0]?.[1].length === 1 && priced[0][1][0] === TOKEN,
+    "hanya slot 1 yang token: deployer di slot 2 tidak ikut dihargai sebagai token");
+
+  const names = () => new Engine({ client: {}, log: () => {} }).source.sources.map(s => s.name);
+  const before = process.env.ROBINHOOD_RPC;
+  delete process.env.ROBINHOOD_RPC;
+  ok(!names().includes("pons-launchpad"), "tanpa ROBINHOOD_RPC sumbernya tidak ikut sama sekali");
+  process.env.ROBINHOOD_RPC = " http://rpc ";
+  ok(names().includes("pons-launchpad"), "dengan RPC-nya, ikut");
+  if (before == null) delete process.env.ROBINHOOD_RPC; else process.env.ROBINHOOD_RPC = before;
+
+  /* Pabrik per rantai. Dulu semua watcher memakai default konstruktor —
+     Uniswap v3 di Base — jadi watcher ETH memindai alamat yang bukan pabrik di
+     sana, mengembalikan nol selamanya, dan tetap mencetak namanya di baris
+     discovery. Rantai yang alamatnya tidak dicatat sekarang ditinggalkan. */
+  const bsc = process.env.BSC_RPC, eth = process.env.ETH_RPC;
+  process.env.BSC_RPC = "http://rpc"; delete process.env.ETH_RPC;
+  ok(!names().includes("evm-factory:bsc"), "RPC BSC tanpa alamat pabrik: watcher-nya tidak dibuat");
+  process.env.ETH_RPC = "http://rpc";
+  ok(names().includes("evm-factory:ethereum"), "ethereum punya alamatnya, jadi ikut");
+  if (bsc == null) delete process.env.BSC_RPC; else process.env.BSC_RPC = bsc;
+  if (eth == null) delete process.env.ETH_RPC; else process.env.ETH_RPC = eth;
 }
 
 console.log(failures ? `\n${failures} GAGAL\n` : "\nsemua lolos\n");
