@@ -73,6 +73,7 @@
   <section class="hero">
     <div class="dots"></div>
     <div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+    <div class="guil"></div><div class="hero-vig"></div>
     <div class="wrap hero-in">
       <div class="hero-txt">
         <div class="pill"><span class="pulse"></span> Tracking live on Robinhood Chain <span class="tag" id="pillCount">—</span></div>
@@ -92,7 +93,7 @@
     </div>
   </section>
 
-  <section class="sec" id="keys" style="padding-top:0">
+  <section class="sec" id="keys" style="padding-top:96px">
     <div class="wrap">
       <div class="sec-head mid rv">
         <div class="eyebrow">Nekara Keys · Season 1</div>
@@ -107,7 +108,7 @@
         <div class="ks"><div class="v" id="ksMinted">0</div><div class="k">Minted</div></div>
         <div class="ks"><div class="v">666</div><div class="k">Season 1 supply</div></div>
         <div class="ks"><div class="v">0.0017<span style="font-size:.55em;color:var(--tx-3)"> ETH</span></div><div class="k">Public mint price</div></div>
-        <div class="ks"><div class="v">66</div><div class="k">Tier III keys</div></div>
+        <div class="ks"><div class="v">9.91<span style="font-size:.55em;color:var(--tx-3)">%</span></div><div class="k">Tier III odds</div></div>
       </div>
       <div style="text-align:center" class="rv">
         <button class="btn btn-p btn-lg" data-v="mint">Claim a key</button>
@@ -163,12 +164,14 @@
     </div>
   </div></section>
 
-  <div class="strip"><div class="wrap">
+  <div class="strip"><div class="wrap"><div class="strip-in">
     <p>Calls tracked on</p>
     <div class="strip-row">
       <div><i style="background:#00C805"></i>Robinhood Chain</div>
+      <s></s><div class="mn">chain id 4663</div>
+      <s></s><div class="mn">append-only register</div>
     </div>
-  </div></div>
+  </div></div></div>
 
   <section class="sec"><div class="wrap">
     <div class="sec-head mid rv"><div class="eyebrow">The method</div>
@@ -176,7 +179,7 @@
       <p>The same formula runs on every call — the ones that worked and the ones that didn't. That's what makes the hit rate mean anything.</p></div>
     <div class="cards">
       <div class="card rv"><div class="ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#9AA6FF" stroke-width="1.7" stroke-linecap="round"><circle cx="10" cy="10" r="7.2"/><path d="M10 6v4.3l2.8 1.7"/></svg></div>
-        <h3>Eight hard vetoes first</h3><p>Liquidity floor, age window, cap ceiling, liquidity-to-cap ratio, sell pressure, no vertical entries, real socials, sane quote token. Any single failure kills the signal regardless of how good the rest looks.</p></div>
+        <h3>Fourteen hard vetoes first</h3><p>Chain, liquidity floor, age window, cap ceiling, liquidity-to-cap ratio, sell pressure, no vertical entries, real socials, dust flow, wash pattern, fading bid — and the base has to be a bet, so a tokenised equity is refused first. Any single failure kills the signal, however good the rest looks.</p></div>
       <div class="card rv"><div class="ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#9AA6FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 13.5l4-5 3.4 3 3-4.6 4.6 4.4"/><path d="M2.5 17h15"/></svg></div>
         <h3>Peak sits next to now</h3><p>Peak alone is how track records get faked — nobody actually sold there. The current multiple is always shown beside it, so the drawdown is visible.</p></div>
       <div class="card rv"><div class="ico"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="#9AA6FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5h12v11H4z"/><path d="M7 9h6M7 12h4"/></svg></div>
@@ -194,7 +197,7 @@
   </div></section>
 
   <section class="sec" style="padding-top:0"><div class="wrap">
-    <div class="ctaband rv"><div class="glow"></div>
+    <div class="ctaband rv"><div class="glow"></div><div class="guil"></div>
       <h2>Check the record before you trust anyone.</h2>
       <p>Including us. Every call we've ever fired is sitting there, wins and failures in the same list.</p>
       <button class="btn btn-p btn-lg" data-v="reg">Open the signals</button>
@@ -478,9 +481,9 @@
   <section class="sec" id="alerts" style="padding:56px 0 0">
     <div class="box">
       <h3>Telegram alerts</h3>
-      <p class="sub">Every call, every trailing-stop exit and every outcome, in a DM, at the
-      latency your key holds. The tier is read from the chain when a call fires — not when you
-      link — so selling a key moves the alerts with it.</p>
+      <p class="sub">Every call, every milestone it reaches on the way up, and the outcome
+      when it settles — in a DM, at the latency your key holds. The tier is read from the chain
+      when a call fires, not when you link, so selling a key moves the alerts with it.</p>
       <div class="alrow">
         <ol class="alsteps">
           <li>Open <span id="tgWho">the Nekara bot</span> and send <code>/link</code></li>
@@ -528,15 +531,15 @@
       <div class="odd rv"><div class="t"><b>Tier I</b><i>60.1% odds</i></div>
         <div class="lat">10<small>s delay</small></div>
         <p class="d">Full register access and the live feed, ten seconds behind the desk.</p>
-        <div class="bar"><i style="width:60%"></i></div><div class="sup"><span>400 keys</span><span>common</span></div></div>
+        <div class="bar"><i style="width:60%"></i></div><div class="sup"><span>≈400 expected</span><span>common</span></div></div>
       <div class="odd rv"><div class="t"><b>Tier II</b><i>30.0% odds</i></div>
         <div class="lat">5<small>s delay</small></div>
         <p class="d">Everything in Tier I at half the latency, plus push alerts on every new call.</p>
-        <div class="bar"><i style="width:30%"></i></div><div class="sup"><span>200 keys</span><span>uncommon</span></div></div>
+        <div class="bar"><i style="width:30%"></i></div><div class="sup"><span>≈200 expected</span><span>uncommon</span></div></div>
       <div class="odd t3 rv"><div class="t"><b>Tier III</b><i>9.9% odds</i></div>
         <div class="lat">0<small>s · instant</small></div>
         <p class="d">The call reaches you the moment it's written to the register. No delay at all.</p>
-        <div class="bar"><i style="width:10%"></i></div><div class="sup"><span>66 keys</span><span>rare</span></div></div>
+        <div class="bar"><i style="width:10%"></i></div><div class="sup"><span>≈66 expected</span><span>rare</span></div></div>
     </div>
   </section>
 

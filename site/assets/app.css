@@ -73,11 +73,22 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-
 /* hero */
 .hero{position:relative;padding:72px 0 0;overflow:hidden}
 .hero-in{position:relative;z-index:2;text-align:center}
-.hero-txt{max-width:840px;margin:0 auto}
+.hero-txt{max-width:980px;margin:0 auto}
 .dots{position:absolute;inset:0;pointer-events:none;
   background-image:radial-gradient(circle,rgba(255,255,255,.075) 1px,transparent 1px);background-size:34px 34px;
   -webkit-mask-image:radial-gradient(ellipse 62% 52% at 50% 6%,#000,transparent 72%);
   mask-image:radial-gradient(ellipse 62% 52% at 50% 6%,#000,transparent 72%)}
+/* The engine-turned ground the key artwork and the banners already use. The
+   page was flat near-black with nothing under the type, and flat is what reads
+   as cheap: depth here comes from a hairline texture and a vignette, never from
+   a brighter colour. */
+.guil{position:absolute;inset:0;pointer-events:none;opacity:.05;
+  background:repeating-linear-gradient(31deg,rgba(255,255,255,.5) 0 1px,transparent 1px 13px),
+             repeating-linear-gradient(-31deg,rgba(255,255,255,.36) 0 1px,transparent 1px 13px);
+  -webkit-mask-image:radial-gradient(ellipse 74% 58% at 50% 2%,#000,transparent 76%);
+  mask-image:radial-gradient(ellipse 74% 58% at 50% 2%,#000,transparent 76%)}
+.hero-vig{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(128% 100% at 50% 24%,transparent 46%,rgba(0,0,0,.5))}
 .aurora{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .blob{position:absolute;border-radius:50%;filter:blur(110px)}
 /* Pulled off the artwork side and dialled right down. The keys carry ten
@@ -90,7 +101,11 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-
   border:1px solid var(--border-hi);border-radius:999px;background:rgba(255,255,255,.035);
   font-size:12.5px;color:var(--tx-2);backdrop-filter:blur(8px);margin-bottom:28px}
 .pill .tag{background:rgba(255,255,255,.07);border-radius:999px;padding:2px 9px;font-size:11px}
-.hero h1{font-size:clamp(37px,5.4vw,64px);letter-spacing:-.042em;margin-bottom:22px}
+/* balance, because the headline is two sentences with a break between them and
+   the browser was wrapping each into two ragged lines — "failed." arrived alone
+   on a fourth line, which is the first thing a reader sees. */
+.hero h1{font-size:clamp(30px,3.35vw,48px);letter-spacing:-.038em;margin-bottom:26px;
+  text-wrap:balance;text-shadow:0 18px 60px rgba(0,0,0,.7)}
 .hero-sub{font-size:16.5px;color:var(--tx-2);line-height:1.64;max-width:62ch;margin:0 auto;letter-spacing:-.01em}
 .hero-cta{display:flex;gap:11px;margin-top:32px;flex-wrap:wrap;justify-content:center}
 
@@ -105,17 +120,28 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-
 .pv-title{margin-left:8px;font-family:var(--mono);font-size:11px;color:var(--tx-3)}
 .pv-body{padding:14px;display:flex;flex-direction:column;gap:10px;text-align:left;max-height:400px}
 
-.strip{padding:44px 0 0}
-.strip p{text-align:center;font-size:12px;color:var(--tx-3);letter-spacing:.06em;text-transform:uppercase;font-weight:500;margin-bottom:20px}
-.strip-row{display:flex;justify-content:center;gap:40px;flex-wrap:wrap;opacity:.55}
-.strip-row div{display:flex;align-items:center;gap:9px;font-size:14.5px;font-weight:500;color:var(--tx-2)}
-.strip-row i{width:9px;height:9px;border-radius:3px;display:block}
+.strip{padding:0}
+.strip-in{display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap;
+  padding:20px 24px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,rgba(255,255,255,.016),transparent)}
+.strip p{font-family:var(--mono);font-size:10.5px;color:var(--tx-3);letter-spacing:.16em;text-transform:uppercase;font-weight:500;margin:0}
+.strip-row{display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap}
+.strip-row div{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:500;color:var(--tx-2)}
+.strip-row .mn{font-family:var(--mono);font-size:11.5px;color:var(--tx-3);font-weight:400}
+.strip-row i{width:8px;height:8px;border-radius:3px;display:block}
+.strip-row s{width:1px;height:13px;background:var(--border-hi);display:block}
 
 /* sections */
 .sec{padding:112px 0}
 .sec-head{max-width:660px;margin-bottom:48px}
 .sec-head.mid{margin-left:auto;margin-right:auto;text-align:center}
-.eyebrow{font-size:12.5px;font-weight:500;color:var(--accent);margin-bottom:15px}
+.sec-head.mid::before{content:"";display:block;width:1px;height:46px;margin:0 auto 28px;
+  background:linear-gradient(180deg,transparent,var(--border-hi))}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;
+  font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--tx-2);margin-bottom:22px;
+  padding:5px 12px 5px 10px;border-radius:99px;border:1px solid var(--border);background:var(--surface);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045)}
+.eyebrow::before{content:"";width:5px;height:5px;border-radius:99px;background:var(--grad)}
 .sec-head h2{font-size:clamp(28px,4.2vw,44px);margin-bottom:16px}
 .sec-head p{font-size:16px;color:var(--tx-2);line-height:1.65;letter-spacing:-.01em}
 
@@ -123,7 +149,8 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-
 .card{position:relative;border:1px solid var(--border);border-radius:var(--r);
   background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,.008));
   padding:26px 24px 28px;transition:border-color .25s,transform .25s;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.045);overflow:hidden}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 1px 2px rgba(0,0,0,.5),
+    0 18px 40px -22px rgba(0,0,0,.95);overflow:hidden}
 .card::before{content:"";position:absolute;inset:0;opacity:0;transition:opacity .35s;pointer-events:none;
   background:radial-gradient(360px circle at var(--mx,50%) var(--my,50%),rgba(110,123,255,.13),transparent 46%)}
 .card:hover{border-color:var(--border-hi);transform:translateY(-2px)}
@@ -134,14 +161,19 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-
 .card h3{font-size:17px;margin-bottom:9px;letter-spacing:-.022em}
 .card p{font-size:13.8px;color:var(--tx-2);line-height:1.65}
 
-.metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:var(--r);
+  overflow:hidden;background:var(--surface);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 20px 44px -26px rgba(0,0,0,.95)}
 .met{padding:30px 26px;border-left:1px solid var(--border)}
 .met:first-child{border-left:none}
 .met .v{font-family:var(--display);font-size:clamp(30px,3.6vw,40px);font-weight:600;letter-spacing:-.035em;font-variant-numeric:tabular-nums;line-height:1}
 .met .v span{font-size:.52em;color:var(--tx-3);font-weight:500}
 .met .k{font-size:12.5px;color:var(--tx-3);margin-top:11px}
 
-.ctaband{position:relative;border:1px solid var(--border-hi);border-radius:16px;padding:66px 40px;text-align:center;overflow:hidden;background:var(--surface)}
+.ctaband{position:relative;border:1px solid var(--border-hi);border-radius:16px;padding:66px 40px;text-align:center;overflow:hidden;
+  background:var(--surface);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 30px 70px -34px rgba(0,0,0,1)}
+.ctaband .guil{-webkit-mask-image:radial-gradient(ellipse 70% 100% at 50% 100%,#000,transparent 74%);
+  mask-image:radial-gradient(ellipse 70% 100% at 50% 100%,#000,transparent 74%);opacity:.055}
 .ctaband .glow{position:absolute;width:700px;height:340px;border-radius:50%;filter:blur(100px);background:#5B7CFA;opacity:.2;bottom:-220px;left:50%;transform:translateX(-50%)}
 .ctaband h2{position:relative;font-size:clamp(26px,3.8vw,40px);margin-bottom:15px}
 .ctaband p{position:relative;color:var(--tx-2);font-size:15.5px;max-width:48ch;margin:0 auto 30px;line-height:1.6}
@@ -298,7 +330,9 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 
 .odds{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .odd{position:relative;border:1px solid var(--border);border-radius:var(--r);padding:22px;overflow:hidden;
-  background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(255,255,255,.006));box-shadow:inset 0 1px 0 rgba(255,255,255,.045);transition:.2s}
+  background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(255,255,255,.006));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 1px 2px rgba(0,0,0,.5),
+    0 18px 40px -22px rgba(0,0,0,.95);transition:.2s}
 .odd:hover{border-color:var(--border-hi);transform:translateY(-2px)}
 .odd.t3{border-color:rgba(126,138,255,.34);background:linear-gradient(180deg,rgba(110,123,255,.1),rgba(155,109,255,.02))}
 .odd .t{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
@@ -340,7 +374,9 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .keycard svg{display:block;width:100%;aspect-ratio:1/1}
 .keycard .meta{display:flex;justify-content:space-between;padding:9px 11px;border-top:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);
   font-family:var(--mono);font-size:10.5px;color:var(--tx-3)}
-.keystats{display:flex;justify-content:center;gap:0;flex-wrap:wrap;margin:40px 0 26px}
+.keystats{display:flex;justify-content:center;gap:0;flex-wrap:wrap;margin:48px auto 30px;max-width:800px;
+  padding:26px 0;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 20px 44px -26px rgba(0,0,0,.95)}
 .ks{padding:0 26px;border-left:1px solid var(--border);text-align:center}
 .ks:first-child{border-left:none}
 .ks .v{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:-.032em;font-variant-numeric:tabular-nums;line-height:1}
@@ -483,7 +519,8 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
 .feat{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .fcard{position:relative;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;
   background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,.006));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.045);transition:.22s;cursor:pointer;text-align:left;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 1px 2px rgba(0,0,0,.5),
+    0 18px 40px -22px rgba(0,0,0,.95);transition:.22s;cursor:pointer;text-align:left;
   padding:0;display:flex;flex-direction:column;width:100%}
 .fcard:hover{border-color:var(--border-hi);transform:translateY(-2px)}
 .fcard .peek{height:126px;padding:16px 18px;border-bottom:1px solid var(--border);
