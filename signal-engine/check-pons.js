@@ -27,7 +27,7 @@
  *   ROBINHOOD_RPC=https://rpc.mainnet.chain.robinhood.com node check-pons.js
  *   node check-pons.js --blocks 5000 --all
  */
-import { PONS_V1_FACTORY, PONS_TOKEN_LAUNCHED } from "./sources.js";
+import { PONS_V1_FACTORY, PONS_V2_FACTORY, PONS_TOKEN_LAUNCHED } from "./sources.js";
 import { Dexscreener } from "./dexscreener.js";
 import { evaluate, CONFIG } from "./rules.js";
 import { Engine } from "./engine.js";
@@ -136,6 +136,35 @@ if (!logs.length) {
   for (const t of tokens.slice(0, ALL ? tokens.length : 8)) say(`    ${t}`);
   if (!ALL && tokens.length > 8) say(`    … ${tokens.length - 8} more (--all)`);
 }
+
+/* Which factory is actually alive.
+   Zero TokenLaunched over half an hour has three explanations that look
+   identical from a count: V1 is quiet, V1 is dead because everyone launches on
+   V2 now, or the topic we filter on is wrong. Asking each factory for *every*
+   log it emits and grouping by topic0 separates them without needing V2's ABI,
+   which is not published in that repository. A factory emitting nothing at all
+   is idle; one emitting plenty under a topic we do not watch is the bug. */
+head("2b · which Pons factory is emitting anything at all");
+for (const [gen, addr] of [["V1", PONS_V1_FACTORY], ["V2", PONS_V2_FACTORY]]) {
+  let any = [];
+  try {
+    any = await rpc("eth_getLogs", [{
+      address: addr,
+      fromBlock: "0x" + Math.max(0, to - Math.min(BLOCKS, span)).toString(16),
+      toBlock: "0x" + to.toString(16),
+    }]) ?? [];
+  } catch (e) { bad(`${gen} ${addr}: ${e.message}`); continue; }
+  if (!any.length) { say(`  ${gen}  ${addr}  silent over this window`); continue; }
+  const byTopic = {};
+  for (const l of any) byTopic[l.topics?.[0] ?? "(anonymous)"] = (byTopic[l.topics?.[0] ?? "(anonymous)"] ?? 0) + 1;
+  good(`${gen}  ${addr}  ${any.length} logs`);
+  for (const [t, n] of Object.entries(byTopic).sort((a, b) => b[1] - a[1])) {
+    const known = t === PONS_TOKEN_LAUNCHED ? "  ← TokenLaunched, the one we watch" : "";
+    say(`      ${String(n).padStart(5)}  ${t}${known}`);
+  }
+}
+say("  A factory with plenty of logs under a topic we do not watch is the bug.");
+say("  One with none is idle, and the other generation is where the launches went.");
 
 head("3 · does Dexscreener price them");
 const api = new Dexscreener({ log: () => {} });

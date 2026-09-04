@@ -146,7 +146,14 @@ node check-pons.js   # not a test either: the Robinhood RPC, the Pons factory's
                      # the real gates then do with it, and what chains the
                      # register actually holds. A filter that refuses everything
                      # and a filter that works print the same quiet log; this is
-                     # what tells them apart
+                     # what tells them apart. Step 2b asks BOTH Pons factories
+                     # for every log they emit, grouped by topic0 — a factory
+                     # busy under a topic we do not watch is a bug, one that is
+                     # silent means the launches went to the other generation
+node preview.js --sweep   # one real discovery pass, then the same real pairs
+                          # through the same real gates at other size bands, so
+                          # "lower the floor a bit" becomes a number instead of
+                          # a hunch. One pass is not the market
 node test-hashversion.js  # rows written under an older hash scheme still verify
 node test-anchor.js  # what is built, published, refused, and provable to a third party
 node test-exits.js   # what an exit rule would really have returned, and that a

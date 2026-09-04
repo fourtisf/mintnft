@@ -13,12 +13,14 @@
  *   node preview.js                      one live pass, best candidate rendered
  *   node preview.js --all                every candidate, and why each died
  *   node preview.js --send <chatId>      also deliver it, so you see it rendered
+ *   node preview.js --sweep              what the size band costs, on real pairs
  *
  * Rejections are the useful output when nothing fires, which is most of the
  * time and is not a fault: the thresholds in rules.js were reasoned, not
  * measured, and the gate that kills everything is the one worth reading.
  */
 import { Engine } from "./engine.js";
+import { evaluate, CONFIG } from "./rules.js";
 import { formatSignal } from "./notify.js";
 import { Telegram } from "./notify.js";
 import { existsSync, readFileSync } from "node:fs";
@@ -26,6 +28,7 @@ import { existsSync, readFileSync } from "node:fs";
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const ALL = process.argv.includes("--all");
 const SEND = arg("--send", null);
+const SWEEP = process.argv.includes("--sweep");
 
 /* The number this call would carry, read from the register rather than made up.
    A preview that prints #0001 while the register is at #0042 teaches the
@@ -64,6 +67,46 @@ if (rejected.length && (ALL || !fired.length)) {
   for (const [why, n] of Object.entries(byGate).sort((a, b) => b[1] - a[1]))
     console.log(`  ${String(n).padStart(4)}  ${why}`);
   console.log("");
+}
+
+/* What the size band is costing, over the candidates this pass actually saw.
+ *
+ * The desk moved to a chain whose pools are smaller than the ones the floor was
+ * reasoned on, and the symptom is a thousand candidates and no calls. "Lower it
+ * a bit" is not an answer anybody can check; this is the same real pairs put
+ * through the same real gates at other settings, so the trade is a number.
+ *
+ * Two things it is not. It is one discovery pass, not a sample of the market —
+ * run it a few times before believing any single cell. And clearing the gates
+ * is not being a good call: the cell counts what would reach the scorer, and
+ * the figure in brackets is what would actually have fired.
+ */
+if (SWEEP) {
+  const seen = [...fired, ...rejected.map(r => r.pair)].filter(Boolean);
+  const LIQ = [15000, 12000, 10000, 8000, 6000, 4000];
+  const CAP = [30000, 25000, 20000, 15000, 10000];
+  console.log(`\nWhat the size band costs, over the ${seen.length} candidates this pass saw.`);
+  console.log("cleared every gate (would have fired), by floor:\n");
+  console.log("  liq \\ cap  " + CAP.map(c => `$${c / 1000}K`.padStart(9)).join(""));
+  for (const liq of LIQ) {
+    const row = [];
+    for (const cap of CAP) {
+      const cfg = { ...CONFIG, minLiquidityUsd: liq, minMarketCap: cap };
+      let cleared = 0, would = 0;
+      for (const p of seen) {
+        const ev = evaluate(p, cfg, new Map());
+        if (ev.vetoes.length) continue;
+        cleared++;
+        if (ev.fire) would++;
+      }
+      row.push(`${cleared} (${would})`.padStart(9));
+    }
+    console.log(`  $${String(liq / 1000).padStart(2)}K` + " ".repeat(7) + row.join(""));
+  }
+  console.log(`\n  now: $${CONFIG.minLiquidityUsd / 1000}K liquidity, $${CONFIG.minMarketCap / 1000}K cap.`);
+  console.log("  One pass is not the market. Run it a few times before moving anything,");
+  console.log("  and read gap 5 in CLAUDE.md before lowering the liquidity floor —");
+  console.log("  a few hundred holders acting on a thin pool are the market themselves.\n");
 }
 
 if (!fired.length) {
