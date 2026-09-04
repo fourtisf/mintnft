@@ -233,6 +233,14 @@ continuing. Everything else is recoverable; that one is not.
    `.result` past it turned "block range too wide" into `undefined` and
    `undefined` into an empty scan.
 
+   The Dexscreener sources had the same shape of hole and a DNS outage on the
+   VPS is what exposed it: the client tries three times and returns `null` for
+   *could not be fetched*, while an empty feed returns `[]`. Both took the same
+   path, so a box that could not resolve `api.dexscreener.com` published
+   `scanned: 0, errors: 0` and read as a market with nothing in it. `null` now
+   throws and `[]` does not — one boost feed failing is a thinner scan, both
+   failing is an error.
+
    The cold-start window was **200 blocks for every chain**. That is half an hour
    on Base and **under a minute on Robinhood Chain**, whose Nitro blocks are
    sub-second — so the first tick after a deploy saw essentially no history and

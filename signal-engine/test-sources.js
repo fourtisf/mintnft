@@ -11,7 +11,8 @@
  * The attribution is frozen on the call, in a hashed field, so a source cannot
  * be credited afterwards with a winner it did not find.
  */
-import { MergedSource, ProfileSource, PonsSource, PONS_V1_FACTORY, PONS_TOKEN_LAUNCHED } from "./sources.js";
+import { MergedSource, ProfileSource, BoostSource, PonsSource,
+         PONS_V1_FACTORY, PONS_TOKEN_LAUNCHED } from "./sources.js";
 import { Triage } from "./triage.js";
 import { Engine } from "./engine.js";
 import { CONFIG } from "./rules.js";
@@ -232,6 +233,40 @@ console.log("\nPONS, DARI LOG PABRIKNYA SENDIRI");
     "tapi di meja Robinhood ia ditinggalkan juga — watcher rantai yang tidak ditembak tidak dibuat");
   if (bsc == null) delete process.env.BSC_RPC; else process.env.BSC_RPC = bsc;
   if (eth == null) delete process.env.ETH_RPC; else process.env.ETH_RPC = eth;
+}
+
+console.log("\nPENYEDIA YANG TIDAK TERJANGKAU BUKAN PASAR YANG SEPI");
+{
+  /* Klien Dexscreener mencoba tiga kali lalu mengembalikan null: tidak bisa
+     diambil. Umpan yang benar-benar kosong mengembalikan array kosong. Dua
+     fakta yang berbeda, dan selama ini jalannya sama — jadi sebuah kotak yang
+     DNS-nya mati menerbitkan scanned: 0, errors: 0 dan terbaca sebagai pasar
+     yang tidak ada apa-apanya. */
+  const down = { latestProfiles: async () => null, latestBoosts: async () => null,
+                 topBoosts: async () => null, tokensBatch: async () => [] };
+  const empty = { latestProfiles: async () => [], latestBoosts: async () => [],
+                  topBoosts: async () => [], tokensBatch: async () => [] };
+  const threw = async p => { try { await p; return null; } catch (e) { return String(e.message ?? e); } };
+
+  ok((await threw(new ProfileSource(down, {}).candidates()))?.includes("could not be reached"),
+    "umpan profil yang tidak terjangkau melempar");
+  ok((await threw(new ProfileSource(empty, {}).candidates())) === null,
+    "umpan profil yang memang kosong tidak — kosong bukan kegagalan");
+  ok((await threw(new BoostSource(down, {}).candidates()))?.includes("both failed"),
+    "kedua umpan boost mati juga melempar");
+  ok((await threw(new BoostSource(empty, {}).candidates())) === null, "yang kosong tidak");
+
+  const half = { ...empty, latestBoosts: async () => null };
+  ok((await threw(new BoostSource(half, {}).candidates())) === null,
+    "satu dari dua umpan boost mati hanya berarti pindaian lebih tipis, bukan galat");
+
+  const merged3 = new MergedSource([new ProfileSource(down, {}), new BoostSource(down, {})]);
+  await merged3.candidates();
+  const t3 = new Triage();
+  t3.scanned(0, [], merged3.lastRun);
+  const rows = t3.snapshot().sources;
+  ok(rows.every(r => r.errors === 1 && /reached/.test(r.lastError ?? "")),
+    "dan /api/triage menyebut keduanya galat dengan alasannya, bukan scanned: 0 yang tenang");
 }
 
 console.log("\nUMPAN SEMUA RANTAI, DISARING SEBELUM DIHARGAI");

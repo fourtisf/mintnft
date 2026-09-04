@@ -68,8 +68,15 @@ export class ProfileSource {
   constructor(api, { chains = null } = {}) {
     this.api = api; this.chains = chains; this.name = "dexscreener-profiles";
   }
+  /* null from the client means it could not be fetched — three attempts, then
+     it gives up — and an empty array means the feed had nothing. Treating them
+     the same is how a box with no DNS publishes `scanned: 0, errors: 0` and
+     reads as a quiet market. They are not the same fact, so they no longer
+     take the same path: MergedSource catches this, records it, and the other
+     sources still run. */
   async candidates() {
     const list = await this.api.latestProfiles();
+    if (list == null) throw new Error("dexscreener: the profile feed could not be reached");
     return priceTokens(this.api, Array.isArray(list) ? list : [], this.chains);
   }
 }
@@ -275,9 +282,15 @@ export class BoostSource {
   }
   async candidates() {
     const seen = new Set(), wanted = [];
+    /* Two feeds. One of them failing is a thinner scan; both of them failing is
+       the provider or the network being gone, and that must not read as a
+       market with nothing in it. */
+    let reached = 0;
     for (const call of [() => this.api.latestBoosts(), () => this.api.topBoosts()]) {
-      let list = [];
-      try { list = await call(); } catch { continue; }
+      let list = null;
+      try { list = await call(); } catch { list = null; }
+      if (list == null) continue;
+      reached++;
       for (const b of Array.isArray(list) ? list : []) {
         if (!b.chainId || !b.tokenAddress) continue;
         const key = `${b.chainId}:${b.tokenAddress}`;
@@ -286,6 +299,7 @@ export class BoostSource {
         wanted.push(b);
       }
     }
+    if (!reached) throw new Error("dexscreener: neither boost feed could be reached — both failed");
     // Both feeds priced in one batch rather than one request per token.
     return priceTokens(this.api, wanted, this.chains);
   }
