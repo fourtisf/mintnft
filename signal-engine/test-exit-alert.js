@@ -144,6 +144,18 @@ head("pesan yang masuk ke channel");
   ok(/mint authority revoked/.test(m) && /LP burned 100%/.test(m),
     "apa yang chain bilang ikut, bukan cuma skor");
 
+  /* The address is the one thing a reader acts on. Shortened, it is an address
+     they paste wrong — and on a memecoin the wrong address is somebody else's
+     token with the same name. */
+  const LONG = "8vK2pQx7Hn4RtYbW3mZfL9cVdA6sJgE1uNkP5rTqXwZ";
+  const withCa = formatSignal({ ...sig, tokenAddress: LONG }, 7);
+  ok(withCa.includes("`" + LONG + "`"), "CA dicetak utuh di dalam kode, sekali ketuk untuk disalin");
+  ok(/\*CA\*/.test(withCa), "dan diberi label, bukan sebaris base58 tanpa keterangan");
+  ok(withCa.indexOf(LONG) < withCa.indexOf("Why it fired"),
+    "di atas alasannya — itu yang pertama dicari orang, bukan catatan kaki");
+  ok(!/\u2026|\.\.\./.test(withCa.split("Why it fired")[0]),
+    "tidak pernah dipotong");
+
   /* The one that matters: a chain nobody could read must never look like a
      clean bill. Silence is what a reader takes for a pass. */
   const unread = formatSignal({ ...sig, chainChecks: null }, 8);

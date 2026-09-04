@@ -26,6 +26,18 @@ const chartUrl = row => row.pairAddress
 const link = (label, url) => url ? `[${esc(label)}](${url})` : esc(label);
 
 /**
+ * The contract address, labelled and whole.
+ *
+ * It was one unlabelled line of base58 under the reasons — the single thing a
+ * reader acts on, printed as if it were a footnote. It is never shortened:
+ * an address a reader has to reconstruct is an address they paste wrong, and
+ * on a memecoin the wrong address is somebody else's token with the same name.
+ */
+const ca = address => address
+  ? [`*CA* · tap to copy`, `\`${esc(address)}\``, ``]
+  : [];
+
+/**
  * What the chain said, or that nobody asked it.
  *
  * `chainChecks` is null when no RPC was configured or the read failed, and the
@@ -56,6 +68,7 @@ export function formatSignal(sig, seq) {
     `🟢 *SIGNAL \\#${pad4(seq)}* · ${esc(ticker(sig.symbol))}`,
     `${esc(sig.name ?? "")} · ${esc(chain)} · ${esc(sig.dex)}`,
     ``,
+    ...ca(sig.tokenAddress),
     "```",
     `Entry MC   ${usd(sig.entryMc)}`,
     `Liquidity  ${usd(sig.liquidityUsd)}`,
@@ -66,8 +79,6 @@ export function formatSignal(sig, seq) {
     ...sig.reasons.map(r => `· ${esc(r)}`),
     ``,
     ...chainLines(sig),
-    ``,
-    `\`${esc(sig.tokenAddress)}\``,
     ``,
     `${link("Chart", chartUrl(sig))} · ${link("Register entry", callUrl(seq))}`,
     ``,
@@ -95,6 +106,7 @@ export function formatExit(row) {
     `Stop filled    ${(row.exitX ?? 1).toFixed(2)}x`,
     ...(held ? [`Held           ${held}`] : []),
     "```",
+    ...ca(row.tokenAddress),
     `${link("Chart", chartUrl(row))} · ${link("Register entry", callUrl(row.seq))}`,
     ``,
     `_A ${Math.round(TRAIL_DROP_PCT)}% trailing stop, walked over the prices this service observed\\._`,
@@ -121,6 +133,7 @@ export function formatOutcome(row) {
     "```",
     `Fired on: ${esc((row.reasons ?? [])[0] ?? "n/a")}`,
     ``,
+    ...ca(row.tokenAddress),
     `${link("Register entry", callUrl(row.seq))}`,
     ``,
     `_Every call stays up, win or loss\\. Nothing here is ever removed\\._`,
