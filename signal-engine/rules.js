@@ -29,7 +29,24 @@ const num = (name, dflt) => {
   return Number.isFinite(v) ? v : dflt;
 };
 
+/**
+ * A comma-separated env list. Empty on purpose means "no restriction", which is
+ * a different answer from unset, so both have to be expressible.
+ */
+const list = (name, dflt) => {
+  const raw = process.env[name];
+  if (raw == null) return dflt;
+  return String(raw).split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+};
+
 export const CONFIG = {
+  /* The chains this desk actually claims. Discovery returns whatever chain a
+     team filed a profile for — Sui, Tron, Robinhood Chain, anything Dexscreener
+     lists — and nothing downstream read the chain at all. So the site said four
+     chains while the register was free to fire on thirty, and the first live
+     call was on a chain the copy does not mention.
+     CHAINS= (empty) lifts the restriction; the log prints which it is. */
+  chains: list("CHAINS", ["solana", "base", "bsc", "ethereum"]),
   minLiquidityUsd: num("MIN_LIQUIDITY_USD", 15_000),
   minAgeMinutes: 20,          // the first minutes belong to snipers
   maxAgeHours: 72,
@@ -147,6 +164,14 @@ export function flow(pair, window = "h1") {
 /* ─────────────────────────── gates ─────────────────────────── */
 
 export const GATES = [
+  {
+    /* First, because a token on a chain we do not track was never a candidate,
+       and a rejection table that blames its liquidity teaches the wrong lesson
+       about the thresholds. */
+    id: "tracked_chain",
+    check: (p, c) => !c.chains?.length || c.chains.includes(String(p.chainId ?? "").toLowerCase()),
+    fail: p => `On ${p.chainId ?? "an unnamed chain"}, which this desk does not track`,
+  },
   {
     id: "priceable",
     check: p => deriveSupply(p) !== null,

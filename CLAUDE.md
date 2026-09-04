@@ -286,6 +286,16 @@ continuing. Everything else is recoverable; that one is not.
   before the rule existed still fall back to the series, and the three states
   are kept distinct on the page: filled, watched-and-not-filled, and never
   walked. The last is not "never hit".
+- **The desk fires on four chains, and a gate enforces it.** Discovery returns
+  whatever chain a team filed a profile for, and until `tracked_chain` existed
+  nothing downstream read `chainId` at all — the site, the banners and this file
+  said Solana, Base, BNB and Ethereum while the register was free to fire on
+  anything Dexscreener lists, and the first live call landed on Robinhood Chain.
+  `CHAINS` is the list and the startup log prints it. The gate is **first**, so a
+  token on an untracked chain is refused for its chain rather than for its
+  liquidity — a Triage table that blames the thresholds teaches the wrong lesson
+  about them. `CHAINS=` empty means no restriction, which is a real answer and
+  not the same as unset.
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.

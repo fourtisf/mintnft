@@ -38,6 +38,36 @@ console.log(`  aturan lama : ${beforeFix.fire ? "TEMBAK" : "ditahan"} pada skor 
 console.log(`  aturan baru : ${afterFix.vetoes[0] ?? (afterFix.fire ? "TEMBAK" : "skor " + afterFix.score)}`);
 const gateOk = beforeFix.fire && !afterFix.fire && afterFix.vetoIds?.includes("not_vertical");
 console.log(`  ${gateOk ? "ok   " : "GAGAL"}  lolos di aturan lama, ditahan gate jam di aturan baru`);
+if (!gateOk) process.exitCode = 1;
+
+/* Rantai. Situs, banner dan CLAUDE.md semuanya menyebut empat rantai, sementara
+   discovery mengembalikan rantai apa pun yang timnya mengisi profil — dan
+   sebelum gate ini tidak ada satu baris pun di jalur ini yang membaca chainId.
+   Call sungguhan pertama menyala di robinhood. Jadi ini diuji dua arah: yang
+   di luar daftar ditolak dengan alasan rantainya, dan daftar kosong benar-benar
+   berarti tanpa batas — bukan berarti tanpa satu pun. */
+const chainCase = (chainId, chains) => {
+  const pair = { ...FIXTURES.strong, chainId };
+  return evaluate(pair, { ...CONFIG, chains }, new Map());
+};
+const FOUR = CONFIG.chains;
+const chainChecks = [
+  ["solana lolos", chainCase("solana", FOUR).fire === true],
+  ["base lolos", chainCase("base", FOUR).fire === true],
+  ["bsc lolos", chainCase("bsc", FOUR).fire === true],
+  ["ethereum lolos", chainCase("ethereum", FOUR).fire === true],
+  ["robinhood ditahan", chainCase("robinhood", FOUR).vetoIds?.includes("tracked_chain") === true],
+  ["sui ditahan", chainCase("sui", FOUR).vetoIds?.includes("tracked_chain") === true],
+  ["alasannya menyebut rantainya", /On sui, which this desk does not track/.test(chainCase("sui", FOUR).vetoes[0] ?? "")],
+  ["rantai tanpa nama ditahan", chainCase(undefined, FOUR).vetoIds?.includes("tracked_chain") === true],
+  ["daftar kosong = tanpa batas", chainCase("sui", []).fire === true],
+  ["ditolak sebelum gate lain menilainya", chainCase("sui", FOUR).vetoIds[0] === "tracked_chain"],
+];
+console.log(`\nrantai yang ditembak — ${FOUR.join(", ")}:`);
+for (const [label, ok] of chainChecks) {
+  console.log(`  ${ok ? "ok   " : "GAGAL"}  ${label}`);
+  if (!ok) process.exitCode = 1;
+}
 
 // pengecekan waras: cooldown benar-benar menahan sinyal kedua
 const seen = new Map();

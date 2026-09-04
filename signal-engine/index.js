@@ -237,6 +237,12 @@ export function start({ store = new FileStore(), port = 8787,
 
   log(`register api on :${port}  ·  discovery ${DISCOVER/1000}s  hot ${HOT/1000}s  warm ${WARM/1000}s`);
   log(`tier latency  III ${delays[3]}s · II ${delays[2]}s · I ${delays[1]}s · public ${delays[0]}s`);
+  // Which chains this desk claims, out loud. Discovery returns every chain a
+  // team filed a profile for, so this restriction is the only thing keeping the
+  // register inside what the site says it covers.
+  log(engine.cfg.chains?.length
+    ? `[chains] firing on ${engine.cfg.chains.join(", ")} — set CHAINS= to lift it`
+    : "[chains] no restriction — every chain discovery returns can fire");
   // Which one the channel is on, out loud: an operator who set PUBLIC_DELAY_S
   // and an operator who forgot to see the same silent bot for the first hour.
   if (telegram.configured)
