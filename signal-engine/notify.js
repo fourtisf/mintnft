@@ -123,8 +123,6 @@ export function formatProgress(row) {
     "```",
     ...ca(row.tokenAddress),
     `${link("Chart", chartUrl(row))} · ${link("Record on nekara.xyz", callUrl(row.seq))}`,
-    ``,
-    `_Measured from the call, not from the low\. The record is the same either way\._`,
   ].join("\n");
 }
 
