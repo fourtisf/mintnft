@@ -13,7 +13,7 @@
  */
 import { rmSync } from "node:fs";
 import { FileStore } from "./store.js";
-import { TelegramBot, LinkCodes, makeCode, CHAIN_ALIAS } from "./tgbot.js";
+import { TelegramBot, LinkCodes, makeCode, CHAIN_ALIAS, COMMANDS } from "./tgbot.js";
 import { start } from "./index.js";
 import { issueSession } from "./auth.js";
 
@@ -28,7 +28,7 @@ const head = t => console.log(`\n${t}`);
    kept, because "the bot did nothing" and "the bot sent the wrong thing" have
    to be different failures. */
 function fakeTg({ updates = [], fail = null } = {}) {
-  const sent = [];
+  const sent = [], published = [];
   const queue = [...updates];
   const fetchImpl = async (url, init) => {
     const method = url.split("/").pop();
@@ -36,6 +36,10 @@ function fakeTg({ updates = [], fail = null } = {}) {
     if (method === "getUpdates") {
       const batch = queue.splice(0, queue.length);
       return { json: async () => ({ ok: true, result: batch }) };
+    }
+    if (method === "setMyCommands") {
+      published.push(...body.commands);
+      return { json: async () => ({ ok: true, result: true }) };
     }
     if (method === "getMe") {
       return { json: async () => ({ ok: true, result: { username: "nekaraxbot" } }) };
@@ -47,7 +51,7 @@ function fakeTg({ updates = [], fail = null } = {}) {
     }
     return { json: async () => ({ ok: true, result: {} }) };
   };
-  return { sent, queue, fetchImpl };
+  return { sent, published, queue, fetchImpl };
 }
 
 const msg = (chatId, text) => ({ update_id: Math.floor(Math.random() * 1e9), message: { chat: { id: chatId }, text } });
@@ -95,6 +99,39 @@ head("bot menyebut namanya sendiri");
     log: () => {} });
   ok(await dead.whoami() === null && dead.username === null,
     "token yang ditolak tidak meninggalkan nama tebakan — situs lebih baik tidak menautkan apa pun");
+}
+
+head("menu \"/\" yang Telegram tampilkan");
+{
+  rmSync(DATA, { force: true });
+  const store = new FileStore(DATA);
+  const tg = fakeTg();
+  const bot = new TelegramBot({ token: "T", store, tierSource: { bestTierOf: async () => 0 },
+                                fetchImpl: tg.fetchImpl, log: () => {} });
+  ok(await bot.publishCommands(), "menu terkirim ke Telegram");
+  ok(tg.published.length === COMMANDS.length,
+    `sebanyak daftar yang ada (${tg.published.length})`);
+  ok(tg.published.every(c => c.command && c.description),
+    "setiap entri punya nama dan keterangan — Telegram menolak yang tidak");
+  ok(tg.published.every(c => c.command === c.command.toLowerCase() && !c.command.startsWith("/")),
+    "tanpa garis miring dan huruf kecil semua, seperti yang API minta");
+
+  // A menu offering a command the bot refuses is worse than no menu.
+  sentToAll: for (const [name] of COMMANDS) {
+    tg.sent.length = 0;
+    await bot.handle(msg(99, "/" + name).message);
+    if (/Unknown command/.test(tg.sent.at(-1)?.text ?? "")) {
+      ok(false, `/${name} ada di menu tapi ditolak bot`);
+      break sentToAll;
+    }
+  }
+  ok(!/Unknown command/.test(tg.sent.at(-1)?.text ?? ""),
+    "dan setiap perintah di menu benar-benar dijawab");
+
+  tg.sent.length = 0;
+  await bot.handle(msg(99, "/").message);
+  ok(/Nekara alerts/.test(tg.sent.at(-1)?.text ?? ""),
+    "garis miring sendirian itu orang mencari menu, bukan perintah salah");
 }
 
 /* ═══════ commands ═══════ */

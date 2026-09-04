@@ -71,6 +71,19 @@ export class LinkCodes {
   }
 }
 
+/* One list, three uses: the menu Telegram shows when someone types "/", the
+   help text, and the set of commands handle() answers. Three copies of it would
+   drift, and the first symptom is a menu offering a command the bot refuses. */
+export const COMMANDS = [
+  ["start",   "subscribe to alerts"],
+  ["link",    "link the wallet holding your key"],
+  ["status",  "your tier and how far behind"],
+  ["filters", "chain, score and market cap filters"],
+  ["unlink",  "back to the public leg"],
+  ["stop",    "stop everything"],
+  ["help",    "show this again"],
+];
+
 const HELP = [
   "*Nekara alerts*",
   "",
@@ -80,10 +93,8 @@ const HELP = [
   "Hold a Proof Key and link it to move up the ladder:",
   "`/link` gives you a code to paste on nekara\\.xyz",
   "",
-  "`/status` what you are getting and how far behind",
-  "`/unlink` go back to the public leg",
-  "`/filters` chain and score filters",
-  "`/stop` stop everything",
+  ...COMMANDS.filter(([c]) => c !== "link" && c !== "help")
+    .map(([c, d]) => `\`/${c}\` ${esc(d)}`),
 ].join("\n");
 
 export class TelegramBot {
@@ -155,7 +166,7 @@ export class TelegramBot {
     const cmd = text.split(/\s+/)[0].split("@")[0].toLowerCase();
     const rest = text.slice(cmd.length).trim();
 
-    if (cmd === "/start" || cmd === "/help") {
+    if (cmd === "/" || cmd === "/start" || cmd === "/help") {
       await this.store.addSubscriber(chatId);
       return this.say(chatId, HELP);
     }
@@ -304,6 +315,20 @@ export class TelegramBot {
 
   /** Its own name, or null. Null means the site shows no link at all — a link
    *  to the wrong bot is worse than making someone search. */
+  /** Registers the menu Telegram pops up when someone types "/". Without it the
+   *  commands exist but nobody can find them, which is what a menu is for. */
+  async publishCommands() {
+    try {
+      await this.call("setMyCommands", {
+        commands: COMMANDS.map(([command, description]) => ({ command, description })),
+      });
+      return true;
+    } catch (e) {
+      this.log(`[tg] setMyCommands failed, the "/" menu will be empty — ${String(e)}`);
+      return false;
+    }
+  }
+
   async whoami() {
     try {
       const me = await this.call("getMe", {});
@@ -319,6 +344,7 @@ export class TelegramBot {
     if (!this.configured) { this.log("[tg] TG_TOKEN not set — no bot"); return this; }
     this.running = true;
     this.whoami().then(u => this.log(u ? `[tg] signed in as @${u}` : "[tg] signed in, name unknown"));
+    this.publishCommands().then(ok => ok && this.log(`[tg] ${COMMANDS.length} commands published to the menu`));
     const loop = async () => {
       while (this.running) {
         try { await this.poll(); }
