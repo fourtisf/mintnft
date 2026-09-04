@@ -80,9 +80,7 @@ export function formatSignal(sig, seq) {
     ``,
     ...chainLines(sig),
     ``,
-    `${link("Chart", chartUrl(sig))} · ${link("Register entry", callUrl(seq))}`,
-    ``,
-    `_Tracked to win, miss or dead\\. It stays on the register either way\\._`,
+    `${link("Chart", chartUrl(sig))} · ${link("Record on nekara.xyz", callUrl(seq))}`,
   ].filter(l => l !== null).join("\n");
 }
 
@@ -107,7 +105,7 @@ export function formatExit(row) {
     ...(held ? [`Held           ${held}`] : []),
     "```",
     ...ca(row.tokenAddress),
-    `${link("Chart", chartUrl(row))} · ${link("Register entry", callUrl(row.seq))}`,
+    `${link("Chart", chartUrl(row))} · ${link("Record on nekara.xyz", callUrl(row.seq))}`,
     ``,
     `_A ${Math.round(TRAIL_DROP_PCT)}% trailing stop, walked over the prices this service observed\\._`,
     `_Sampled, not continuous, and without slippage \\— an upper bound, not advice\\._`,
@@ -134,7 +132,7 @@ export function formatOutcome(row) {
     `Fired on: ${esc((row.reasons ?? [])[0] ?? "n/a")}`,
     ``,
     ...ca(row.tokenAddress),
-    `${link("Register entry", callUrl(row.seq))}`,
+    `${link("Record on nekara.xyz", callUrl(row.seq))}`,
     ``,
     `_Every call stays up, win or loss\\. Nothing here is ever removed\\._`,
   ].join("\n");
