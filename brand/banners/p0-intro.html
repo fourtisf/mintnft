@@ -37,6 +37,30 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .fade{position:absolute;left:0;right:0;pointer-events:none}
 .vig{position:absolute;inset:0;pointer-events:none;
  background:radial-gradient(125% 105% at 50% 38%,transparent 42%,rgba(0,0,0,.55))}
+
+/* The premium vocabulary the key artwork already uses, brought to the banners:
+   a key light with a rim opposite it, an engine-turned ground under everything,
+   and a plate edge with registration marks. Same rule as the artwork — depth
+   comes from light and shadow, never from a coloured glow behind the type. */
+.keylight{position:absolute;inset:0;pointer-events:none;
+ background:radial-gradient(940px 620px at 78% -12%,rgba(155,109,255,.20),transparent 62%),
+            radial-gradient(700px 520px at 8% 112%,rgba(91,124,250,.13),transparent 66%)}
+.guil{position:absolute;inset:0;pointer-events:none;opacity:.055;
+ background:
+  repeating-linear-gradient(31deg,rgba(255,255,255,.55) 0 1px,transparent 1px 13px),
+  repeating-linear-gradient(-31deg,rgba(255,255,255,.4) 0 1px,transparent 1px 13px);
+ -webkit-mask-image:radial-gradient(120% 100% at 50% 20%,#000 12%,transparent 70%);
+ mask-image:radial-gradient(120% 100% at 50% 20%,#000 12%,transparent 70%)}
+.plate{position:absolute;pointer-events:none;border-radius:3px;
+ border:1px solid rgba(255,255,255,.075);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(0,0,0,.4)}
+.reg{position:absolute;width:13px;height:13px;pointer-events:none;
+ border-color:rgba(255,255,255,.16);border-style:solid;border-width:0}
+/* One hairline column rule instead of three boxes. A claim in a card reads as a
+   feature grid; a claim behind a rule reads as a page. */
+.col{flex:1;padding-left:26px;border-left:1px solid rgba(255,255,255,.09)}
+.col:first-child{padding-left:0;border-left:0}
+.band{border-top:1px solid rgba(255,255,255,.09);border-bottom:1px solid rgba(255,255,255,.09)}
 </style><style>body{width:1600px;height:900px}</style>
 <div style="position:absolute;inset:0;background:url('file:///home/user/nekara/brand/shots/pv-reg.png') center 58%/138% auto no-repeat"></div>
 <div style="position:absolute;inset:0;background:radial-gradient(94% 88% at 50% 50%,rgba(8,9,11,.955) 22%,rgba(8,9,11,.90) 58%,rgba(8,9,11,.74))"></div>

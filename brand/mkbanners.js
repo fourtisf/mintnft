@@ -43,7 +43,39 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .fade{position:absolute;left:0;right:0;pointer-events:none}
 .vig{position:absolute;inset:0;pointer-events:none;
  background:radial-gradient(125% 105% at 50% 38%,transparent 42%,rgba(0,0,0,.55))}
+
+/* The premium vocabulary the key artwork already uses, brought to the banners:
+   a key light with a rim opposite it, an engine-turned ground under everything,
+   and a plate edge with registration marks. Same rule as the artwork — depth
+   comes from light and shadow, never from a coloured glow behind the type. */
+.keylight{position:absolute;inset:0;pointer-events:none;
+ background:radial-gradient(940px 620px at 78% -12%,rgba(155,109,255,.20),transparent 62%),
+            radial-gradient(700px 520px at 8% 112%,rgba(91,124,250,.13),transparent 66%)}
+.guil{position:absolute;inset:0;pointer-events:none;opacity:.055;
+ background:
+  repeating-linear-gradient(31deg,rgba(255,255,255,.55) 0 1px,transparent 1px 13px),
+  repeating-linear-gradient(-31deg,rgba(255,255,255,.4) 0 1px,transparent 1px 13px);
+ -webkit-mask-image:radial-gradient(120% 100% at 50% 20%,#000 12%,transparent 70%);
+ mask-image:radial-gradient(120% 100% at 50% 20%,#000 12%,transparent 70%)}
+.plate{position:absolute;pointer-events:none;border-radius:3px;
+ border:1px solid rgba(255,255,255,.075);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(0,0,0,.4)}
+.reg{position:absolute;width:13px;height:13px;pointer-events:none;
+ border-color:rgba(255,255,255,.16);border-style:solid;border-width:0}
+/* One hairline column rule instead of three boxes. A claim in a card reads as a
+   feature grid; a claim behind a rule reads as a page. */
+.col{flex:1;padding-left:26px;border-left:1px solid rgba(255,255,255,.09)}
+.col:first-child{padding-left:0;border-left:0}
+.band{border-top:1px solid rgba(255,255,255,.09);border-bottom:1px solid rgba(255,255,255,.09)}
 </style>`;
+
+/* The plate that frames every premium layout: a hairline inset a fixed margin
+   from the trim, with a registration mark at each corner. Drawn in one place
+   because four corners retyped per banner is four chances to drift. */
+const PLATE = (m = 30) => `<div class="plate" style="inset:${m}px"></div>` +
+  [[0, 0, '2px 0 0 2px'], [0, 1, '2px 2px 0 0'], [1, 1, '0 2px 2px 0'], [1, 0, '0 0 2px 2px']]
+    .map(([b, r, bw]) => `<div class="reg" style="${b ? 'bottom' : 'top'}:${m - 7}px;${r ? 'right' : 'left'}:${m - 7}px;border-width:${bw}"></div>`)
+    .join('');
 
 const page=(w,h,inner)=>`${BASE}<style>body{width:${w}px;height:${h}px}</style>
 <div class="aur"></div><div class="dots"></div>${inner}<div class="vig"></div><div class="grain"></div>`;
@@ -522,41 +554,51 @@ fs.writeFileSync('brand/banners/m2-mint-square.html', page(1080,1080,`
    tips, and the reasons ship with the call. A launch banner that promises a
    roadmap is a launch banner that has nothing to show. */
 const launch = (w, h) => page(w, h, `
-<div class="dots"></div><div class="aur"></div>
-<div style="position:absolute;inset:0;padding:${h > 1000 ? 80 : 64}px 74px ${h > 1000 ? 70 : 54}px;
-  display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center">
-  <div class="wm">${MARK}<span style="font-size:${h > 1000 ? 40 : 36}px">Nekara</span></div>
-  <div style="margin-top:${h > 1000 ? 40 : 34}px;display:flex;align-items:center;gap:11px">
-    <span style="width:9px;height:9px;border-radius:50%;background:var(--win);
-      box-shadow:0 0 0 5px rgba(62,207,142,.13)"></span>
-    <span class="eyebrow" style="color:var(--win)">Live now</span>
+<div class="keylight"></div><div class="guil"></div><div class="dots" style="opacity:.5"></div>
+<div style="position:absolute;right:${h > 1000 ? -210 : -190}px;top:${h > 1000 ? '58%' : '52%'};
+  transform:translateY(-50%);width:${h > 1000 ? 660 : 740}px;opacity:.028;pointer-events:none">${MARK}</div>
+<div style="position:absolute;inset:0;padding:${h > 1000 ? 96 : 84}px ${h > 1000 ? 76 : 92}px ${h > 1000 ? 88 : 76}px;
+  display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:40px">
+    <div class="wm">${MARK}<span style="font-size:${h > 1000 ? 38 : 34}px">Nekara</span></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--win);
+        box-shadow:0 0 0 5px rgba(62,207,142,.12)"></span>
+      <span class="eyebrow" style="color:var(--win)">Live now</span>
+    </div>
   </div>
-  <h1 style="font-size:${h > 1000 ? 62 : 58}px;line-height:1.06;margin-top:20px">A public register of<br>
-    <span class="grad-tx">automated trading signals.</span></h1>
-  <p style="font-size:${h > 1000 ? 20 : 19}px;line-height:1.62;color:var(--tx-2);
-    max-width:${h > 1000 ? 800 : 860}px;margin-top:22px">Firing on Robinhood Chain. Every call published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
 
-  <div style="display:flex;flex-direction:${h > 1000 ? 'column' : 'row'};gap:${h > 1000 ? 18 : 22}px;
-    margin-top:${h > 1000 ? 44 : 42}px;width:100%;max-width:${h > 1000 ? 780 : 1180}px">
+  <div style="margin-top:auto">
+    <h1 style="font-size:${h > 1000 ? 74 : 72}px;line-height:1.03;max-width:${h > 1000 ? 900 : 1120}px">A public register of<br>
+      <span class="grad-tx">automated trading signals.</span></h1>
+    <p style="font-size:${h > 1000 ? 21 : 20}px;line-height:1.6;color:var(--tx-2);
+      max-width:${h > 1000 ? 820 : 760}px;margin-top:26px">Firing on Robinhood Chain. Every call is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
+  </div>
+
+  <div class="band" style="display:flex;gap:${h > 1000 ? 26 : 40};margin-top:${h > 1000 ? 56 : 62}px;padding:${h > 1000 ? 30 : 34}px 0">
     ${[['The reasons ship with the call',
-        'Score, liquidity, volume and the rule that fired \u2014 in the message, not in a thread.'],
+        'Score, liquidity, volume and the rule that fired \u2014 inside the message.'],
        ['A miss cannot be deleted',
-        'Append-only. The database itself refuses the statement, and the misses stay beside the wins.'],
+        'Append-only. The database refuses the statement, so the losses stay beside the wins.'],
        ['666 keys buy seconds, not tips',
         'A key moves you up the queue on the same call everyone gets. Nothing else.']]
-      .map(([t, d]) => `<div class="card" style="flex:1;padding:${h > 1000 ? '22px 24px' : '26px 26px'};text-align:left">
-        <div style="font-family:var(--display);font-weight:600;font-size:${h > 1000 ? 20 : 19}px;letter-spacing:-.02em">${t}</div>
-        <div style="font-size:${h > 1000 ? 15.5 : 15}px;line-height:1.55;color:var(--tx-2);margin-top:9px">${d}</div>
+      .map(([t, d]) => `<div class="col">
+        <div style="font-family:var(--display);font-weight:600;font-size:${h > 1000 ? 20 : 20}px;letter-spacing:-.022em">${t}</div>
+        <div style="font-size:${h > 1000 ? 15.5 : 15.5}px;line-height:1.56;color:var(--tx-2);margin-top:10px">${d}</div>
       </div>`).join('')}
   </div>
 
-  <div style="display:flex;align-items:center;gap:16px;margin-top:${h > 1000 ? 46 : 40}px">
-    <div style="padding:13px 24px;border-radius:var(--r);background:var(--grad);
-      font-family:var(--display);font-weight:600;font-size:18px;color:#fff">nekara.xyz</div>
-    <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:30px;margin-top:${h > 1000 ? 34 : 32}px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="padding:13px 24px;border-radius:var(--r);background:var(--grad);
+        font-family:var(--display);font-weight:600;font-size:18px;color:#fff">nekara.xyz</div>
+      <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
+    </div>
+    <div class="eyebrow" style="font-size:10.5px">Robinhood Chain &middot; 4663</div>
   </div>
 </div>
-<div class="grain"></div>`);
+${PLATE(h > 1000 ? 40 : 38)}
+<div class="vig" style="opacity:.7"></div><div class="grain"></div>`);
 
 fs.writeFileSync('brand/banners/x3-launch.html', launch(1600, 900));
 fs.writeFileSync('brand/banners/x3-launch-square.html', launch(1080, 1080));
@@ -571,44 +613,50 @@ fs.writeFileSync('brand/banners/x3-launch-square.html', launch(1080, 1080));
    The odds are printed rather than counts, because the draw is probabilistic
    and a fixed count would be a different contract. */
 const mint = (w, h) => page(w, h, `
-<div class="dots"></div><div class="aur"></div>
-<div style="position:absolute;inset:0;padding:${h > 1000 ? 62 : 52}px ${h > 1000 ? 56 : 70}px ${h > 1000 ? 54 : 44}px;
+<div class="keylight"></div><div class="guil"></div><div class="dots" style="opacity:.45"></div>
+<div style="position:absolute;inset:0;padding:${h > 1000 ? 70 : 74}px ${h > 1000 ? 62 : 88}px ${h > 1000 ? 64 : 70}px;
   display:flex;flex-direction:column">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:36px">
     <div>
-      <div style="display:flex;align-items:center;gap:11px">
-        <span style="width:9px;height:9px;border-radius:50%;background:var(--win);
-          box-shadow:0 0 0 5px rgba(62,207,142,.13)"></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--win);
+          box-shadow:0 0 0 5px rgba(62,207,142,.12)"></span>
         <span class="eyebrow" style="color:var(--win)">Phase 1 &middot; Live now</span>
       </div>
-      <h2 style="font-size:${h > 1000 ? 46 : 46}px;line-height:1.08;margin-top:16px">Proof Keys, Season 1.<br>
+      <h2 style="font-size:${h > 1000 ? 42 : 52}px;line-height:1.07;margin-top:${h > 1000 ? 14 : 18}px">Proof Keys, Season 1.<br>
         <span class="grad-tx">666, and the draw is public.</span></h2>
     </div>
-    <div class="wm" style="flex-shrink:0">${MARK}<span>Nekara</span></div>
+    <div class="wm" style="flex-shrink:0">${MARK}<span style="font-size:${h > 1000 ? 34 : 32}px">Nekara</span></div>
   </div>
 
-  <div style="display:flex;gap:${h > 1000 ? 16 : 18}px;justify-content:center;margin:auto 0">
-    ${h > 1000 ? KEY(1, 300) + KEY(3, 300) : KEY(1, 300) + KEY(3, 300) + KEY(16, 300) + KEY(13, 300)}
+  <div style="display:flex;gap:${h > 1000 ? 20 : 24}px;justify-content:center;margin:auto 0">
+    ${h > 1000 ? KEY(1, 252) + KEY(3, 252) : KEY(1, 336) + KEY(3, 336) + KEY(16, 336) + KEY(13, 336)}
   </div>
-  ${h > 1000 ? `<div style="display:flex;gap:16px;justify-content:center;margin-bottom:auto">
-    ${KEY(16, 300)}${KEY(13, 300)}</div>` : ''}
+  ${h > 1000 ? `<div style="display:flex;gap:16px;justify-content:center;margin-bottom:auto;margin-top:16px">
+    ${KEY(16, 252)}${KEY(13, 252)}</div>` : ''}
 
-  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-top:${h > 1000 ? 30 : 26}px">
-    <div style="display:flex;gap:${h > 1000 ? 30 : 42}px">
-      ${SPEC('Phase 1', '$2', 25)}${SPEC('Supply', '666', 25)}${SPEC('Max / wallet', '5', 25)}
-      ${SPEC('Tier odds', '9.91 / 30.03 / 60.06', h > 1000 ? 15 : 18)}
-    </div>
-    <div style="text-align:right;flex-shrink:0">
-      <div style="padding:11px 20px;border-radius:var(--r);background:var(--grad);
-        font-family:var(--display);font-weight:600;font-size:17px;color:#fff;display:inline-block">nekara.xyz/mint</div>
-      <div class="eyebrow" style="font-size:10px;margin-top:12px">Robinhood Chain &middot; 4663</div>
+  <div class="band" style="display:flex;justify-content:space-between;align-items:center;gap:${h > 1000 ? 24 : 44}px;
+    padding:${h > 1000 ? 26 : 30}px 0;margin-top:${h > 1000 ? 34 : 30}px">
+    ${[['Phase 1', '$2'], ['Supply', '666'], ['Max / wallet', '5'],
+       ['Tier odds', '9.91 / 30.03 / 60.06']]
+      .map(([k, v], i) => `<div style="flex:${i === 3 ? 1.5 : 1};min-width:0">
+        <div class="eyebrow" style="font-size:10.5px">${k}</div>
+        <div style="font-family:var(--mono);font-size:${i === 3 ? (h > 1000 ? 19 : 22) : 27}px;margin-top:9px;white-space:nowrap">${v}</div>
+      </div>`).join('')}
+    <div style="flex-shrink:0"><div style="padding:13px 24px;border-radius:var(--r);background:var(--grad);
+      font-family:var(--display);font-weight:600;font-size:18px;color:#fff">nekara.xyz/mint</div></div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:30px;margin-top:${h > 1000 ? 26 : 24}px">
+    <div class="eyebrow" style="font-size:10.5px">A key buys latency on the feed &middot; access, not an investment</div>
+    <div style="text-align:right">
+      <div class="eyebrow" style="font-size:10px">Robinhood Chain &middot; 4663</div>
       <div class="mono" style="font-size:11.5px;margin-top:6px;color:var(--tx-2)">${CA_SHOWN}</div>
     </div>
   </div>
-  <div class="eyebrow" style="font-size:10px;margin-top:${h > 1000 ? 20 : 16};text-align:center">
-    A key buys latency on the feed &middot; access, not an investment</div>
 </div>
-<div class="grain"></div>`);
+${PLATE(h > 1000 ? 40 : 38)}
+<div class="vig" style="opacity:.62"></div><div class="grain"></div>`);
 
 fs.writeFileSync('brand/banners/x4-mint-live.html', mint(1600, 900));
 fs.writeFileSync('brand/banners/x4-mint-live-square.html', mint(1080, 1080));

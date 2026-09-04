@@ -37,40 +37,74 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .fade{position:absolute;left:0;right:0;pointer-events:none}
 .vig{position:absolute;inset:0;pointer-events:none;
  background:radial-gradient(125% 105% at 50% 38%,transparent 42%,rgba(0,0,0,.55))}
+
+/* The premium vocabulary the key artwork already uses, brought to the banners:
+   a key light with a rim opposite it, an engine-turned ground under everything,
+   and a plate edge with registration marks. Same rule as the artwork — depth
+   comes from light and shadow, never from a coloured glow behind the type. */
+.keylight{position:absolute;inset:0;pointer-events:none;
+ background:radial-gradient(940px 620px at 78% -12%,rgba(155,109,255,.20),transparent 62%),
+            radial-gradient(700px 520px at 8% 112%,rgba(91,124,250,.13),transparent 66%)}
+.guil{position:absolute;inset:0;pointer-events:none;opacity:.055;
+ background:
+  repeating-linear-gradient(31deg,rgba(255,255,255,.55) 0 1px,transparent 1px 13px),
+  repeating-linear-gradient(-31deg,rgba(255,255,255,.4) 0 1px,transparent 1px 13px);
+ -webkit-mask-image:radial-gradient(120% 100% at 50% 20%,#000 12%,transparent 70%);
+ mask-image:radial-gradient(120% 100% at 50% 20%,#000 12%,transparent 70%)}
+.plate{position:absolute;pointer-events:none;border-radius:3px;
+ border:1px solid rgba(255,255,255,.075);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(0,0,0,.4)}
+.reg{position:absolute;width:13px;height:13px;pointer-events:none;
+ border-color:rgba(255,255,255,.16);border-style:solid;border-width:0}
+/* One hairline column rule instead of three boxes. A claim in a card reads as a
+   feature grid; a claim behind a rule reads as a page. */
+.col{flex:1;padding-left:26px;border-left:1px solid rgba(255,255,255,.09)}
+.col:first-child{padding-left:0;border-left:0}
+.band{border-top:1px solid rgba(255,255,255,.09);border-bottom:1px solid rgba(255,255,255,.09)}
 </style><style>body{width:1080px;height:1080px}</style>
 <div class="aur"></div><div class="dots"></div>
-<div class="dots"></div><div class="aur"></div>
-<div style="position:absolute;inset:0;padding:80px 74px 70px;
-  display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center">
-  <div class="wm"><svg viewBox="0 0 120 120" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient></defs><circle cx="60" cy="60" r="51" stroke="url(#lg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#lg)"/><circle cx="60" cy="60" r="10" fill="url(#lg)"/></svg><span style="font-size:40px">Nekara</span></div>
-  <div style="margin-top:40px;display:flex;align-items:center;gap:11px">
-    <span style="width:9px;height:9px;border-radius:50%;background:var(--win);
-      box-shadow:0 0 0 5px rgba(62,207,142,.13)"></span>
-    <span class="eyebrow" style="color:var(--win)">Live now</span>
+<div class="keylight"></div><div class="guil"></div><div class="dots" style="opacity:.5"></div>
+<div style="position:absolute;right:-210px;top:58%;
+  transform:translateY(-50%);width:660px;opacity:.028;pointer-events:none"><svg viewBox="0 0 120 120" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient></defs><circle cx="60" cy="60" r="51" stroke="url(#lg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#lg)"/><circle cx="60" cy="60" r="10" fill="url(#lg)"/></svg></div>
+<div style="position:absolute;inset:0;padding:96px 76px 88px;
+  display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:40px">
+    <div class="wm"><svg viewBox="0 0 120 120" fill="none"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5B7CFA"/><stop offset="1" stop-color="#9B6DFF"/></linearGradient></defs><circle cx="60" cy="60" r="51" stroke="url(#lg)" stroke-width="7.5"/><path d="M57.16 23.11L62.84 23.11L61.38 42.05L58.62 42.05ZM75.99 26.63L80.9 29.47L70.17 45.15L67.78 43.77ZM90.53 39.1L93.37 44.01L76.23 52.22L74.85 49.83ZM96.89 57.16L96.89 62.84L77.95 61.38L77.95 58.62ZM93.37 75.99L90.53 80.9L74.85 70.17L76.23 67.78ZM80.9 90.53L75.99 93.37L67.78 76.23L70.17 74.85ZM62.84 96.89L57.16 96.89L58.62 77.95L61.38 77.95ZM44.01 93.37L39.1 90.53L49.83 74.85L52.22 76.23ZM29.47 80.9L26.63 75.99L43.77 67.78L45.15 70.17ZM23.11 62.84L23.11 57.16L42.05 58.62L42.05 61.38ZM26.63 44.01L29.47 39.1L45.15 49.83L43.77 52.22ZM39.1 29.47L44.01 26.63L52.22 43.77L49.83 45.15Z" fill="url(#lg)"/><circle cx="60" cy="60" r="10" fill="url(#lg)"/></svg><span style="font-size:38px">Nekara</span></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--win);
+        box-shadow:0 0 0 5px rgba(62,207,142,.12)"></span>
+      <span class="eyebrow" style="color:var(--win)">Live now</span>
+    </div>
   </div>
-  <h1 style="font-size:62px;line-height:1.06;margin-top:20px">A public register of<br>
-    <span class="grad-tx">automated trading signals.</span></h1>
-  <p style="font-size:20px;line-height:1.62;color:var(--tx-2);
-    max-width:800px;margin-top:22px">Firing on Robinhood Chain. Every call published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
 
-  <div style="display:flex;flex-direction:column;gap:18px;
-    margin-top:44px;width:100%;max-width:780px">
-    <div class="card" style="flex:1;padding:22px 24px;text-align:left">
-        <div style="font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em">The reasons ship with the call</div>
-        <div style="font-size:15.5px;line-height:1.55;color:var(--tx-2);margin-top:9px">Score, liquidity, volume and the rule that fired — in the message, not in a thread.</div>
-      </div><div class="card" style="flex:1;padding:22px 24px;text-align:left">
-        <div style="font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em">A miss cannot be deleted</div>
-        <div style="font-size:15.5px;line-height:1.55;color:var(--tx-2);margin-top:9px">Append-only. The database itself refuses the statement, and the misses stay beside the wins.</div>
-      </div><div class="card" style="flex:1;padding:22px 24px;text-align:left">
-        <div style="font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.02em">666 keys buy seconds, not tips</div>
-        <div style="font-size:15.5px;line-height:1.55;color:var(--tx-2);margin-top:9px">A key moves you up the queue on the same call everyone gets. Nothing else.</div>
+  <div style="margin-top:auto">
+    <h1 style="font-size:74px;line-height:1.03;max-width:900px">A public register of<br>
+      <span class="grad-tx">automated trading signals.</span></h1>
+    <p style="font-size:21px;line-height:1.6;color:var(--tx-2);
+      max-width:820px;margin-top:26px">Firing on Robinhood Chain. Every call is published with the exact conditions that triggered it, then tracked to win, miss or dead.</p>
+  </div>
+
+  <div class="band" style="display:flex;gap:26;margin-top:56px;padding:30px 0">
+    <div class="col">
+        <div style="font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.022em">The reasons ship with the call</div>
+        <div style="font-size:15.5px;line-height:1.56;color:var(--tx-2);margin-top:10px">Score, liquidity, volume and the rule that fired — inside the message.</div>
+      </div><div class="col">
+        <div style="font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.022em">A miss cannot be deleted</div>
+        <div style="font-size:15.5px;line-height:1.56;color:var(--tx-2);margin-top:10px">Append-only. The database refuses the statement, so the losses stay beside the wins.</div>
+      </div><div class="col">
+        <div style="font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:-.022em">666 keys buy seconds, not tips</div>
+        <div style="font-size:15.5px;line-height:1.56;color:var(--tx-2);margin-top:10px">A key moves you up the queue on the same call everyone gets. Nothing else.</div>
       </div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:16px;margin-top:46px">
-    <div style="padding:13px 24px;border-radius:var(--r);background:var(--grad);
-      font-family:var(--display);font-weight:600;font-size:18px;color:#fff">nekara.xyz</div>
-    <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:30px;margin-top:34px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="padding:13px 24px;border-radius:var(--r);background:var(--grad);
+        font-family:var(--display);font-weight:600;font-size:18px;color:#fff">nekara.xyz</div>
+      <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
+    </div>
+    <div class="eyebrow" style="font-size:10.5px">Robinhood Chain &middot; 4663</div>
   </div>
 </div>
-<div class="grain"></div><div class="vig"></div><div class="grain"></div>
+<div class="plate" style="inset:40px"></div><div class="reg" style="top:33px;left:33px;border-width:2px 0 0 2px"></div><div class="reg" style="top:33px;right:33px;border-width:2px 2px 0 0"></div><div class="reg" style="bottom:33px;right:33px;border-width:0 2px 2px 0"></div><div class="reg" style="bottom:33px;left:33px;border-width:0 0 2px 2px"></div>
+<div class="vig" style="opacity:.7"></div><div class="grain"></div><div class="vig"></div><div class="grain"></div>
