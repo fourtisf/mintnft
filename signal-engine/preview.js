@@ -20,7 +20,7 @@
  * measured, and the gate that kills everything is the one worth reading.
  */
 import { Engine } from "./engine.js";
-import { evaluate, CONFIG } from "./rules.js";
+import { evaluate, CONFIG, SIGNALS } from "./rules.js";
 import { formatSignal } from "./notify.js";
 import { Telegram } from "./notify.js";
 import { existsSync, readFileSync } from "node:fs";
@@ -103,6 +103,37 @@ if (SWEEP) {
     }
     console.log(`  $${String(liq / 1000).padStart(2)}K` + " ".repeat(7) + row.join(""));
   }
+  /* The grid says how many reach the scorer. This says what happens to them
+     there, which is the half the rejection table cannot show: a candidate that
+     clears every gate and then scores 32 is not refused by any threshold you
+     can move in an env file, and widening the band to find more of them buys
+     nothing. Which rules never pay out at all is the question underneath. */
+  const cleared = seen.map(p => ({ p, ev: evaluate(p, CONFIG, new Map()) }))
+                      .filter(x => !x.ev.vetoes.length);
+  if (cleared.length) {
+    const scores = cleared.map(x => x.ev.score).sort((a, b) => a - b);
+    const med = scores[Math.floor(scores.length / 2)];
+    console.log(`\n${cleared.length} cleared every gate. Scores ${scores[0]}–${scores.at(-1)}, median ${med}, against ${CONFIG.scoreToFire} to fire.`);
+    const paid = {};
+    for (const { ev } of cleared)
+      for (const r of ev.reasons) {
+        const e = (paid[r.id] ??= { n: 0, pts: 0 });
+        e.n++; e.pts += r.pts;
+      }
+    console.log("\n  rule                      paid  of      avg   max");
+    for (const sig of SIGNALS) {
+      const e = paid[sig.id] ?? { n: 0, pts: 0 };
+      const avg = e.n ? (e.pts / e.n).toFixed(1) : "—";
+      const flag = e.n === 0 ? "   never paid on this chain" : "";
+      console.log(`  ${sig.id.padEnd(24)} ${String(e.n).padStart(4)}  ${String(cleared.length).padStart(3)}  ${String(avg).padStart(6)}  ${String(sig.max).padStart(4)}${flag}`);
+    }
+    const best = cleared.reduce((a, b) => (b.ev.score > a.ev.score ? b : a));
+    console.log(`\n  best was $${best.p.baseToken?.symbol} at ${best.ev.score}, ${CONFIG.scoreToFire - best.ev.score} short. It earned:`);
+    for (const r of best.ev.reasons) console.log(`    ${String(r.pts).padStart(3)}  ${r.why}`);
+    const missed = SIGNALS.filter(s => !best.ev.reasons.some(r => r.id === s.id));
+    if (missed.length) console.log(`    and earned nothing from: ${missed.map(s => `${s.id} (${s.max})`).join(", ")}`);
+  }
+
   console.log(`\n  now: $${CONFIG.minLiquidityUsd / 1000}K liquidity, $${CONFIG.minMarketCap / 1000}K cap.`);
   console.log("  One pass is not the market. Run it a few times before moving anything,");
   console.log("  and read gap 5 in CLAUDE.md before lowering the liquidity floor —");

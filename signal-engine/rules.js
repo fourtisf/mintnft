@@ -126,9 +126,12 @@ export const CONFIG = {
     // wrapped natives and staked derivatives — the denominator, not the bet
     "WETH", "ETH", "WBTC", "BTC", "CBBTC", "WSOL", "SOL", "WBNB", "BNB",
     "STETH", "WSTETH", "WEETH", "ARB",
-    // Robinhood Chain stock tokens, the ones confirmed live. See the note above:
-    // this part of the list is a floor, never a claim of coverage.
-    "TSLA", "NVDA", "SPY", "SPCX",
+    /* Robinhood Chain stock tokens. RBLX is here because a live pass refused a
+       pair *quoted* in it — the stock tokens are deep enough on this chain to
+       be used as the denominator, which is the strongest evidence yet that the
+       set is larger than anything written here. See the note above: this part
+       of the list is a floor, never a claim of coverage. */
+    "TSLA", "NVDA", "SPY", "SPCX", "RBLX",
   ]).map(s => s.toUpperCase()),
 
   // ── on-chain, in chain.js ─────────────────────────────────────────────

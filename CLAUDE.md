@@ -317,6 +317,18 @@ continuing. Everything else is recoverable; that one is not.
 
 4. **Score weights are reasoned, not measured.** Do not tune them on a handful
    of calls. Read `/api/analytics/bands` after ~100 settled calls.
+
+   **The score, not the size band, is what is holding this desk shut**, and the
+   first `preview.js --sweep` said so plainly: of 47 live candidates, 5 cleared
+   every gate at the shipped $15K/$30K band and **0** reached the threshold;
+   dropping the floor to $4K and the cap to $10K took that to 7 and still 0.
+   So widening the band buys candidates and no calls, at the cost of thinner
+   pools — the opposite of the trade it looks like. The rejection table cannot
+   show this, because a candidate that clears every gate and then scores 32 is
+   not refused by anything an env file can move. `--sweep` now also prints the
+   score spread, which rules paid out and which never did, and what the best
+   candidate was short — that is the reading to take before touching a weight,
+   and it is diagnosis, not permission to tune.
 5. **Tier latency is an unresolved product problem.** Several hundred holders
    acting on a $25K token move it themselves, and Tier III entering 10s before
    Tier I means Tier I buys Tier III's exit. Flag it; do not design around it
