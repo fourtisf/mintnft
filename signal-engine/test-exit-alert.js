@@ -22,6 +22,7 @@ import { FileStore } from "./store.js";
 import { start } from "./index.js";
 import { applyObservation, RULES } from "./scorer.js";
 import { trailExit, TRAIL_DROP } from "./analytics.js";
+import { formatSignal, formatOutcome } from "./notify.js";
 
 const DATA = "./data/exit-alert-test.json";
 const PORT = 8799;
@@ -126,6 +127,38 @@ head("seri yang diterbitkan tidak dipakai ulang untuk menghitung exit");
   const legacy = trailExit({ entryMc: ENTRY_MC, nowX: 0.4, spark: [ENTRY_MC, ENTRY_MC * 0.4] });
   ok(!legacy.live && legacy.simulated,
     "baris lama yang ditulis sebelum ini ada tetap dihitung dari serinya, seperti dulu");
+}
+
+/* ═══════ what the channel actually reads ═══════ */
+head("pesan yang masuk ke channel");
+{
+  const sig = { symbol: "BRASS", name: "Brass Monkey", chain: "solana", dex: "meteora",
+    score: 81, entryMc: 50_000, liquidityUsd: 62_000, entryVolumeH1: 52_000,
+    tokenAddress: "TOK", pairAddress: "PAIR", reasons: ["Volume running 5.7x the hourly pace"],
+    chainChecks: { have: ["mintAuthority", "lpBurnedPct"], mintAuthority: null, lpBurnedPct: 1 } };
+
+  const m = formatSignal(sig, 7);
+  ok(/#0007/.test(m), "nomor call ditulis empat digit, jadi urutannya terbaca sekilas");
+  ok(/nekara\.xyz\/call\/7/.test(m), "setiap pesan menunjuk ke halaman call-nya sendiri");
+  ok(/dexscreener\.com\/solana\/PAIR/.test(m), "dan ke chart pair yang benar-benar dipakai call itu");
+  ok(/mint authority revoked/.test(m) && /LP burned 100%/.test(m),
+    "apa yang chain bilang ikut, bukan cuma skor");
+
+  /* The one that matters: a chain nobody could read must never look like a
+     clean bill. Silence is what a reader takes for a pass. */
+  const unread = formatSignal({ ...sig, chainChecks: null }, 8);
+  ok(/not checked/.test(unread),
+    "RPC yang tidak terbaca dicetak sebagai tidak diperiksa, bukan dihilangkan diam-diam");
+  ok(!/revoked|burned/.test(unread), "dan tidak ada satu pun gate yang terbaca lulus");
+
+  const empty = formatSignal({ ...sig, chainChecks: { have: [] } }, 9);
+  ok(/nothing could be established/.test(empty),
+    "laporan yang datang kosong juga bilang begitu, bukan diam");
+
+  const loss = formatOutcome({ seq: 12, symbol: "FINE", verdict: "miss", isDead: true,
+    peakX: 1.12, nowX: 0.06, secondsTo2x: null, reasons: ["Volume"] });
+  ok(/MISS/.test(loss) && /DEAD/.test(loss), "yang kalah diumumkan dengan kata yang sama jelasnya");
+  ok(/ever removed/.test(loss), "dan pesannya sendiri mengatakan itu tidak akan dihapus");
 }
 
 /* ═══════ through the engine, which is where the alert comes from ═══════ */

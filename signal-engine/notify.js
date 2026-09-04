@@ -12,21 +12,67 @@ const esc = s => String(s).replace(/[_*[\]()~`>#+=|{}.!-]/g, m => "\\" + m);
 const usd = n => n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M`
               : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${Math.round(n)}`;
 
+const SITE = "https://nekara.xyz";
+const CHAIN_LABEL = { solana: "SOL", base: "BASE", ethereum: "ETH", bsc: "BNB" };
+const pad4 = n => String(n ?? "").padStart(4, "0");
+
+/** The call's own page. It carries the hash, the chart and the verdict as it
+ *  moves, so every message points at the record rather than restating it. */
+const callUrl = seq => `${SITE}/call/${seq}`;
+const chartUrl = row => row.pairAddress
+  ? `https://dexscreener.com/${row.chain}/${row.pairAddress}` : null;
+
+/** A markdown link, or the label alone when there is nothing to link to. */
+const link = (label, url) => url ? `[${esc(label)}](${url})` : esc(label);
+
+/**
+ * What the chain said, or that nobody asked it.
+ *
+ * `chainChecks` is null when no RPC was configured or the read failed, and the
+ * two are not the same as a clean bill. Printing nothing would let a reader
+ * take silence for a pass, which is the one thing this field exists to prevent.
+ */
+function chainLines(sig) {
+  const c = sig.chainChecks;
+  if (!c) return ["*On chain*", "· not checked — no RPC was reachable when this fired"];
+  const have = new Set(c.have ?? []);
+  const out = [];
+  if (have.has("mintAuthority"))
+    out.push(c.mintAuthority ? "· mint authority still live" : "· mint authority revoked");
+  if (have.has("freezeAuthority"))
+    out.push(c.freezeAuthority ? "· freeze authority still live" : "· freeze authority revoked");
+  if (have.has("lpBurnedPct")) out.push(`· LP burned ${esc((c.lpBurnedPct * 100).toFixed(0))}%`);
+  if (have.has("topHolderPct")) out.push(`· top holder ${esc((c.topHolderPct * 100).toFixed(1))}%`);
+  if (have.has("top10Pct")) out.push(`· top 10 hold ${esc((c.top10Pct * 100).toFixed(1))}%`);
+  if (!out.length) return ["*On chain*", "· nothing could be established"];
+  return ["*On chain*", ...out];
+}
+
 export function formatSignal(sig, seq) {
-  const lines = [
-    `*SIGNAL \\#${seq}* · ${esc(ticker(sig.symbol))}`,
-    `${esc(sig.chain)} · ${esc(sig.dex)} · score *${sig.score}/100*`,
+  const chain = CHAIN_LABEL[sig.chain] ?? String(sig.chain ?? "").toUpperCase();
+  const vol = sig.entryVolumeH1
+    ? `Volume 1h  ${usd(sig.entryVolumeH1)}` : null;
+  return [
+    `🟢 *SIGNAL \\#${pad4(seq)}* · ${esc(ticker(sig.symbol))}`,
+    `${esc(sig.name ?? "")} · ${esc(chain)} · ${esc(sig.dex)}`,
     ``,
-    `Entry MC ${esc(usd(sig.entryMc))} · Liquidity ${esc(usd(sig.liquidityUsd))}`,
-    ``,
+    "```",
+    `Entry MC   ${usd(sig.entryMc)}`,
+    `Liquidity  ${usd(sig.liquidityUsd)}`,
+    ...(vol ? [vol] : []),
+    `Score      ${sig.score}/100`,
+    "```",
     `*Why it fired*`,
     ...sig.reasons.map(r => `· ${esc(r)}`),
     ``,
+    ...chainLines(sig),
+    ``,
     `\`${esc(sig.tokenAddress)}\``,
     ``,
-    `_Peak is not a realized return\\. Tracked to win, miss or dead on the public register\\._`,
-  ];
-  return lines.join("\n");
+    `${link("Chart", chartUrl(sig))} · ${link("Register entry", callUrl(seq))}`,
+    ``,
+    `_Tracked to win, miss or dead\\. It stays on the register either way\\._`,
+  ].filter(l => l !== null).join("\n");
 }
 
 /**
@@ -42,28 +88,42 @@ export function formatExit(row) {
     ? (row.exitSeconds < 3600 ? `${Math.round(row.exitSeconds / 60)}m` : `${(row.exitSeconds / 3600).toFixed(1)}h`)
     : null;
   return [
-    `*EXIT RULE* · \\#${row.seq} ${esc(ticker(row.symbol))}`,
-    `Stop followed a high of *${(row.exitHighX ?? 1).toFixed(2)}x*, filled at *${(row.exitX ?? 1).toFixed(2)}x*`,
-    held ? `${esc(held)} after the call fired` : null,
+    `🟠 *EXIT RULE* · \\#${pad4(row.seq)} ${esc(ticker(row.symbol))}`,
     ``,
-    `\`${esc(row.tokenAddress)}\``,
+    "```",
+    `High followed  ${(row.exitHighX ?? 1).toFixed(2)}x`,
+    `Stop filled    ${(row.exitX ?? 1).toFixed(2)}x`,
+    ...(held ? [`Held           ${held}`] : []),
+    "```",
+    `${link("Chart", chartUrl(row))} · ${link("Register entry", callUrl(row.seq))}`,
     ``,
     `_A ${Math.round(TRAIL_DROP_PCT)}% trailing stop, walked over the prices this service observed\\._`,
     `_Sampled, not continuous, and without slippage \\— an upper bound, not advice\\._`,
-  ].filter(Boolean).join("\n");
+  ].join("\n");
 }
 
 /** Sent when a call settles — including the losses. Nobody else posts these. */
 export function formatOutcome(row) {
-  const v = row.verdict === "win" ? "WIN" : "MISS";
+  const win = row.verdict === "win";
+  const mark = row.isDead ? "⚫" : win ? "✅" : "❌";
+  const v = win ? "WIN" : "MISS";
   const dead = row.isDead ? " · DEAD" : "";
   return [
-    `*${esc(v)}${esc(dead)}* · \\#${row.seq} ${esc(ticker(row.symbol))}`,
-    `Peak *${row.peakX.toFixed(2)}x* · now ${row.nowX.toFixed(2)}x`,
-    row.secondsTo2x ? `Reached 2x in ${Math.round(row.secondsTo2x / 60)}m` : `Never reached 2x`,
+    `${mark} *${esc(v)}${esc(dead)}* · \\#${pad4(row.seq)} ${esc(ticker(row.symbol))}`,
     ``,
+    "```",
+    `Peak     ${row.peakX.toFixed(2)}x`,
+    `Now      ${row.nowX.toFixed(2)}x`,
+    row.secondsTo2x
+      ? `To 2x    ${Math.round(row.secondsTo2x / 60)}m`
+      : `To 2x    never`,
+    ...(row.exitX != null ? [`Stop     ${row.exitX.toFixed(2)}x`] : []),
+    "```",
     `Fired on: ${esc((row.reasons ?? [])[0] ?? "n/a")}`,
-    `_Stays on the register either way\\._`,
+    ``,
+    `${link("Register entry", callUrl(row.seq))}`,
+    ``,
+    `_Every call stays up, win or loss\\. Nothing here is ever removed\\._`,
   ].join("\n");
 }
 
