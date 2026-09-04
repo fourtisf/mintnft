@@ -485,10 +485,16 @@ const proto = () => PROTO ??= new (require('jsdom').JSDOM)(
       w.fetch = () => Promise.reject(0); w.TextEncoder = TextEncoder;
     } }).window;
 
+/* The plate engraves a tier drawn from the sample seed. The season seed is not
+   out, and a banner carries no caption saying so — so it is blanked here, once,
+   and every surface that draws a key goes through this. The backdrop on the
+   token banner used keySVG directly and printed TIER I, which is the same
+   mis-selling as a wrong price: a reader has no way to know the draw has not
+   run. Never call keySVG from a banner; call this. */
+const keyBody = id => proto().keySVG(id, 'full').body.replace(/(>TIER )[IVX]+(<)/, '$1\u2014$2');
+
 const KEY = (id, w) => {
-  // The plate engraves a tier drawn from the sample seed. The season seed is
-  // not out, and a banner carries no caption saying so.
-  const body = proto().keySVG(id, 'full').body.replace(/(>TIER )[IVX]+(<)/, '$1\u2014$2');
+  const body = keyBody(id);
   return `<div style="width:${w}px;height:${w}px;border-radius:14px;overflow:hidden;
     border:1px solid rgba(255,255,255,.13);
     box-shadow:0 24px 60px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.045)">
@@ -683,26 +689,26 @@ fs.writeFileSync('brand/banners/x4-mint-live-square.html', mint(1080, 1080));
 
 /* ── token ─────────────────────────────────────────────────────────────── */
 
-/* A token banner exists to carry one string, and it is the one string that can
-   hurt somebody: a reader pastes the address on it into a wallet. So it is
-   never typed in here and never invented. Pass the real one:
-
-     TOKEN_CA=0x… node brand/mkbanners.js && node brand/render.js
-
-   With nothing passed the banner says the address is not published rather than
-   showing a plausible-looking placeholder — a fake address that reads as real
-   is the worst artefact this repository could produce, and a banner cannot be
-   corrected once it is on a timeline. */
-const TOKEN_CA = process.env.TOKEN_CA?.trim() || null;
-const TOKEN_CHAIN = process.env.TOKEN_CHAIN?.trim() || 'Robinhood Chain \u00b7 4663';
-
 const token = (w, h) => page(w, h, `
-<div class="keylight"></div><div class="guil"></div><div class="dots" style="opacity:.45"></div>
-<div style="position:absolute;right:${h > 1000 ? -200 : -170}px;top:50%;transform:translateY(-50%);
-  width:${h > 1000 ? 620 : 700}px;opacity:.03;pointer-events:none">${MARK}</div>
+<div style="position:absolute;inset:0;overflow:hidden">
+  <div style="position:absolute;left:${h > 1000 ? '50%' : '73%'};top:${h > 1000 ? '38%' : '50%'};
+    transform:translate(-50%,-50%);width:${h > 1000 ? 940 : 1010}px;height:${h > 1000 ? 940 : 1010}px;opacity:.62">
+    <svg viewBox="0 0 600 600" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">${keyBody(3)}</svg>
+  </div>
+</div>
+${h > 1000
+  ? `<div style="position:absolute;inset:0;background:
+      radial-gradient(105% 88% at 50% 40%,rgba(8,9,11,.34) 14%,rgba(8,9,11,.88) 58%,rgba(8,9,11,.99))"></div>`
+  : `<div style="position:absolute;inset:0;background:
+      linear-gradient(90deg,rgba(8,9,11,.985) 26%,rgba(8,9,11,.86) 46%,rgba(8,9,11,.42) 74%,rgba(8,9,11,.62))"></div>
+     <div style="position:absolute;inset:0;background:
+      linear-gradient(0deg,rgba(8,9,11,.92),transparent 34%,transparent 72%,rgba(8,9,11,.86))"></div>`}
+<div class="keylight" style="opacity:.75"></div><div class="guil" style="opacity:.035"></div>
+
 <div style="position:absolute;inset:0;padding:${h > 1000 ? 92 : 84}px ${h > 1000 ? 72 : 92}px ${h > 1000 ? 84 : 76}px;
-  display:flex;flex-direction:column">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:40px">
+  display:flex;flex-direction:column;text-align:${h > 1000 ? 'center' : 'left'};
+  align-items:${h > 1000 ? 'center' : 'flex-start'}">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:40px;width:100%">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="width:8px;height:8px;border-radius:50%;background:var(--win);
         box-shadow:0 0 0 5px rgba(62,207,142,.12)"></span>
@@ -711,36 +717,26 @@ const token = (w, h) => page(w, h, `
     <div class="wm">${MARK}<span style="font-size:${h > 1000 ? 34 : 32}px">Nekara</span></div>
   </div>
 
-  <div style="margin-top:auto">
-    <div style="font-family:var(--display);font-weight:600;letter-spacing:-.04em;
-      font-size:${h > 1000 ? 132 : 128}px;line-height:1" class="grad-tx">$NEKARA</div>
+  <div style="margin:auto 0">
+    <div style="font-family:var(--display);font-weight:600;letter-spacing:-.045em;
+      font-size:${h > 1000 ? 142 : 126}px;line-height:1;
+      text-shadow:0 24px 70px rgba(0,0,0,.9)" class="grad-tx">$NEKARA</div>
     <p style="font-size:${h > 1000 ? 21 : 20}px;line-height:1.6;color:var(--tx-2);
-      max-width:${h > 1000 ? 840 : 800}px;margin-top:${h > 1000 ? 26 : 24}px">The token of a register that publishes every call it makes, with the conditions that fired it, and cannot delete the ones that fail.</p>
+      max-width:${h > 1000 ? 780 : 620}px;margin:${h > 1000 ? 28 : 26}px ${h > 1000 ? 'auto' : '0'} 0">The token of a register that publishes every call it makes, with the conditions that fired it, and cannot delete the ones that fail.</p>
   </div>
 
-  <div class="band" style="margin-top:${h > 1000 ? 48 : 44}px;padding:${h > 1000 ? 30 : 32}px 0">
-    <div class="eyebrow" style="font-size:10.5px">Contract address</div>
-    <div style="font-family:var(--mono);font-size:${TOKEN_CA ? (h > 1000 ? 26 : 30) : (h > 1000 ? 20 : 22)}px;
-      margin-top:12px;word-break:break-all;line-height:1.35;
-      color:${TOKEN_CA ? 'var(--tx)' : 'var(--tx-3)'}">${TOKEN_CA ?? 'not published yet'}</div>
-  </div>
-
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:30px;margin-top:${h > 1000 ? 40 : 36}px">
-    <div style="display:flex;align-items:center;gap:16px">
-      <div style="padding:14px 26px;border-radius:var(--r);background:var(--grad);
-        font-family:var(--display);font-weight:600;font-size:19px;color:#fff">nekara.xyz</div>
-      <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
-    </div>
-    <div class="eyebrow" style="font-size:10.5px">${TOKEN_CHAIN}</div>
+  <div style="display:flex;align-items:center;justify-content:${h > 1000 ? 'center' : 'flex-start'};gap:18px;width:100%">
+    <div style="padding:14px 28px;border-radius:var(--r);background:var(--grad);
+      font-family:var(--display);font-weight:600;font-size:19px;color:#fff">nekara.xyz</div>
+    <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
   </div>
 </div>
 ${PLATE(h > 1000 ? 40 : 38)}
-<div class="vig" style="opacity:.66"></div><div class="grain"></div>`);
+<div class="grain"></div>`);
 
 fs.writeFileSync('brand/banners/x5-token.html', token(1600, 900));
 fs.writeFileSync('brand/banners/x5-token-square.html', token(1080, 1080));
 
-if (!TOKEN_CA) console.error('  peringatan: TOKEN_CA tidak diberikan — banner token bilang alamatnya belum terbit, bukan menampilkan alamat palsu');
 
 if (!CA) console.error('  peringatan: out/keys.4663.json tidak terbaca — banner mint tanpa alamat kontrak');
 
