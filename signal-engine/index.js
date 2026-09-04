@@ -13,7 +13,7 @@ import { Engine } from "./engine.js";
 import { Triage } from "./triage.js";
 import { FileStore } from "./store.js";
 import { applyObservation } from "./scorer.js";
-import { linksOf } from "./rules.js";
+import { linksOf, SIGNALS } from "./rules.js";
 import { serve } from "./api.js";
 import { attachFeed } from "./ws.js";
 import { publishAnchor } from "./anchor.js";
@@ -250,6 +250,11 @@ export function start({ store = new FileStore(), port = 8787,
   // Which chains this desk claims, out loud. Discovery returns every chain a
   // team filed a profile for, so this restriction is the only thing keeping the
   // register inside what the site says it covers.
+  /* The one number an operator changes most often, and until now the only way
+     to confirm it had taken effect was to read systemd back rather than the
+     process. A threshold nothing can reach and a quiet market produce the same
+     silence, so the threshold in force belongs in the log beside the rest. */
+  log(`[score] fires at ${engine.cfg.scoreToFire} of ${SIGNALS.reduce((a, s) => a + s.max, 0)} — SCORE_TO_FIRE moves it`);
   log(engine.cfg.chains?.length
     ? `[chains] firing on ${engine.cfg.chains.join(", ")} — set CHAINS= to lift it`
     : "[chains] no restriction — every chain discovery returns can fire");
