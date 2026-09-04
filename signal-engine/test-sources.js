@@ -160,8 +160,8 @@ console.log("\nPONS, DARI LOG PABRIKNYA SENDIRI");
   const rpc = async (_url, init) => {
     const body = JSON.parse(init.body);
     asked.push(body);
-    if (body.method === "eth_blockNumber") return { json: async () => ({ result: "0x64" }) };
-    return { json: async () => ({ result: [{ topics: [PONS_TOKEN_LAUNCHED, pad(TOKEN), pad(DEPLOYER), pad(DEPLOYER)] }] }) };
+    if (body.method === "eth_blockNumber") return { ok: true, json: async () => ({ result: "0x2710" }) };
+    return { ok: true, json: async () => ({ result: [{ topics: [PONS_TOKEN_LAUNCHED, pad(TOKEN), pad(DEPLOYER), pad(DEPLOYER)] }] }) };
   };
   const priced = [];
   const api = { tokensBatch: async (chain, tokens) => { priced.push([chain, tokens]); return []; } };
@@ -176,6 +176,40 @@ console.log("\nPONS, DARI LOG PABRIKNYA SENDIRI");
   ok(priced[0]?.[0] === "robinhood", "harganya dibaca di robinhood — nama rantai yang dipakai Dexscreener");
   ok(priced[0]?.[1].length === 1 && priced[0][1][0] === TOKEN,
     "hanya slot 1 yang token: deployer di slot 2 tidak ikut dihargai sebagai token");
+
+  /* Sebuah node yang mati, membatasi laju, atau menolak rentang bloknya dulu
+     mengembalikan array kosong — jadi sumber yang tidak bisa berjalan terbit
+     sebagai sumber yang berjalan dan tidak menemukan apa-apa, dengan
+     errors: 0 di halaman Triage. Itu satu hal yang tidak boleh dilakukan
+     berkas mana pun di sini. */
+  const failing = kind => new PonsSource(api, {
+    rpc: "http://rpc", log: () => {},
+    fetchImpl: async () => kind === "http"
+      ? { ok: false, status: 429, json: async () => ({}) }
+      : { ok: true, json: async () => ({ error: { message: "block range too wide" } }) },
+  }).candidates();
+  const threw = async p => { try { await p; return null; } catch (e) { return String(e.message ?? e); } };
+  ok((await threw(failing("http")))?.includes("429"),
+    "RPC yang menolak dengan HTTP melempar, tidak mengembalikan nol diam-diam");
+  ok((await threw(failing("jsonrpc")))?.includes("block range too wide"),
+    "galat JSON-RPC juga — 200 dengan error di badannya bukan hasil kosong");
+
+  /* Dan yang dilempar itu harus sampai ke Triage sebagai galat, bukan hilang. */
+  const merged2 = new MergedSource([new PonsSource(api, {
+    rpc: "http://rpc", log: () => {},
+    fetchImpl: async () => ({ ok: false, status: 429, json: async () => ({}) }),
+  })]);
+  await merged2.candidates();
+  const t2 = new Triage();
+  t2.scanned(0, [], merged2.lastRun);
+  const s2 = t2.snapshot().sources.find(x => x.id === "pons-launchpad");
+  ok(s2?.errors === 1 && /429/.test(s2?.lastError ?? ""),
+    "dan /api/triage menghitungnya sebagai errors: 1 dengan pesannya, bukan scanned: 0");
+
+  /* Jendela dingin. Di rantai Nitro 200 blok kurang dari satu menit sejarah,
+     dan tick pertama setelah deploy melaporkan itu sebagai tidak ada apa-apa. */
+  const cold = new PonsSource(api, { rpc: "http://rpc", fetchImpl: rpc, log: () => {} });
+  ok(cold.lookback >= 5000, "jendela dingin Pons jauh lebih lebar dari default 200 blok");
 
   const names = (cfg = CONFIG) => new Engine({ client: {}, cfg, log: () => {} }).source.sources.map(s => s.name);
   const before = process.env.ROBINHOOD_RPC;

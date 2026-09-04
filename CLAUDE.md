@@ -223,6 +223,23 @@ continuing. Everything else is recoverable; that one is not.
    one. The factory addresses and the topic come from the verified source at
    `github.com/ponsdotdev/ponsfamily`.
 
+   `EvmFactorySource` **swallowed its own RPC failures** and returned an empty
+   array, so a node that was down, rate-limiting, or refusing the block range
+   published as `scanned: 0, errors: 0` — a source that could not run, reading
+   exactly like a source that ran and found nothing. It throws now; MergedSource
+   already catches per source, keeps the others running and records the message,
+   so the failure reaches `/api/triage` as `errors` and `lastError`. A JSON-RPC
+   error is a 200 with an `error` member, so `#rpc` checks for that too — reading
+   `.result` past it turned "block range too wide" into `undefined` and
+   `undefined` into an empty scan.
+
+   The cold-start window was **200 blocks for every chain**. That is half an hour
+   on Base and **under a minute on Robinhood Chain**, whose Nitro blocks are
+   sub-second — so the first tick after a deploy saw essentially no history and
+   reported it as nothing happening. `lookback` is per source now and Pons uses
+   `PONS_LOOKBACK_BLOCKS` (5000, ~20 minutes). Only the first tick uses it; after
+   that the source resumes from where it stopped, so nothing is skipped.
+
    The EVM watchers were **all pointed at Base's Uniswap v3 factory**, because
    every one of them took the constructor default. An `ETH_RPC` or `BSC_RPC`
    watcher therefore scanned an address that is not the factory on its chain,

@@ -143,42 +143,62 @@ export class EvmFactorySource {
   constructor(api, { chain = "base", rpc = process.env.BASE_RPC,
                      factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD", // Uniswap v3, Base
                      topic = "0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b4e6b7118",
-                     tokenTopics = [1, 2], name = null,
+                     tokenTopics = [1, 2], name = null, lookback = 200,
                      fetchImpl = globalThis.fetch, log = console.log } = {}) {
-    Object.assign(this, { api, chain, rpc, factory, topic, tokenTopics, fetch: fetchImpl, log });
+    Object.assign(this, { api, chain, rpc, factory, topic, tokenTopics, lookback, fetch: fetchImpl, log });
     this.name = name ?? `evm-factory:${chain}`;
     this.from = null;
   }
 
+  /**
+   * Errors are not caught here, on purpose. They used to be: the RPC failing
+   * returned an empty array, so a node that was down, rate-limiting or
+   * refusing the block range produced `scanned: 0, errors: 0` — a source that
+   * could not run, published as a source that ran and found nothing. That is
+   * the one thing this codebase is not allowed to do. MergedSource already
+   * catches per source, keeps the others running, and records the message, so
+   * throwing is what makes the failure reach `/api/triage` at all.
+   */
   async candidates() {
     if (!this.rpc) { this.log(`[${this.name}] no RPC configured, source idle`); return []; }
-    try {
-      const head = await this.#rpc("eth_blockNumber", []);
-      const to = parseInt(head, 16);
-      const from = this.from ?? to - 200;
-      this.from = to + 1;
-      const logs = await this.#rpc("eth_getLogs", [{
-        address: this.factory, topics: [this.topic],
-        fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16),
-      }]);
-      const tokens = new Set();
-      for (const l of logs ?? []) {
-        for (const i of this.tokenTopics) {
-          const t = l.topics?.[i];
-          if (t) tokens.add("0x" + t.slice(26));
-        }
+    const head = await this.#rpc("eth_blockNumber", []);
+    const to = parseInt(head, 16);
+    /* Only the first tick uses the lookback; after that it resumes from where
+       it stopped, so the window is whatever elapsed and nothing is skipped.
+       The default is sized for a chain with seconds-long blocks — on a Nitro
+       chain 200 blocks is under a minute of history, which is a cold start
+       that sees essentially nothing and reports it as nothing there. */
+    const cold = this.from == null;
+    const from = this.from ?? Math.max(0, to - this.lookback);
+    this.from = to + 1;
+    if (cold) this.log(`[${this.name}] first scan, blocks ${from}-${to}`);
+    const logs = await this.#rpc("eth_getLogs", [{
+      address: this.factory, topics: [this.topic],
+      fromBlock: "0x" + from.toString(16), toBlock: "0x" + to.toString(16),
+    }]);
+    const tokens = new Set();
+    for (const l of logs ?? []) {
+      for (const i of this.tokenTopics) {
+        const t = l.topics?.[i];
+        if (t) tokens.add("0x" + t.slice(26));
       }
-      if (!tokens.size) return [];
-      const pairs = await this.api.tokensBatch(this.chain, [...tokens]);
-      return pairs.filter(p => (p.liquidity?.usd ?? 0) > 0);
-    } catch (e) { this.log(`[${this.name}]`, String(e)); return []; }
+    }
+    if (!tokens.size) return [];
+    const pairs = await this.api.tokensBatch(this.chain, [...tokens]);
+    return pairs.filter(p => (p.liquidity?.usd ?? 0) > 0);
   }
 
+  /* A JSON-RPC error is a 200 with an `error` member, so reading `.result` and
+     moving on turned "range too wide" and "rate limited" into undefined, and
+     undefined into an empty scan. Both are now what they are. */
   async #rpc(method, params) {
     const r = await this.fetch(this.rpc, { method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) });
-    return (await r.json()).result;
+    if (!r.ok) throw new Error(`${method}: HTTP ${r.status}`);
+    const body = await r.json();
+    if (body?.error) throw new Error(`${method}: ${body.error.message ?? JSON.stringify(body.error)}`);
+    return body?.result;
   }
 }
 
@@ -224,6 +244,12 @@ export class PonsSource extends EvmFactorySource {
       factory: PONS_V1_FACTORY,
       topic: PONS_TOKEN_LAUNCHED,
       tokenTopics: [1],
+      /* Robinhood Chain is Arbitrum Nitro and its blocks are sub-second, so
+         the 200 that mean half an hour on Base mean under a minute here. A
+         cold start on that window sees almost nothing and reports it as
+         nothing happening, which is the wrong lesson to teach on the first
+         run after a deploy. Roughly twenty minutes instead. */
+      lookback: Number(process.env.PONS_LOOKBACK_BLOCKS ?? 5000),
       name: "pons-launchpad",
       ...opts,
     });
