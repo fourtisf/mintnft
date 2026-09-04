@@ -51,7 +51,10 @@ export const CONFIG = {
   minLiquidityUsd: num("MIN_LIQUIDITY_USD", 15_000),
   minAgeMinutes: 20,          // the first minutes belong to snipers
   maxAgeHours: 72,
-  minMarketCap: 30_000,
+  // Settable, because its sibling always was and the pair of them decides the
+  // whole size band. A desk moved to a younger chain finds its floor is the
+  // gate refusing everything, and that must be answerable without a deploy.
+  minMarketCap: num("MIN_MARKET_CAP", 30_000),
   maxMarketCap: num("MAX_MARKET_CAP", 2_000_000), // above this our own group can't move it
   minLiqToMcRatio: 0.04,      // thin liquidity against a big cap is an exit trap
   maxSellPressure: 2.2,       // h1 sells vs buys
@@ -81,7 +84,15 @@ export const CONFIG = {
   sizeFloorUsd: num("SIZE_FLOOR_USD", 250), // a $250 average clip on a sub-$2M cap is size
   minSustainedBuyShare: 0.55, // buying that holds across h1 and h6
   steadyHourCapPct: 30,       // past this an hour is a move, not a climb
-  quoteWhitelist: ["SOL", "WETH", "ETH", "WBNB", "BNB", "USDC", "USDT"],
+  /* What a pair may be quoted in. This is a per-chain fact, not a threshold,
+     and hardcoding it is what went wrong: the list was written for Solana,
+     Base, BSC and Ethereum, so on Robinhood Chain it refused pairs quoted in
+     USDG — the chain's own native stablecoin, 68% of the stablecoin supply
+     there and the default dollar asset of every application on it. The gate
+     was reading the most normal quote on the chain as an exotic one.
+     Settable now, because the next chain will have its own. */
+  quoteWhitelist: list("QUOTE_WHITELIST",
+    ["SOL", "WETH", "ETH", "WBNB", "BNB", "USDC", "USDT", "USDG"]).map(s => s.toUpperCase()),
 
   // ── on-chain, in chain.js ─────────────────────────────────────────────
   // These veto on facts the chain states rather than on trading data, and

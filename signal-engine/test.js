@@ -76,6 +76,27 @@ const chainChecks = [
   // bukan ditemukan lewat call yang tidak pernah menyala.
   ["default: robinhood saja", CONFIG.chains.join(",") === "robinhood"],
 ];
+/* Kutipan. Daftarnya ditulis untuk Solana, Base, BSC dan Ethereum, lalu meja
+   ini pindah ke Robinhood Chain — di mana USDG adalah stablecoin asli rantainya
+   dan aset dolar default setiap aplikasi di atasnya. Gate-nya membaca kutipan
+   paling normal di rantai itu sebagai kutipan asing, dan tidak ada yang
+   memberitahu: sebuah penolakan yang benar bentuknya dan salah isinya. */
+const quoteCase = symbol => evaluate(
+  { ...FIXTURES.strong, chainId: "robinhood", quoteToken: { symbol } },
+  { ...ANY }, new Map()).vetoIds ?? [];
+const quoteChecks = [
+  ["USDG lolos — stablecoin asli Robinhood Chain", !quoteCase("USDG").includes("sane_quote")],
+  ["huruf kecil pun sama", !quoteCase("usdg").includes("sane_quote")],
+  ["USDC dan WETH tetap lolos", !quoteCase("USDC").includes("sane_quote") && !quoteCase("WETH").includes("sane_quote")],
+  ["token acak tetap ditolak", quoteCase("SHIBAMOON").includes("sane_quote")],
+  ["daftarnya bisa disetel dari env", CONFIG.quoteWhitelist.includes("USDG")],
+];
+console.log(`\nkutipan yang diterima — ${CONFIG.quoteWhitelist.join(", ")}:`);
+for (const [label, ok] of quoteChecks) {
+  console.log(`  ${ok ? "ok   " : "GAGAL"}  ${label}`);
+  if (!ok) process.exitCode = 1;
+}
+
 console.log(`\nrantai — gate diuji dengan ${FOUR.join(", ")}:`);
 for (const [label, ok] of chainChecks) {
   console.log(`  ${ok ? "ok   " : "GAGAL"}  ${label}`);

@@ -238,6 +238,27 @@ continuing. Everything else is recoverable; that one is not.
    peak is the highest value the poller actually saw. Recorded honestly as
    `peakSource:"observed"`. GeckoTerminal has free candles and would upgrade
    this to a peak anyone can recompute.
+4b. **The gate list was written for the wrong chain, and one of them was a
+   bug rather than a threshold.** `quoteWhitelist` held SOL, WETH, ETH, WBNB,
+   BNB, USDC and USDT — a Solana/Base/BSC/Ethereum list — so on Robinhood Chain
+   it refused every pair quoted in **USDG**, which is that chain's own native
+   stablecoin, 68% of its stablecoin supply and the default dollar asset of
+   every application on it. The veto read "Quoted in USDG, not a major": the
+   right shape of refusal with the wrong content, and nothing anywhere said so.
+   USDG is in the list now and `QUOTE_WHITELIST` makes it settable, because the
+   next chain will have its own.
+
+   The size band is the other half and it is **not** a bug, so it has not been
+   moved: the first live window on Robinhood Chain refused 14 of ~26 candidates
+   at `liquidity_floor` with pools of $2K–$12K against a $15K floor, and three
+   more at `cap_window` on caps of $23K–$27K against a $30K minimum. Those
+   numbers were reasoned on Solana memecoin markets. `MIN_MARKET_CAP` is settable
+   now — it always should have been, since `MAX_MARKET_CAP` was — so the band can
+   be answered without a deploy. **Lowering the floor is not free** and gap 5
+   below is why: a few hundred holders acting on a $10K pool are the market.
+   Read the `rejects` list in `/api/triage`, which carries the actual figure each
+   candidate was refused on, before moving either end.
+
 4. **Score weights are reasoned, not measured.** Do not tune them on a handful
    of calls. Read `/api/analytics/bands` after ~100 settled calls.
 5. **Tier latency is an unresolved product problem.** Several hundred holders
