@@ -102,6 +102,11 @@ export class TelegramBot {
     this.offset = 0;
     this.running = false;
     this.timers = new Set();
+    // Asked of Telegram rather than configured, so the name on the site is the
+    // name of the bot actually holding the token. A second env var for it is a
+    // second thing to get out of step, and the page would send people to a bot
+    // that never answers.
+    this.username = null;
   }
 
   get configured() { return Boolean(this.token); }
@@ -297,9 +302,23 @@ export class TelegramBot {
     return updates.length;
   }
 
+  /** Its own name, or null. Null means the site shows no link at all — a link
+   *  to the wrong bot is worse than making someone search. */
+  async whoami() {
+    try {
+      const me = await this.call("getMe", {});
+      this.username = me?.username ?? null;
+      return this.username;
+    } catch (e) {
+      this.log(`[tg] getMe failed, the site will not link the bot — ${String(e)}`);
+      return null;
+    }
+  }
+
   start() {
     if (!this.configured) { this.log("[tg] TG_TOKEN not set — no bot"); return this; }
     this.running = true;
+    this.whoami().then(u => this.log(u ? `[tg] signed in as @${u}` : "[tg] signed in, name unknown"));
     const loop = async () => {
       while (this.running) {
         try { await this.poll(); }

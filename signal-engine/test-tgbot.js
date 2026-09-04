@@ -37,6 +37,9 @@ function fakeTg({ updates = [], fail = null } = {}) {
       const batch = queue.splice(0, queue.length);
       return { json: async () => ({ ok: true, result: batch }) };
     }
+    if (method === "getMe") {
+      return { json: async () => ({ ok: true, result: { username: "nekaraxbot" } }) };
+    }
     if (method === "sendMessage") {
       if (fail && fail(body)) return { json: async () => ({ ok: false, error_code: 403, description: "blocked" }) };
       sent.push(body);
@@ -74,6 +77,24 @@ head("kode tautan");
   for (let i = 0; i < 200; i++) seen.add(many.issue(i));
   ok(seen.size === 200, `dua ratus kode, tidak ada yang bertabrakan (${seen.size})`);
   ok(makeCode(() => 0) === "AAAAAA", "generatornya deterministik terhadap sumber acaknya");
+}
+
+head("bot menyebut namanya sendiri");
+{
+  rmSync(DATA, { force: true });
+  const store = new FileStore(DATA);
+  const tg = fakeTg();
+  const bot = new TelegramBot({ token: "T", store, tierSource: { bestTierOf: async () => 0 },
+                               fetchImpl: tg.fetchImpl, log: () => {} });
+  ok(bot.username === null, "sebelum ditanya, namanya belum diketahui — bukan ditebak");
+  ok(await bot.whoami() === "nekaraxbot", "getMe menjawab, dan namanya dipegang");
+  ok(bot.username === "nekaraxbot", "jadi rute /api/tg bisa memberi situs tautan yang benar");
+
+  const dead = new TelegramBot({ token: "T", store, tierSource: { bestTierOf: async () => 0 },
+    fetchImpl: async () => ({ json: async () => ({ ok: false, description: "unauthorized" }) }),
+    log: () => {} });
+  ok(await dead.whoami() === null && dead.username === null,
+    "token yang ditolak tidak meninggalkan nama tebakan — situs lebih baik tidak menautkan apa pun");
 }
 
 /* ═══════ commands ═══════ */

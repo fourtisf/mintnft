@@ -951,6 +951,12 @@ function renderAlerts(note,kind){
     return say("Connect the wallet holding your key first — the code proves the chat is yours, the signature proves the wallet is.");
   }
   input.disabled=btn.disabled=false;
+  // Named only when Telegram told us the name. Sending someone to a guess is
+  // how a holder ends up typing /link at somebody else's bot.
+  const at=document.getElementById("tgWho");
+  if(at)at.innerHTML=ALERTS.username
+    ?`<a href="https://t.me/${encodeURIComponent(ALERTS.username)}" target="_blank" rel="noopener">@${esc(ALERTS.username)}</a>`
+    :"the Nekara bot";
   say(note,kind);
 }
 async function linkTelegram(){

@@ -150,7 +150,8 @@ export function serve(store, {
     // Whether there is anything to link to. The page asks before it offers a
     // form: an input wired to a bot that does not exist is a dead end wearing
     // the costume of a feature.
-    if (p === "/api/tg") return json(res, 200, { configured: Boolean(bot?.configured) });
+    if (p === "/api/tg")
+      return json(res, 200, { configured: Boolean(bot?.configured), username: bot?.username ?? null });
 
     if (p === "/api/tg/link" && req.method === "POST") {
       const claims = readSession((req.headers.authorization ?? "").replace(/^Bearer /i, ""), secret);
