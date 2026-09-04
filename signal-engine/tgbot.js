@@ -141,8 +141,23 @@ export class TelegramBot {
    * — a subscriber gone, and retrying it every poll for ever is how a log
    * becomes unreadable. Anything else is left alone to be retried.
    */
-  async say(chatId, text) {
+  async say(chatId, text, photo = null) {
     try {
+      /* The card is presentation; the text is the record. A renderer that
+         cannot draw one, or a caption Telegram would silently truncate, costs
+         the picture and never the call. 403 is about the chat rather than the
+         card, so it is rethrown to the handler that deactivates a blocked
+         subscriber instead of being retried as text. */
+      if (photo && text.length <= 1024) {
+        try {
+          await this.call("sendPhoto", { chat_id: chatId, photo, caption: text,
+                                         parse_mode: "MarkdownV2" });
+          return true;
+        } catch (e) {
+          if (e.code === 403) throw e;
+          this.log(`[tg] card refused for ${chatId}, sending it as text`);
+        }
+      }
       await this.call("sendMessage", { chat_id: chatId, text, parse_mode: "MarkdownV2",
                                        disable_web_page_preview: true });
       return true;
@@ -277,7 +292,7 @@ export class TelegramBot {
    * sent, where one queued for "ten seconds from whenever the engine came back"
    * would arrive early for everybody who had already waited.
    */
-  async fanout(call, text, { filtered = true } = {}) {
+  async fanout(call, text, { filtered = true, photo = null } = {}) {
     if (!this.configured) return 0;
     const subs = await this.store.subscribers();
     const fired = Date.parse(call.firedAt);
@@ -292,8 +307,8 @@ export class TelegramBot {
       const tier = await this.tierOf(sub);
       const due = fired + (this.delays[tier] ?? this.delays[0]) * 1000 - Date.now();
       scheduled++;
-      if (due <= 0) { now.push(this.say(sub.chatId, text)); continue; }
-      const t = setTimeout(() => { this.timers.delete(t); this.say(sub.chatId, text); }, due);
+      if (due <= 0) { now.push(this.say(sub.chatId, text, photo)); continue; }
+      const t = setTimeout(() => { this.timers.delete(t); this.say(sub.chatId, text, photo); }, due);
       this.timers.add(t);
     }
     await Promise.all(now);

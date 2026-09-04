@@ -151,6 +151,18 @@ export function formatOutcome(row) {
   ].join("\n");
 }
 
+/* Telegram truncates a photo caption at 1024 characters and does it silently,
+   which on this product means losing the tail of the reasons — the half that
+   is the whole argument. Over that, the card is dropped and the text goes
+   whole: an announcement without a picture is worse-looking, an announcement
+   with the conditions cut off is a different product. */
+const CAPTION_MAX = 1024;
+
+/** The card a signal is announced with. Rendered by the engine's own /og route
+ *  and fetched by Telegram over the public site, so it is a URL and not bytes:
+ *  the same picture the shared link unfurls into, from one renderer. */
+export const signalCardUrl = seq => `${SITE}/og/signal/${seq}.png`;
+
 export class Telegram {
   constructor({ token, chatId, fetchImpl = globalThis.fetch, log = console.log } = {}) {
     this.token = token; this.chatId = chatId; this.fetch = fetchImpl; this.log = log;
@@ -158,17 +170,33 @@ export class Telegram {
   /** Asked before a send is attempted, so an unconfigured channel is skipped
    *  once at the caller rather than logged per call on every poll. */
   get configured() { return Boolean(this.token && this.chatId); }
-  async send(text) {
-    if (!this.configured) { this.log("[telegram] not configured, skipping"); return false; }
+
+  async #post(method, body) {
     try {
-      const r = await this.fetch(`https://api.telegram.org/bot${this.token}/sendMessage`, {
+      const r = await this.fetch(`https://api.telegram.org/bot${this.token}/${method}`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat_id: this.chatId, text, parse_mode: "MarkdownV2",
-                               disable_web_page_preview: true }),
+        body: JSON.stringify(body),
       });
-      if (!r.ok) { this.log("[telegram] failed", r.status); return false; }
+      if (!r.ok) { this.log(`[telegram] ${method} failed`, r.status); return false; }
       return true;
-    } catch (e) { this.log("[telegram] error", String(e)); return false; }
+    } catch (e) { this.log(`[telegram] ${method} error`, String(e)); return false; }
+  }
+
+  /**
+   * `photo` is a URL Telegram fetches itself, so a card that fails to render
+   * is Telegram's 4xx and not ours. Either way the message still goes: the
+   * picture is the presentation and the text is the record, and a card the
+   * renderer could not draw must never cost a subscriber the call.
+   */
+  async send(text, photo = null) {
+    if (!this.configured) { this.log("[telegram] not configured, skipping"); return false; }
+    if (photo && text.length <= CAPTION_MAX) {
+      if (await this.#post("sendPhoto", { chat_id: this.chatId, photo, caption: text,
+                                          parse_mode: "MarkdownV2" })) return true;
+      this.log("[telegram] card refused, sending it as text");
+    }
+    return this.#post("sendMessage", { chat_id: this.chatId, text, parse_mode: "MarkdownV2",
+                                       disable_web_page_preview: true });
   }
 }
 

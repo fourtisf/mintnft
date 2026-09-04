@@ -21,7 +21,7 @@ import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
 import { KeysReader } from "./keys.js";
 import { TIER_DELAY_S } from "./gating.js";
 import { Telegram, formatSignal, formatOutcome, formatProgress,
-         milestoneOf } from "./notify.js";
+         milestoneOf, signalCardUrl } from "./notify.js";
 import { TelegramBot, LinkCodes } from "./tgbot.js";
 
 const HOT = 20_000, WARM = 300_000, DISCOVER = 60_000, ANCHOR = 86_400_000;
@@ -91,11 +91,11 @@ export function start({ store = new FileStore(), port = 8787,
    * With PUBLIC_DELAY_S=0 this is a straight send, which is what it should be
    * while no key has been sold and there is no one to be ahead of. */
   const queued = new Set();
-  const channel = (call, text) => {
+  const channel = (call, text, photo = null) => {
     if (!telegram.configured) return;
     const due = Date.parse(call.firedAt) + delays[0] * 1000 - Date.now();
-    if (due <= 0) return void telegram.send(text);
-    const t = setTimeout(() => { queued.delete(t); telegram.send(text); }, due);
+    if (due <= 0) return void telegram.send(text, photo);
+    const t = setTimeout(() => { queued.delete(t); telegram.send(text, photo); }, due);
     queued.add(t);
   };
 
@@ -111,7 +111,10 @@ export function start({ store = new FileStore(), port = 8787,
                                 codes: new LinkCodes(), delays, log,
                                 site: domain ?? "nekara.xyz" });
 
-  const broadcast = (call, text) => { channel(call, text); bot.fanout(call, text); };
+  const broadcast = (call, text, photo = null) => {
+    channel(call, text, photo);
+    bot.fanout(call, text, { photo });
+  };
 
   const engine = new Engine({
     client: api,
@@ -129,7 +132,11 @@ export function start({ store = new FileStore(), port = 8787,
       // and the value frozen on the row cannot drift apart.
       triage.fired(sig.sourceRef);
       log(`[FIRED] #${call.seq} ${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
-      broadcast(call, formatSignal(sig, call.seq));
+      /* Only the call itself carries a card. The progress updates and the
+         outcome have their own cards on the site and their own moment; a
+         channel where every message is a picture is a channel where the
+         picture stops meaning anything. */
+      broadcast(call, formatSignal(sig, call.seq), signalCardUrl(call.seq));
     },
   });
 

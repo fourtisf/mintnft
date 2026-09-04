@@ -16,6 +16,7 @@ import { FileStore } from "./store.js";
 import { TelegramBot, LinkCodes, makeCode, CHAIN_ALIAS, COMMANDS } from "./tgbot.js";
 import { start } from "./index.js";
 import { issueSession } from "./auth.js";
+import { Telegram } from "./notify.js";
 
 const DATA = "./data/tgbot-test.json";
 const PORT = 8801;
@@ -305,6 +306,49 @@ head("menautkan lewat rute, dan apa yang tidak cukup");
     "dan ikatannya pindah — satu dompet, satu chat, bukan latensi yang menyebar");
 
   eng.stop();
+}
+
+head("KARTU ITU PENAMPILAN, TEKSNYA REKAMAN");
+{
+  /* Sinyal diumumkan dengan sebuah kartu, dan kartunya sebuah URL yang diambil
+     Telegram sendiri — jadi renderer yang gagal menggambar adalah 4xx milik
+     Telegram, bukan milik kita. Apa pun yang terjadi di sana, pesannya tetap
+     berangkat: gambarnya penampilan, teksnya rekaman, dan kartu yang tidak
+     bisa digambar tidak boleh membuat seorang pelanggan kehilangan call-nya. */
+  const seen = [];
+  const tg = (behave) => new Telegram({
+    token: "t", chatId: "c", log: () => {},
+    fetchImpl: async (url, init) => {
+      const method = url.split("/").pop();
+      seen.push({ method, body: JSON.parse(init.body) });
+      return { ok: behave(method), status: behave(method) ? 200 : 400 };
+    },
+  });
+
+  seen.length = 0;
+  await tg(() => true).send("halo", "https://nekara.xyz/og/signal/55.png");
+  ok(seen.length === 1 && seen[0].method === "sendPhoto",
+    "dengan kartunya, satu sendPhoto — bukan gambar lalu teks terpisah");
+  ok(seen[0].body.caption === "halo" && seen[0].body.photo.endsWith("/55.png"),
+    "pesannya jadi caption, kartunya jadi photo");
+
+  seen.length = 0;
+  await tg(m => m !== "sendPhoto").send("halo", "https://nekara.xyz/og/signal/55.png");
+  ok(seen.map(x => x.method).join(",") === "sendPhoto,sendMessage",
+    "kartu ditolak: pesannya tetap berangkat sebagai teks");
+  ok(seen[1].body.text === "halo", "utuh, bukan potongannya");
+
+  seen.length = 0;
+  const long = "x".repeat(1025);
+  await tg(() => true).send(long, "https://nekara.xyz/og/signal/55.png");
+  ok(seen.length === 1 && seen[0].method === "sendMessage",
+    "caption di atas 1024 tidak dikirim sebagai foto — Telegram memotongnya diam-diam");
+  ok(seen[0].body.text.length === 1025, "dan ekor alasannya tidak hilang");
+
+  seen.length = 0;
+  await tg(() => true).send("halo");
+  ok(seen.length === 1 && seen[0].method === "sendMessage",
+    "tanpa kartu, tetap sendMessage seperti sebelumnya");
 }
 
 rmSync(DATA, { force: true });

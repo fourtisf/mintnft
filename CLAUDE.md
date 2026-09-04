@@ -415,6 +415,22 @@ continuing. Everything else is recoverable; that one is not.
 
 ## Things that are decided, do not relitigate
 
+- **A signal is announced with a card; nothing else in the channel is.** `og.js`
+  has three cards and which is right depends on how much has happened.
+  `callCard` is the record a shared link unfurls into and `bannerCard` is the
+  timeline picture — both headline a multiple, and a signal has none: it fired a
+  second ago, `nowX` is 1.00 and the series is one point. So `signalCard`
+  headlines what is actually known — ticker, contract in full because that is
+  what a reader pastes, entry figures, and the reasons at the size the reasons
+  deserve. **No sparkline**: a chart of one observation is a decoration
+  pretending to be evidence. Served at `/og/signal/:seq.png`, and Telegram
+  fetches it by URL, so a card the renderer cannot draw is Telegram's 4xx and
+  not ours — either way `send` falls back to the plain message, and a caption
+  over 1024 characters skips the photo entirely rather than let Telegram
+  silently truncate the reasons. The picture is presentation; the text is the
+  record, and the picture must never cost a subscriber the call. Progress and
+  outcome messages stay plain: a channel where every message is a picture is a
+  channel where the picture stops meaning anything.
 - **The channel carries the call, then how far it ran. Nothing else.** The exit
   alert was removed on the owner's instruction, and so was the `Stop` row on the
   outcome card. **The rule was not removed**: the poller still walks the trailing

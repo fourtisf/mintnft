@@ -112,6 +112,32 @@ console.log("\nBANNER PREMIUM");
     "a call nobody can see has no banner either");
 }
 
+{
+  /* Kartu pengumuman. callCard dan bannerCard sama-sama menaruh sebuah
+     kelipatan di depan; sebuah sinyal belum punya satu pun — ia menyala sedetik
+     lalu, nowX-nya 1,00 dan seriesnya satu titik. Kartu yang mengumumkan call
+     baru dengan angka yang belum berarti apa-apa lebih buruk daripada tidak ada
+     kartu. Jadi yang ini menaruh yang memang sudah diketahui. */
+  const r = await fetch(`${B}/og/signal/${call.seq}.svg`);
+  const txt = await r.text();
+  ok(r.status === 200, `kartu sinyal disajikan (${r.status})`);
+  ok(txt.includes("SIGNAL \u00b7 #" + String(call.seq).padStart(4, "0")),
+    "dengan nomor call-nya, bukan sebuah verdict yang belum ia dapatkan");
+  ok(txt.includes("$TAP") && !txt.includes("$$TAP"), "satu dolar di tickernya");
+  ok(txt.includes("TOK"), "dan alamat kontraknya utuh — itu yang akan disalin pembaca");
+  ok(/WHY IT FIRED/.test(txt) && txt.includes("Volume running 5.7"),
+    "berikut alasan yang menembakkannya");
+  ok(!/\d\.\d\d\u00d7/.test(txt),
+    "dan tidak ada kelipatan di mana pun: belum ada satu pun yang benar untuk dicetak");
+  ok(!txt.includes("<path"), "tanpa sparkline — grafik satu observasi itu hiasan, bukan bukti");
+
+  const raster = await fetch(`${B}/og/signal/${call.seq}.png`);
+  const rbuf = Buffer.from(await raster.arrayBuffer());
+  ok(raster.status === 200 && png(rbuf), `dan jadi PNG (${(rbuf.length / 1024) | 0} KB)`);
+  ok((await fetch(`${B}/og/signal/9999.png`)).status === 404,
+    "call yang tidak ada tidak punya kartu");
+}
+
 console.log("\nRINGKASAN BEBERAPA SINYAL");
 {
   // A second call, deliberately the better one, fired after the first.

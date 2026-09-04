@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import { stats } from "./scorer.js";
 import { reasonPerformance, scoreBands, chainPerformance, callerPerformance,
          exitSimulation, realised } from "./analytics.js";
-import { callCard, bannerCard, digestCard, podiumCard, siteCard, toCsv, ticker } from "./og.js";
+import { callCard, bannerCard, signalCard, digestCard, podiumCard, siteCard, toCsv, ticker } from "./og.js";
 import { readFileSync, statSync } from "node:fs";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
@@ -378,13 +378,18 @@ export function serve(store, {
        timeline: the call's own observed series as the whole surface, with the
        numbers over it. Same data, same honesty about which multiple is being
        headlined, different amount of room. */
-    if (p.startsWith("/og/call/") || p.startsWith("/og/banner/")) {
-      const banner = p.startsWith("/og/banner/");
+    if (p.startsWith("/og/call/") || p.startsWith("/og/banner/") || p.startsWith("/og/signal/")) {
       const file = p.split("/").pop();
       const seq = Number(file.replace(/\.(svg|png)$/, ""));
       const row = rows.find(r => r.seq === seq);
       if (!row) return notFound(res);
-      const svg = banner ? bannerCard(row) : callCard(row);
+      /* Three cards, and which one is right depends on how much has happened.
+         /og/signal is the announcement — no multiple, because there is not one
+         yet; /og/call is the record a shared link unfurls into; /og/banner is
+         the timeline picture once there is a series worth drawing. */
+      const svg = p.startsWith("/og/banner/") ? bannerCard(row)
+                : p.startsWith("/og/signal/") ? signalCard(row)
+                : callCard(row);
       // A settled call's card can never change again; a live one is five minutes
       // stale at worst, the same bound its marks carry.
       const cache = row.state === "settled" ? "public, max-age=31536000" : "public, max-age=300";

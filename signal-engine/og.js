@@ -93,6 +93,82 @@ export function siteCard(s, returnPct) {
 }
 
 /**
+ * The moment of the call, which neither other card is for.
+ *
+ * `callCard` is the record and `bannerCard` is the timeline, and both headline
+ * a multiple. A signal has none: it fired a second ago, `nowX` is 1.00 and the
+ * series is a single point, so either of them announces a new call with a
+ * number that means nothing yet, or worse a verdict it has not earned.
+ *
+ * So this one headlines the thing that is actually known — the ticker, what it
+ * cost to enter, and the reasons, in full, at the size the reasons deserve.
+ * That is the product: not that a call was made, but that the conditions are
+ * published with it and cannot be edited afterwards.
+ *
+ * No sparkline, deliberately. A chart of one observation is a decoration
+ * pretending to be evidence, and this file has cards for when there is a
+ * series worth drawing.
+ */
+export function signalCard(row) {
+  const c = { a: "#5B7CFA", b: "#9B6DFF" };
+  const reasons = (row.reasons ?? []).slice(0, 3)
+    .map(r => String(r).length > 68 ? String(r).slice(0, 66) + "\u2026" : String(r));
+  const addr = String(row.tokenAddress ?? "");
+  // A card is a screenshot: the address on it is what a reader will paste, so
+  // it is never abbreviated. Only a Solana mint is long enough to need it.
+  const shown = addr.length > 46 ? addr.slice(0, 22) + "\u2026" + addr.slice(-20) : addr;
+  /* Providers hand back the name and the symbol separately and for most tokens
+     they are the same word, so the sub-line read "STAQ · ROBINHOOD · uniswap"
+     with the ticker already three times its size directly above it. */
+  const name = String(row.name ?? "").trim();
+  const dup = !name || name.toUpperCase() === String(row.symbol ?? "").replace(/^\$+/, "").toUpperCase();
+  const stats = [["ENTRY MC", usd(row.entryMc)], ["LIQUIDITY", usd(row.liq ?? row.entryLiquidityUsd)],
+                 ["VOLUME 1H", row.entryVolumeH1 != null ? usd(row.entryVolumeH1) : "\u2014"],
+                 ["SCORE", `${row.score ?? 0}/100`]];
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop stop-color="${c.a}"/><stop offset="1" stop-color="${c.b}"/></linearGradient>
+    <radialGradient id="aura" cx="88%" cy="-12%" r="82%">
+      <stop offset="0" stop-color="${c.b}" stop-opacity=".30"/><stop offset="1" stop-color="${c.b}" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lift" cx="6%" cy="108%" r="60%">
+      <stop offset="0" stop-color="${c.a}" stop-opacity=".16"/><stop offset="1" stop-color="${c.a}" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#08090B"/>
+  <rect width="1200" height="630" fill="url(#aura)"/>
+  <rect width="1200" height="630" fill="url(#lift)"/>
+
+  <text x="56" y="62" font-family="monospace" font-size="16" letter-spacing="7" fill="#8C929C">NEKARA</text>
+  <rect x="56" y="76" width="42" height="2" rx="1" fill="url(#g)"/>
+  <rect x="906" y="38" width="238" height="46" rx="11" fill="#3ECF8E" opacity=".13" stroke="#3ECF8E" stroke-width="1.3"/>
+  <text x="1025" y="68" text-anchor="middle" font-family="monospace" font-size="19" font-weight="700" letter-spacing="3" fill="#3ECF8E">SIGNAL \u00b7 #${String(row.seq ?? 0).padStart(4, "0")}</text>
+
+  <text x="56" y="188" font-family="sans-serif" font-size="88" font-weight="700" letter-spacing="-3.4" fill="url(#g)">${esc(ticker(row.symbol))}</text>
+  <text x="58" y="222" font-family="monospace" font-size="17" fill="#8C929C">${dup ? "" : esc(name) + " \u00b7 "}${esc(String(row.chain ?? "").toUpperCase())}${row.dex ? " \u00b7 " + esc(row.dex) : ""}</text>
+
+  <text x="56" y="276" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">CONTRACT</text>
+  <text x="56" y="306" font-family="monospace" font-size="21" fill="#F3F4F6">${esc(shown)}</text>
+
+  <line x1="56" y1="342" x2="1144" y2="342" stroke="rgba(255,255,255,.10)"/>
+  ${stats.map(([k, v], i) => `
+  <text x="${56 + i * 272}" y="374" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">${k}</text>
+  <text x="${56 + i * 272}" y="406" font-family="monospace" font-size="27" font-weight="600" fill="#F3F4F6">${v}</text>`).join("")}
+  <line x1="56" y1="438" x2="1144" y2="438" stroke="rgba(255,255,255,.10)"/>
+
+  <text x="56" y="470" font-family="monospace" font-size="10.5" letter-spacing="2" fill="#585E68">WHY IT FIRED</text>
+  ${reasons.map((r, i) => `
+  <circle cx="61" cy="${497 + i * 33}" r="3" fill="url(#g)"/>
+  <text x="80" y="${503 + i * 33}" font-family="sans-serif" font-size="21" fill="#C9CED6">${esc(r)}</text>`).join("")}
+
+  <text x="56" y="606" font-family="monospace" font-size="13" fill="#585E68">${esc(handles)}</text>
+  <text x="1144" y="606" text-anchor="end" font-family="monospace" font-size="13" fill="#585E68">${SOCIAL.site}/call/${row.seq ?? 0}</text>
+</svg>`;
+}
+
+/**
  * The premium banner: one call, its own chart behind it.
  *
  * callCard is the record — every figure, the reasons, the caveat. This is the
