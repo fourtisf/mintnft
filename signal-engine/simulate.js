@@ -4,6 +4,11 @@
  * register comes out correct and that the hash chain still checks.
  */
 import { evaluate, toSignal, CONFIG } from "./rules.js";
+
+/* Pasar tiruan ini berjalan di Solana dan gate rantai defaultnya robinhood
+   saja. Yang disimulasikan di sini adalah pipa dan rantai integritasnya, bukan
+   rantai mana yang ditembak, jadi gate itu dibuka di sini. */
+const SIM = { ...CONFIG, chains: [] };
 import { FileStore } from "./store.js";
 import { applyObservation, stats, RULES } from "./scorer.js";
 import { verifyChain } from "./integrity.js";
@@ -60,7 +65,7 @@ const candidates = [
 
 let fired = 0, vetoed = 0;
 for (const p of candidates) {
-  const ev = evaluate(p, CONFIG, new Map());
+  const ev = evaluate(p, SIM, new Map());
   if (ev.vetoes.length) { vetoed++; continue; }
   if (!ev.fire) continue;
   const sig = toSignal(p, ev);

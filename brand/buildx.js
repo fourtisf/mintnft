@@ -18,7 +18,7 @@ const banner = `<div class="banner">
   <div class="bcopy"><h2 class="word">Nekara</h2><div class="rule"></div>
     <p class="tag">Nothing is ever removed</p></div>
   <svg class="base" viewBox="0 0 1500 10" fill="currentColor" preserveAspectRatio="none">${ticks}</svg>
-  <p class="chains">Solana · Base · BNB · Ethereum</p>
+  <p class="chains">Robinhood Chain</p>
   <svg class="grain"><rect width="100%" height="100%" filter="url(#grain)"/></svg>
 </div>`;
 

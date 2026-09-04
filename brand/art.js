@@ -63,7 +63,7 @@ ${DEFS}
   <p class="tag">Nothing is ever removed</p>
 </div>
 <svg class="base" viewBox="0 0 1500 10" fill="currentColor" preserveAspectRatio="none">${ticks}</svg>
-<p class="chains">Solana · Base · BNB · Ethereum</p>
+<p class="chains">Robinhood Chain</p>
 <svg class="grain"><rect width="100%" height="100%" filter="url(#grain)"/></svg>`);
 
 fs.writeFileSync('out-avatar.html', `${BASE}<style>

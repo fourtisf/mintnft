@@ -11,9 +11,15 @@
  * The attribution is frozen on the call, in a hashed field, so a source cannot
  * be credited afterwards with a winner it did not find.
  */
-import { MergedSource, PonsSource, PONS_V1_FACTORY, PONS_TOKEN_LAUNCHED } from "./sources.js";
+import { MergedSource, ProfileSource, PonsSource, PONS_V1_FACTORY, PONS_TOKEN_LAUNCHED } from "./sources.js";
 import { Triage } from "./triage.js";
 import { Engine } from "./engine.js";
+import { CONFIG } from "./rules.js";
+
+/* Fikstur di sini pool Solana, dan gate rantai defaultnya robinhood saja.
+   Yang diuji berkas ini adalah atribusi sumber, bukan rantai mana yang
+   ditembak — kecuali di blok terakhir, yang justru menguji penyaringan itu. */
+const ANY = { ...CONFIG, chains: [] };
 import { FIXTURES } from "./fixtures.js";
 import { recordHash } from "./integrity.js";
 import { FileStore } from "./store.js";
@@ -107,7 +113,7 @@ console.log("\nATRIBUSI IKUT TERKUNCI DI HASH");
   const store = new FileStore(DATA);
   const fired = [];
   await new Engine({
-    client: {}, log: () => {},
+    client: {}, log: () => {}, cfg: ANY,
     source: new MergedSource([src("helius-pools", [tok("A")])]),
     inspector: { configured: false, inspect: async () => null },
     onSignal: s => fired.push(store.insertCall(s)),
@@ -125,7 +131,7 @@ console.log("\nWATCHER HANYA IKUT KALAU ADA KUNCINYA");
 {
   // An idle source logs its own absence on every tick, which is how a log
   // becomes unreadable. It is left out entirely rather than added and ignored.
-  const names = () => new Engine({ client: {}, log: () => {} }).source.sources.map(s => s.name);
+  const names = () => new Engine({ client: {}, cfg: ANY, log: () => {} }).source.sources.map(s => s.name);
   const before = process.env.HELIUS_KEY;
   delete process.env.HELIUS_KEY;
   ok(!names().includes("helius-pools"), "with no key the pool watcher is not in the list at all");
@@ -171,7 +177,7 @@ console.log("\nPONS, DARI LOG PABRIKNYA SENDIRI");
   ok(priced[0]?.[1].length === 1 && priced[0][1][0] === TOKEN,
     "hanya slot 1 yang token: deployer di slot 2 tidak ikut dihargai sebagai token");
 
-  const names = () => new Engine({ client: {}, log: () => {} }).source.sources.map(s => s.name);
+  const names = (cfg = CONFIG) => new Engine({ client: {}, cfg, log: () => {} }).source.sources.map(s => s.name);
   const before = process.env.ROBINHOOD_RPC;
   delete process.env.ROBINHOOD_RPC;
   ok(!names().includes("pons-launchpad"), "tanpa ROBINHOOD_RPC sumbernya tidak ikut sama sekali");
@@ -185,11 +191,56 @@ console.log("\nPONS, DARI LOG PABRIKNYA SENDIRI");
      discovery. Rantai yang alamatnya tidak dicatat sekarang ditinggalkan. */
   const bsc = process.env.BSC_RPC, eth = process.env.ETH_RPC;
   process.env.BSC_RPC = "http://rpc"; delete process.env.ETH_RPC;
-  ok(!names().includes("evm-factory:bsc"), "RPC BSC tanpa alamat pabrik: watcher-nya tidak dibuat");
+  ok(!names(ANY).includes("evm-factory:bsc"), "RPC BSC tanpa alamat pabrik: watcher-nya tidak dibuat");
   process.env.ETH_RPC = "http://rpc";
-  ok(names().includes("evm-factory:ethereum"), "ethereum punya alamatnya, jadi ikut");
+  ok(names(ANY).includes("evm-factory:ethereum"), "ethereum punya alamatnya, jadi ikut");
+  ok(!names().includes("evm-factory:ethereum"),
+    "tapi di meja Robinhood ia ditinggalkan juga — watcher rantai yang tidak ditembak tidak dibuat");
   if (bsc == null) delete process.env.BSC_RPC; else process.env.BSC_RPC = bsc;
   if (eth == null) delete process.env.ETH_RPC; else process.env.ETH_RPC = eth;
+}
+
+console.log("\nUMPAN SEMUA RANTAI, DISARING SEBELUM DIHARGAI");
+{
+  /* Profil dan boost Dexscreener mengembalikan setiap rantai yang ia indeks.
+     Di meja satu rantai, sembilan dari sepuluh kandidat adalah satu permintaan
+     batch yang dibelanjakan untuk tidak mempelajari apa pun — jadi mereka
+     dibuang sebelum dihargai, bukan di gate.
+
+     Harganya nyata: kandidat itu tidak pernah menjadi penolakan yang bisa
+     diperdebatkan siapa pun. Maka ia dihitung. "Umpan profil tidak menemukan
+     apa-apa" dan "ia menemukan tiga puluh, semuanya di tempat lain" adalah dua
+     fakta berbeda, dan hanya angka ini yang memisahkannya di halaman. */
+  const batched = [];
+  const api = {
+    latestProfiles: async () => [
+      { chainId: "solana", tokenAddress: "S1" }, { chainId: "base", tokenAddress: "B1" },
+      { chainId: "robinhood", tokenAddress: "R1" }, { chainId: "ROBINHOOD", tokenAddress: "R2" },
+    ],
+    tokensBatch: async (chain, tokens) => { batched.push([chain, tokens]); return []; },
+  };
+
+  const wide = await new ProfileSource(api, {}).candidates();
+  ok(batched.length === 3, "tanpa daftar rantai, ketiga rantai itu tetap dihargai");
+  ok((wide.offChain ?? 0) === 0, "dan tidak ada yang dibuang");
+
+  batched.length = 0;
+  const narrow = await new ProfileSource(api, { chains: ["robinhood"] }).candidates();
+  ok(batched.length === 1 && batched[0][0] === "robinhood",
+    "dengan daftarnya, hanya satu permintaan batch dan hanya untuk rantai itu");
+  ok(batched[0][1].length === 2, "nama rantai dicocokkan tanpa peduli huruf besar-kecil");
+  ok(narrow.offChain === 2, "dan yang dibuang dihitung, bukan hilang diam-diam");
+
+  const merged = new MergedSource([new ProfileSource(api, { chains: ["robinhood"] })]);
+  await merged.candidates();
+  ok(merged.lastRun[0]?.offChain === 2, "MergedSource membawa angka itu keluar dari sumbernya");
+
+  const t = new Triage();
+  t.scanned(0, [], merged.lastRun);
+  const src0 = t.snapshot().sources.find(x => x.id === "dexscreener-profiles");
+  ok(src0?.offChain === 2, "dan /api/triage menerbitkannya per sumber");
+  ok(src0?.scanned === 0,
+    "terpisah dari scanned: yang dibuang tidak pernah dipindai, dan tidak berpura-pura sudah");
 }
 
 console.log(failures ? `\n${failures} GAGAL\n` : "\nsemua lolos\n");

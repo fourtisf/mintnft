@@ -6,10 +6,9 @@ gets built, not a summary of it.
 ## What this is
 
 A public register of automated trading signals. A screener reads liquidity,
-buy pressure and volume acceleration across every chain its sources reach —
-Robinhood Chain is the one the desk is pointed at; every signal it fires is
-published **with the exact conditions that triggered it**, then tracked to win,
-miss or dead. Failed calls are never removed.
+buy pressure and volume acceleration on Robinhood Chain; every signal it fires
+is published **with the exact conditions that triggered it**, then tracked to
+win, miss or dead. Failed calls are never removed.
 
 The tracking is commodity. The product is the **inability to quietly delete**.
 Every design decision below follows from that one sentence, and any change that
@@ -310,17 +309,26 @@ continuing. Everything else is recoverable; that one is not.
   before the rule existed still fall back to the series, and the three states
   are kept distinct on the page: filled, watched-and-not-filled, and never
   walked. The last is not "never hit".
-- **The desk fires on every chain, and `tracked_chain` is how you would ever
-  narrow it.** Until that gate existed nothing downstream read `chainId` at all,
-  so "four chains" was copy and not a rule, and the first live call landed on
-  Robinhood Chain. `CHAINS` is now the list and it is **empty by default** on the
-  owner's instruction — all chains, focused on Robinhood. Narrowing is a
-  deliberate act, because a chain the gate refuses never reaches the Triage
-  table: a filter set before discovery is measured is a filter nobody can argue
-  with afterwards. The gate is **first** in `GATES`, so a refusal names the chain
-  rather than the liquidity, and the startup log prints which of the two states
-  is in force so it is never inferred from silence. The site says "every chain it
-  can reach" for the same reason — it is what the engine does.
+- **This is a Robinhood Chain desk.** `CHAINS` defaults to `robinhood` on the
+  owner's instruction — not a multi-chain desk that also looks there. Three
+  things follow and all three are deliberate:
+  - `tracked_chain` is **first** in `GATES`, so a token elsewhere is refused for
+    its chain rather than for its liquidity. A Triage table that blames the
+    thresholds teaches the wrong lesson about them.
+  - The all-chain feeds are narrowed **before pricing**, not at the gate.
+    Dexscreener's profile and boost lists are every chain it indexes, so nine in
+    ten candidates would be a batch request spent to learn nothing. The cost is
+    that those candidates never become a rejection anyone can argue with, so
+    `priceTokens` counts them and `/api/triage` carries `offChain` per source —
+    "the profile feed found nothing" and "it found thirty, all elsewhere" are
+    different facts and the page must be able to tell them apart.
+  - A watcher for a chain outside `CHAINS` is **not built**, and says so. Same
+    rule as an unkeyed source being left out, applied to the other half of the
+    question: `HeliusSource` watching Solana on a Robinhood desk would scan,
+    cost its key, and hand every candidate to a gate that refuses it.
+
+  The startup log prints which chains are in force, so it is never inferred from
+  silence. `CHAINS=` empty opens it back up to everything.
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.

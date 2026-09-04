@@ -15,14 +15,14 @@ repeat it. Its job is the mechanism — why the claim is checkable.
 
 Recommended (155 / 160):
 
-> An automated screener across four chains. Every call is hashed into an
+> An automated screener on Robinhood Chain. Every call is hashed into an
 > append-only register — the misses stay up because the schema refuses to
 > delete them.
 
-Shorter (136), if you want the chains named:
+Shorter (132), if you want the launchpad named:
 
-> Automated signals across Solana, Base, BNB and Ethereum. Every call hashed
-> into an append-only register, so the misses cannot come down.
+> Automated signals on Robinhood Chain, Pons launches included. Every call
+> hashed into an append-only register, so the misses cannot come down.
 
 Sharpest (125), once the account has calls to back it:
 
@@ -42,9 +42,9 @@ later; 2 through 7 read in order.
 
 > Nekara — a public register of automated trading signals.
 >
-> A screener reads liquidity, buy pressure and volume acceleration across
-> Solana, Base, BNB and Ethereum. Every signal it fires is published with the
-> exact conditions that triggered it, then tracked to win, miss or dead.
+> A screener reads liquidity, buy pressure and volume acceleration on
+> Robinhood Chain. Every signal it fires is published with the exact
+> conditions that triggered it, then tracked to win, miss or dead.
 >
 > Failed calls are never removed.
 

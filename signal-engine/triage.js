@@ -58,6 +58,12 @@ export class Triage {
     for (const r of runs ?? []) {
       const e = (b.sources[r.name] ??= { scanned: 0, fired: 0, runs: 0, errors: 0 });
       e.runs++;
+      // Candidates this source found and dropped before pricing them, because
+      // they were on a chain the desk does not fire on. They never become a
+      // rejection with a gate against it, so without this number they are not
+      // anywhere — and "the profile feed found nothing" would be indistinguish-
+      // able from "the profile feed found thirty, all of them elsewhere".
+      if (r.offChain) e.offChain = (e.offChain ?? 0) + r.offChain;
       if (r.error) { e.errors++; e.lastError = r.error; }
     }
   }
@@ -114,6 +120,7 @@ export class Triage {
         const to = (sources[src] ??= { scanned: 0, fired: 0, runs: 0, errors: 0 });
         to.scanned += c.scanned; to.fired += c.fired;
         to.runs += c.runs ?? 0; to.errors += c.errors ?? 0;
+        if (c.offChain) to.offChain = (to.offChain ?? 0) + c.offChain;
         if (c.lastError) to.lastError = c.lastError;
       }
     }

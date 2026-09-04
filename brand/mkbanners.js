@@ -78,7 +78,7 @@ fs.writeFileSync('brand/banners/x-header.html', page(1500,500,`
 <div style="position:absolute;inset:0;background:linear-gradient(90deg,#08090B 30%,rgba(8,9,11,.90) 52%,rgba(8,9,11,.66) 74%,rgba(8,9,11,.5))"></div>
 <div style="position:absolute;left:470px;top:50%;transform:translateY(-50%);width:950px">
   <h1 style="font-size:46px;line-height:1.18">Signals with their reasons attached.<br><span class="grad-tx">Including the ones that failed.</span></h1>
-  <div class="eyebrow" style="margin-top:30px">Solana · Base · BNB · Ethereum</div>
+  <div class="eyebrow" style="margin-top:30px">Robinhood Chain</div>
 </div>`));
 
 /* 2 — the introduction post: the claim, then the register making it */
@@ -112,7 +112,7 @@ fs.writeFileSync('brand/banners/b3-method.html', page(1600,900,`
     </div>
   </div>
   <div class="rule-l" style="margin-bottom:22px"></div>
-  <div class="eyebrow">Solana · Base · BNB · Ethereum</div>
+  <div class="eyebrow">Robinhood Chain</div>
 </div>`));
 
 /* 4 — square, for Telegram and IG. One dead call, kept. */

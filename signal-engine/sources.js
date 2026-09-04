@@ -38,24 +38,39 @@ export const deepestPerToken = pairs => {
  *
  * /tokens/v1 takes thirty addresses at a time. Thirty requests become one.
  */
-async function priceTokens(api, wanted) {
+async function priceTokens(api, wanted, chains = null) {
   const byChain = {};
+  let offChain = 0;
   for (const w of wanted) {
     if (!w?.chainId || !w?.tokenAddress) continue;
-    (byChain[w.chainId] ??= new Set()).add(w.tokenAddress);
+    // A token the chain gate is going to refuse still costs a batch request to
+    // price, and these feeds are all-chain: narrowed to one chain, better than
+    // nine in ten candidates are a request spent to learn nothing. Dropped
+    // here rather than at the gate — and counted, because a candidate that
+    // never reaches Triage is a candidate nobody can argue about later.
+    // One spelling, for the filter and the batch alike. They disagreed: the
+    // filter lower-cased and the grouping did not, so a provider that ever
+    // wrote the chain differently would pass the filter and then be batched
+    // twice under two names — two requests where the desk asked for one.
+    const chain = String(w.chainId).toLowerCase();
+    if (chains?.length && !chains.includes(chain)) { offChain++; continue; }
+    (byChain[chain] ??= new Set()).add(w.tokenAddress);
   }
   const out = [];
   for (const [chain, set] of Object.entries(byChain))
     out.push(...deepestPerToken(await api.tokensBatch(chain, [...set])));
+  out.offChain = offChain;
   return out;
 }
 
 /** Default. Works with no keys, misses a lot. */
 export class ProfileSource {
-  constructor(api) { this.api = api; this.name = "dexscreener-profiles"; }
+  constructor(api, { chains = null } = {}) {
+    this.api = api; this.chains = chains; this.name = "dexscreener-profiles";
+  }
   async candidates() {
     const list = await this.api.latestProfiles();
-    return priceTokens(this.api, Array.isArray(list) ? list : []);
+    return priceTokens(this.api, Array.isArray(list) ? list : [], this.chains);
   }
 }
 
@@ -76,6 +91,10 @@ export class HeliusSource {
                      log = console.log } = {}) {
     this.api = api; this.key = key; this.fetch = fetchImpl;
     this.programs = programs; this.log = log; this.name = "helius-pools";
+    // Named, not implied. Every watcher says which chain it watches so the
+    // engine can leave one out that the desk does not fire on, and a source
+    // whose chain is a fact buried in a string literal cannot be asked.
+    this.chain = "solana";
     this.seen = new Set();
   }
 
@@ -225,7 +244,9 @@ export class PonsSource extends EvmFactorySource {
  * to refuse.
  */
 export class BoostSource {
-  constructor(api) { this.api = api; this.name = "dexscreener-boosts"; }
+  constructor(api, { chains = null } = {}) {
+    this.api = api; this.chains = chains; this.name = "dexscreener-boosts";
+  }
   async candidates() {
     const seen = new Set(), wanted = [];
     for (const call of [() => this.api.latestBoosts(), () => this.api.topBoosts()]) {
@@ -240,7 +261,7 @@ export class BoostSource {
       }
     }
     // Both feeds priced in one batch rather than one request per token.
-    return priceTokens(this.api, wanted);
+    return priceTokens(this.api, wanted, this.chains);
   }
 }
 
@@ -268,7 +289,7 @@ export class MergedSource {
       // hours and reads like a quiet market.
       try { got = await s.candidates(); }
       catch (e) { got = []; error = String(e?.message ?? e); }
-      this.lastRun.push({ name: s.name, got: got.length, error });
+      this.lastRun.push({ name: s.name, got: got.length, error, offChain: got.offChain ?? 0 });
       for (const p of got) {
         const k = `${p.chainId}:${p.baseToken?.address}`;
         if (!seen.has(k)) { seen.add(k); out.push({ ...p, discoveredBy: s.name }); }

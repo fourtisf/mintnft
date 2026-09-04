@@ -13,6 +13,10 @@
  */
 import { ChainInspector, chainVerdict } from "./chain.js";
 import { CONFIG } from "./rules.js";
+
+/* Fikstur di sini pool Solana, dan gate rantai defaultnya robinhood saja.
+   Yang diuji berkas ini adalah gate on-chain, bukan rantai mana yang ditembak. */
+const ANY = { ...CONFIG, chains: [] };
 import { Engine } from "./engine.js";
 import { FIXTURES } from "./fixtures.js";
 
@@ -200,7 +204,7 @@ console.log("\nLEWAT MESIN");
 
   const fired = [], rejected = [];
   const run = inspector => new Engine({
-    client, source, inspector, log: () => {},
+    client, source, inspector, cfg: ANY, log: () => {},
     onSignal: s => fired.push(s), onReject: (_p, ev) => rejected.push(ev),
   }).tick();
 
@@ -238,7 +242,7 @@ console.log("\nLEWAT MESIN");
   fired.length = 0; rejected.length = 0;
   await new Engine({
     client, source: { candidates: async () => [FIXTURES.thin_liquidity] },
-    inspector: { configured: true, inspect: async () => { looked++; return null; } },
+    inspector: { configured: true, inspect: async () => { looked++; return null; } }, cfg: ANY,
     log: () => {}, onSignal: s => fired.push(s), onReject: () => {},
   }).tick();
   ok(looked === 0, "a candidate the free gates refuse costs no RPC call");

@@ -1,5 +1,5 @@
 /* ═══════ data ═══════ */
-const CC={SOL:"#9945FF",BASE:"#2E6BFF",BSC:"#F0B90B",ETH:"#8A93B2"};
+const CC={SOL:"#9945FF",BASE:"#2E6BFF",BSC:"#F0B90B",ETH:"#8A93B2",RHC:"#00C805"};
 const MIN=60000,T0=Date.now();
 const RID=["volume_acceleration","buy_pressure","sweet_spot_age","depth",
   "trader_growth","steady_climb","paid_attention"];
@@ -24,18 +24,18 @@ const REASONS=[
 ];
 const DEMO=location.protocol==="file:";
 const SEED=DEMO?[
- {n:"Save The Whales",t:"WHALES",c:"SOL",by:"desk",e:24100,p:58400,w:41200,ago:11,s:"pump.fun",ca:"9PE5pQ7x…pump",two:372},
- {n:"Chucho",t:"CHUCHO",c:"SOL",by:"nightbell",e:15400,p:22100,w:9800,ago:64,s:"pump.fun",ca:"4Hn2kLm9…pump",two:null},
- {n:"Brass Monkey",t:"BRASS",c:"BASE",by:"desk",e:31800,p:214000,w:168400,ago:96,s:"clanker",ca:"0x7fa2…9c41",two:840},
- {n:"Foundry",t:"FNDRY",c:"ETH",by:"orwell",e:82000,p:96500,w:71300,ago:143,s:"uniswap",ca:"0x1b8e…44a0",two:null},
- {n:"Kiln Dog",t:"KILN",c:"BSC",by:"nightbell",e:11200,p:47600,w:5100,ago:188,s:"four.meme",ca:"0x93cd…7e12",two:1260},
- {n:"Hallmark",t:"HLMK",c:"SOL",by:"desk",e:19700,p:41300,w:36900,ago:221,s:"pump.fun",ca:"BqW4rT1z…pump",two:604},
- {n:"Cupel",t:"CUPEL",c:"BASE",by:"orwell",e:44600,p:52800,w:14200,ago:1560,s:"clanker",ca:"0xc44a…21f8",two:null},
- {n:"Touchstone",t:"TOUCH",c:"SOL",by:"vault7",e:8900,p:31200,w:27400,ago:1880,s:"pump.fun",ca:"Ge8mNp3v…pump",two:198},
- {n:"Bullion Cat",t:"BULL",c:"BSC",by:"desk",e:27300,p:33100,w:29600,ago:2240,s:"four.meme",ca:"0x2ef7…b039",two:null},
- {n:"Crucible",t:"CRUC",c:"ETH",by:"vault7",e:126000,p:388000,w:341000,ago:2900,s:"uniswap",ca:"0x5d10…8ac2",two:1512},
- {n:"Fineness",t:"FINE",c:"BASE",by:"nightbell",e:16800,p:19200,w:1300,ago:3400,s:"clanker",ca:"0xa87b…3d55",two:null},
- {n:"Ingot",t:"INGOT",c:"SOL",by:"orwell",e:52400,p:143000,w:88700,ago:4100,s:"pump.fun",ca:"7Kd9sXe2…pump",two:466},
+ {n:"Save The Whales",t:"WHALES",c:"RHC",by:"desk",e:24100,p:58400,w:41200,ago:11,s:"pons",ca:"0x9e51…4c17",two:372},
+ {n:"Chucho",t:"CHUCHO",c:"RHC",by:"nightbell",e:15400,p:22100,w:9800,ago:64,s:"pons",ca:"0x4a72…9b30",two:null},
+ {n:"Brass Monkey",t:"BRASS",c:"RHC",by:"desk",e:31800,p:214000,w:168400,ago:96,s:"pons",ca:"0x7fa2…9c41",two:840},
+ {n:"Foundry",t:"FNDRY",c:"RHC",by:"orwell",e:82000,p:96500,w:71300,ago:143,s:"pons",ca:"0x1b8e…44a0",two:null},
+ {n:"Kiln Dog",t:"KILN",c:"RHC",by:"nightbell",e:11200,p:47600,w:5100,ago:188,s:"pons",ca:"0x93cd…7e12",two:1260},
+ {n:"Hallmark",t:"HLMK",c:"RHC",by:"desk",e:19700,p:41300,w:36900,ago:221,s:"pons",ca:"0xb314…6d05",two:604},
+ {n:"Cupel",t:"CUPEL",c:"RHC",by:"orwell",e:44600,p:52800,w:14200,ago:1560,s:"pons",ca:"0xc44a…21f8",two:null},
+ {n:"Touchstone",t:"TOUCH",c:"RHC",by:"vault7",e:8900,p:31200,w:27400,ago:1880,s:"pons",ca:"0x6e83…2fa9",two:198},
+ {n:"Bullion Cat",t:"BULL",c:"RHC",by:"desk",e:27300,p:33100,w:29600,ago:2240,s:"pons",ca:"0x2ef7…b039",two:null},
+ {n:"Crucible",t:"CRUC",c:"RHC",by:"vault7",e:126000,p:388000,w:341000,ago:2900,s:"pons",ca:"0x5d10…8ac2",two:1512},
+ {n:"Fineness",t:"FINE",c:"RHC",by:"nightbell",e:16800,p:19200,w:1300,ago:3400,s:"pons",ca:"0xa87b…3d55",two:null},
+ {n:"Ingot",t:"INGOT",c:"RHC",by:"orwell",e:52400,p:143000,w:88700,ago:4100,s:"pons",ca:"0x7d90…1e64",two:466},
 ] : [];
 function mkPath(e,p,w,n){const a=[],pk=Math.floor(n*(.28+Math.random()*.4));
   for(let i=0;i<n;i++){let v;
@@ -2293,7 +2293,7 @@ const API=(location.protocol==="file:"?"http://localhost:8787":"")+"/api";
 const AUTH=API.replace(/\/api$/,"");
 const FEED=(location.protocol==="file:"?"ws://localhost:8787"
   :(location.protocol==="https:"?"wss://":"ws://")+location.host)+"/feed";
-const CHAIN={solana:"SOL",base:"BASE",bsc:"BSC",ethereum:"ETH"};
+const CHAIN={solana:"SOL",base:"BASE",bsc:"BSC",ethereum:"ETH",robinhood:"RHC"};
 
 /* ── the session ──────────────────────────────────────────────────────────
    The engine has had SIWE, four gated websocket rooms and a tier read from the
@@ -2511,7 +2511,7 @@ async function pullVerify(){
   renderVault();
 }
 
-const CHAIN_ID={SOL:"solana",BASE:"base",BSC:"bsc",ETH:"ethereum"};
+const CHAIN_ID={SOL:"solana",BASE:"base",BSC:"bsc",ETH:"ethereum",RHC:"robinhood"};
 /* The filter runs on the server. The same predicate lives in vis() above, but
    only as a guard on rows the socket pushes in between polls — the register is
    whatever the engine says matches, not whatever this page happens to hold. */

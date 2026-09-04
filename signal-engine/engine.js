@@ -57,8 +57,17 @@ export class Engine {
     }
     if (process.env.ROBINHOOD_RPC?.trim()) watchers.push(new PonsSource(this.api, { log }));
 
+    // A watcher for a chain the desk does not fire on is not built. It would
+    // scan, cost its RPC, and hand every candidate to a gate that refuses it
+    // for its chain — the same reasoning that keeps an unkeyed source out of
+    // the list, applied to the other half of the question.
+    const off = watchers.filter(w => cfg.chains?.length && !cfg.chains.includes(w.chain));
+    for (const w of off) log(`[discovery] ${w.name} watches ${w.chain}, which CHAINS does not include — left out`);
+
     this.source = source ?? new MergedSource([
-      new ProfileSource(this.api), new BoostSource(this.api), ...watchers,
+      new ProfileSource(this.api, { chains: cfg.chains }),
+      new BoostSource(this.api, { chains: cfg.chains }),
+      ...watchers.filter(w => !off.includes(w)),
     ]);
     if (!source)
       log(`[discovery] ${this.source.sources.map(s => s.name).join(", ")}`);

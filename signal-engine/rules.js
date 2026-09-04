@@ -40,13 +40,14 @@ const list = (name, dflt) => {
 };
 
 export const CONFIG = {
-  /* Which chains this desk fires on. Empty is the default and means all of
-     them — the owner's call, and the honest one while discovery is still being
-     measured: a chain we refuse never appears in the Triage table, so a filter
-     set early is a filter nobody can ever argue with. The gate stays because
-     narrowing later must not need a code change, and the startup log prints
-     which of the two is in force so it is never a guess. */
-  chains: list("CHAINS", []),
+  /* Which chains this desk fires on. Robinhood Chain, on the owner's
+     instruction — this is a Robinhood desk, not a multi-chain desk that also
+     looks there. It is a narrow filter and the cost is real: a chain refused
+     here never appears in Triage, so nothing that was refused can be argued
+     about afterwards. That is the trade being made deliberately, not a
+     side effect. CHAINS= (empty) opens it back up to everything, a list
+     narrows or widens it, and the startup log prints which is in force. */
+  chains: list("CHAINS", ["robinhood"]),
   minLiquidityUsd: num("MIN_LIQUIDITY_USD", 15_000),
   minAgeMinutes: 20,          // the first minutes belong to snipers
   maxAgeHours: 72,

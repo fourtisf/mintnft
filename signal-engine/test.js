@@ -1,6 +1,12 @@
 import { evaluate, toSignal, CONFIG, GATES, SIGNALS } from "./rules.js";
 import { FIXTURES } from "./fixtures.js";
 
+/* Fiksturnya pool Solana dan gate rantai sekarang defaultnya robinhood saja,
+   jadi tanpa ini setiap kasus di bawah akan tertahan karena rantainya dan
+   tabelnya berhenti mengatakan apa pun tentang aturan yang sedang diuji.
+   Gate rantainya diuji sendiri, di blok paling bawah berkas ini. */
+const ANY = { ...CONFIG, chains: [] };
+
 const pad = (s, n) => String(s).padEnd(n);
 const MAX = SIGNALS.reduce((a, s) => a + s.max, 0);
 console.log("UJI ATURAN SINYAL");
@@ -10,7 +16,7 @@ console.log("-".repeat(96));
 
 let fired = 0, blocked = 0;
 for (const [name, pair] of Object.entries(FIXTURES)) {
-  const ev = evaluate(pair, CONFIG, new Map());
+  const ev = evaluate(pair, ANY, new Map());
   const verdict = ev.vetoes.length ? "VETO" : ev.fire ? "FIRE" : "lemah";
   if (ev.fire) fired++; else blocked++;
   const detail = ev.vetoes.length ? ev.vetoes[0]
@@ -20,7 +26,7 @@ for (const [name, pair] of Object.entries(FIXTURES)) {
 console.log("-".repeat(96));
 console.log(`${fired} lolos, ${blocked} ditahan\n`);
 
-const ev = evaluate(FIXTURES.strong, CONFIG, new Map());
+const ev = evaluate(FIXTURES.strong, ANY, new Map());
 const sig = toSignal(FIXTURES.strong, ev);
 console.log(`Contoh sinyal penuh — $${sig.symbol}, skor ${sig.score}/${MAX}:`);
 sig.reasons.forEach((r, i) => console.log(`  ${i + 1}. ${r}`));
@@ -28,9 +34,9 @@ sig.reasons.forEach((r, i) => console.log(`  ${i + 1}. ${r}`));
 // $APEC, apa adanya dari register: satu-satunya alasan gate jam itu ada.
 // Ditampilkan dua arah, karena gate yang belum pernah terlihat meloloskan
 // sesuatu tidak bisa diperdebatkan siapa pun.
-const OLD = { ...CONFIG, maxHourPumpPct: Infinity, steadyHourCapPct: Infinity };
+const OLD = { ...ANY, maxHourPumpPct: Infinity, steadyHourCapPct: Infinity };
 const beforeFix = evaluate(FIXTURES.hour_already_ran, OLD, new Map());
-const afterFix = evaluate(FIXTURES.hour_already_ran, CONFIG, new Map());
+const afterFix = evaluate(FIXTURES.hour_already_ran, ANY, new Map());
 const climb = beforeFix.reasons.find(r => r.id === "steady_climb");
 console.log(`\n$APEC — +4.5% pada 5m, +126% pada jam terakhir:`);
 console.log(`  aturan lama : ${beforeFix.fire ? "TEMBAK" : "ditahan"} pada skor ${beforeFix.score}` +
@@ -48,7 +54,7 @@ if (!gateOk) process.exitCode = 1;
    berarti tanpa batas — bukan berarti tanpa satu pun. */
 const chainCase = (chainId, chains) => {
   const pair = { ...FIXTURES.strong, chainId };
-  return evaluate(pair, { ...CONFIG, chains }, new Map());
+  return evaluate(pair, { ...ANY, chains }, new Map());
 };
 const FOUR = ["solana", "base", "bsc", "ethereum"];
 const chainChecks = [
@@ -65,7 +71,10 @@ const chainChecks = [
   // Defaultnya semua rantai, dan itu keputusan pemilik. Diuji di sini supaya
   // sebuah daftar yang menyelinap masuk sebagai default terlihat, bukan
   // ditemukan lewat call yang tidak pernah menyala.
-  ["default: tanpa batas", CONFIG.chains.length === 0],
+  // Defaultnya Robinhood Chain, dan itu keputusan pemilik. Diuji supaya sebuah
+  // rantai yang menyelinap masuk atau hilang dari default terlihat di sini,
+  // bukan ditemukan lewat call yang tidak pernah menyala.
+  ["default: robinhood saja", CONFIG.chains.join(",") === "robinhood"],
 ];
 console.log(`\nrantai — gate diuji dengan ${FOUR.join(", ")}:`);
 for (const [label, ok] of chainChecks) {
@@ -75,7 +84,7 @@ for (const [label, ok] of chainChecks) {
 
 // pengecekan waras: cooldown benar-benar menahan sinyal kedua
 const seen = new Map();
-evaluate(FIXTURES.strong, CONFIG, seen);
+evaluate(FIXTURES.strong, ANY, seen);
 seen.set(`${FIXTURES.strong.chainId}:${FIXTURES.strong.baseToken.address}`, Date.now());
-const again = evaluate(FIXTURES.strong, CONFIG, seen);
+const again = evaluate(FIXTURES.strong, ANY, seen);
 console.log(`\ncooldown 24 jam: ${again.fire ? "GAGAL - masih menembak" : "ok - sinyal kedua ditahan"}`);
