@@ -14,12 +14,15 @@
  *   node preview.js --all                every candidate, and why each died
  *   node preview.js --send <chatId>      also deliver it, so you see it rendered
  *   node preview.js --sweep              what the size band costs, on real pairs
+ *   node preview.js --best               render the strongest candidate the
+ *                                        gates accepted, even below threshold
  *
  * Rejections are the useful output when nothing fires, which is most of the
  * time and is not a fault: the thresholds in rules.js were reasoned, not
  * measured, and the gate that kills everything is the one worth reading.
  */
 import { Engine } from "./engine.js";
+import { toSignal } from "./rules.js";
 import { evaluate, CONFIG, SIGNALS, provided } from "./rules.js";
 import { formatSignal } from "./notify.js";
 import { Telegram } from "./notify.js";
@@ -29,6 +32,7 @@ const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? proces
 const ALL = process.argv.includes("--all");
 const SEND = arg("--send", null);
 const SWEEP = process.argv.includes("--sweep");
+const BEST = process.argv.includes("--best");
 
 /* The number this call would carry, read from the register rather than made up.
    A preview that prints #0001 while the register is at #0042 teaches the
@@ -159,18 +163,40 @@ if (SWEEP) {
   console.log("  a few hundred holders acting on a thin pool are the market themselves.\n");
 }
 
-if (!fired.length) {
+/* --best renders the strongest candidate the gates accepted even when the score
+   refused it. It exists because the desk currently fires on nothing, and "show
+   me one on a real token" is a fair thing to ask of a pipeline that has never
+   been seen working end to end. What it is not is a call: it never scored
+   enough, so calling it one would be inventing the one number this product
+   sells. The label travels with the message, including into Telegram. */
+let below = null;
+if (!fired.length && BEST) {
+  const cleared = rejected.filter(r => !r.ev.vetoes.length);
+  if (cleared.length) below = cleared.reduce((a, b) => (b.ev.score > a.ev.score ? b : a));
+}
+
+if (!fired.length && !below) {
   console.log("Nothing cleared the gates this pass. That is a normal result, not a fault —");
-  console.log("run it again, or read the table above and decide whether a gate is wrong.\n");
+  console.log("run it again, or read the table above and decide whether a gate is wrong.");
+  if (!BEST) console.log("Add --best to render the strongest candidate the gates did accept.\n");
+  else console.log("");
   process.exit(0);
 }
 
 const seq = nextSeq();
-const best = fired.sort((a, b) => b.score - a.score)[0];
+const best = fired.length
+  ? fired.sort((a, b) => b.score - a.score)[0]
+  : toSignal(below.pair, below.ev);
 const text = formatSignal(best, seq ?? 0);
 
 console.log("─".repeat(64));
-console.log(`This is what the channel would have received${seq ? ` as #${String(seq).padStart(4, "0")}` : ""}.`);
+if (below) {
+  console.log(`$${best.symbol} is the strongest thing the gates accepted this pass.`);
+  console.log(`It scored ${below.ev.score}, under the ${CONFIG.scoreToFire} needed, so it is NOT a call —`);
+  console.log("this is the message a call on it would carry, on a real token, right now.");
+} else {
+  console.log(`This is what the channel would have received${seq ? ` as #${String(seq).padStart(4, "0")}` : ""}.`);
+}
 console.log("It was NOT sent and NOT written. The next real call takes this number.");
 console.log("─".repeat(64));
 console.log(text.replace(/\\(.)/g, "$1"));      // unescaped, for a terminal
@@ -182,8 +208,21 @@ if (SEND) {
     console.log("\nTG_TOKEN is not set, so there is nothing to send it with.");
     process.exit(1);
   }
+  /* Never the channel. A message there that looks like a call but is not in the
+     register is a call whose outcome never arrives, which is the one thing this
+     product exists to make impossible. Firing for real is a different command
+     and a permanent row; it is not this. */
+  if (String(SEND) === String(process.env.TG_CHAT ?? "")) {
+    console.log("\nThat is TG_CHAT — the public channel. A preview must not go there:");
+    console.log("it would read as a call, and no outcome would ever follow it, because");
+    console.log("nothing was written. Send it to your own chat id instead.");
+    process.exit(1);
+  }
+  const banner = below
+    ? `⚠️ *PREVIEW · scored ${below.ev.score}, under ${CONFIG.scoreToFire} — not a call, not published, not tracked*`
+    : `⚠️ *PREVIEW · not published, not tracked*`;
   console.log(`\nsending to ${SEND} …`);
-  const ok = await tg.send(text);
+  const ok = await tg.send(`${banner}\n\n${text}`);
   console.log(ok ? "delivered — check Telegram" : "the send failed; the line above says why");
   process.exit(ok ? 0 : 1);
 }
