@@ -2646,7 +2646,7 @@ addEventListener("popstate",()=>{
 /* The brand links, in one place. They pointed at "#" on a live site, which is
    worse than no icon: a reader who clicks one learns the page is unfinished.
    Fill these in and they work; leave one empty and it does not appear. */
-const SOCIAL={x:"https://x.com/Nekaraxyz",tg:"https://t.me/nekaraxyz"};
+const SOCIAL={x:"https://x.com/Nekaraxyz",tg:"https://t.me/nekarasignals"};
 document.querySelectorAll("[data-social]").forEach(a=>{
   const url=SOCIAL[a.dataset.social];
   if(url){a.href=url;a.target="_blank";a.rel="noopener noreferrer"}

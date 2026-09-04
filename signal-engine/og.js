@@ -14,7 +14,7 @@ const esc = s => String(s ?? "").replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&g
 /* Where a reader goes next, in one place. A card is a screenshot the moment it
    is posted — it cannot be corrected afterwards the way a page can — so the
    handles on it live here rather than being retyped into four layouts. */
-const SOCIAL = { site: "nekara.xyz", x: "@Nekaraxyz", tg: "t.me/nekaraxyz" };
+export const SOCIAL = { site: "nekara.xyz", x: "@Nekaraxyz", tg: "t.me/nekarasignals" };
 const handles = `${SOCIAL.site}  \u00b7  ${SOCIAL.x}  \u00b7  ${SOCIAL.tg}`;
 /* Some tokens are listed with the dollar already in the symbol — "$TAP" — and
    every surface here prefixes one of its own. Written as "$$TAP" on a social

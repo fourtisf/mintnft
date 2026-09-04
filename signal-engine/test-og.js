@@ -12,7 +12,7 @@
  * no card — the preview is a leak of the same kind as an early feed row.
  */
 import { rmSync } from "node:fs";
-import { podiumCard, boardCard, bannerCard, digestCard } from "./og.js";
+import { podiumCard, boardCard, bannerCard, digestCard, SOCIAL } from "./og.js";
 import { FileStore } from "./store.js";
 import { start } from "./index.js";
 
@@ -226,7 +226,11 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
      way a page can, so the handles are defined once and every layout draws the
      same string. A stale handle on a card that has already been shared is not
      recoverable. */
-  ok(/@Nekaraxyz/.test(board) && /t\.me\/nekaraxyz/.test(board),
+  /* Read off SOCIAL rather than written out here. A literal in this file is a
+     second place the handle lives, so the day the channel moves the test goes
+     green on the old one — which is the exact failure it exists to catch. */
+  const carriesHandles = svg => svg.includes(SOCIAL.x) && svg.includes(SOCIAL.tg);
+  ok(carriesHandles(board),
     "and both handles, so a reader who sees the image has somewhere to go");
   const everywhere = [
     ["board", board],
@@ -235,7 +239,7 @@ console.log("\nKARTU PEMENANG, DENGAN PENYEBUTNYA");
     ["digest", digestCard(many.slice(0, 3), { calls: 20 }, { days: 7 })],
   ];
   for (const [name, svg] of everywhere)
-    ok(/@Nekaraxyz/.test(svg) && /t\.me\/nekaraxyz/.test(svg),
+    ok(carriesHandles(svg),
       `the ${name} carries both handles too — one source, every layout`);
   ok(/an ATH is not a realised return/.test(board), "and the footer says what an ATH is not");
 
