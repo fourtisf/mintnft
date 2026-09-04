@@ -141,6 +141,12 @@ node test-sources.js # which source found a call, and whether it earns its key
 node test-stall.js   # a provider that accepts and never answers does not stop the engine
 node check-chain.js  # not a test: points the gates at a real token with a real key,
                      # so wiring one is watched rather than assumed
+node check-pons.js   # not a test either: the Robinhood RPC, the Pons factory's
+                     # own logs, whether Dexscreener prices what they name, what
+                     # the real gates then do with it, and what chains the
+                     # register actually holds. A filter that refuses everything
+                     # and a filter that works print the same quiet log; this is
+                     # what tells them apart
 node test-hashversion.js  # rows written under an older hash scheme still verify
 node test-anchor.js  # what is built, published, refused, and provable to a third party
 node test-exits.js   # what an exit rule would really have returned, and that a
