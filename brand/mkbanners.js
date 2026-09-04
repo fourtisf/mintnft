@@ -681,6 +681,67 @@ ${PLATE(h > 1000 ? 40 : 38)}
 fs.writeFileSync('brand/banners/x4-mint-live.html', mint(1600, 900));
 fs.writeFileSync('brand/banners/x4-mint-live-square.html', mint(1080, 1080));
 
+/* ── token ─────────────────────────────────────────────────────────────── */
+
+/* A token banner exists to carry one string, and it is the one string that can
+   hurt somebody: a reader pastes the address on it into a wallet. So it is
+   never typed in here and never invented. Pass the real one:
+
+     TOKEN_CA=0x… node brand/mkbanners.js && node brand/render.js
+
+   With nothing passed the banner says the address is not published rather than
+   showing a plausible-looking placeholder — a fake address that reads as real
+   is the worst artefact this repository could produce, and a banner cannot be
+   corrected once it is on a timeline. */
+const TOKEN_CA = process.env.TOKEN_CA?.trim() || null;
+const TOKEN_CHAIN = process.env.TOKEN_CHAIN?.trim() || 'Robinhood Chain \u00b7 4663';
+
+const token = (w, h) => page(w, h, `
+<div class="keylight"></div><div class="guil"></div><div class="dots" style="opacity:.45"></div>
+<div style="position:absolute;right:${h > 1000 ? -200 : -170}px;top:50%;transform:translateY(-50%);
+  width:${h > 1000 ? 620 : 700}px;opacity:.03;pointer-events:none">${MARK}</div>
+<div style="position:absolute;inset:0;padding:${h > 1000 ? 92 : 84}px ${h > 1000 ? 72 : 92}px ${h > 1000 ? 84 : 76}px;
+  display:flex;flex-direction:column">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:40px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="width:8px;height:8px;border-radius:50%;background:var(--win);
+        box-shadow:0 0 0 5px rgba(62,207,142,.12)"></span>
+      <span class="eyebrow" style="color:var(--win)">Live now</span>
+    </div>
+    <div class="wm">${MARK}<span style="font-size:${h > 1000 ? 34 : 32}px">Nekara</span></div>
+  </div>
+
+  <div style="margin-top:auto">
+    <div style="font-family:var(--display);font-weight:600;letter-spacing:-.04em;
+      font-size:${h > 1000 ? 132 : 128}px;line-height:1" class="grad-tx">$NEKARA</div>
+    <p style="font-size:${h > 1000 ? 21 : 20}px;line-height:1.6;color:var(--tx-2);
+      max-width:${h > 1000 ? 840 : 800}px;margin-top:${h > 1000 ? 26 : 24}px">The token of a register that publishes every call it makes, with the conditions that fired it, and cannot delete the ones that fail.</p>
+  </div>
+
+  <div class="band" style="margin-top:${h > 1000 ? 48 : 44}px;padding:${h > 1000 ? 30 : 32}px 0">
+    <div class="eyebrow" style="font-size:10.5px">Contract address</div>
+    <div style="font-family:var(--mono);font-size:${TOKEN_CA ? (h > 1000 ? 26 : 30) : (h > 1000 ? 20 : 22)}px;
+      margin-top:12px;word-break:break-all;line-height:1.35;
+      color:${TOKEN_CA ? 'var(--tx)' : 'var(--tx-3)'}">${TOKEN_CA ?? 'not published yet'}</div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:30px;margin-top:${h > 1000 ? 40 : 36}px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="padding:14px 26px;border-radius:var(--r);background:var(--grad);
+        font-family:var(--display);font-weight:600;font-size:19px;color:#fff">nekara.xyz</div>
+      <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
+    </div>
+    <div class="eyebrow" style="font-size:10.5px">${TOKEN_CHAIN}</div>
+  </div>
+</div>
+${PLATE(h > 1000 ? 40 : 38)}
+<div class="vig" style="opacity:.66"></div><div class="grain"></div>`);
+
+fs.writeFileSync('brand/banners/x5-token.html', token(1600, 900));
+fs.writeFileSync('brand/banners/x5-token-square.html', token(1080, 1080));
+
+if (!TOKEN_CA) console.error('  peringatan: TOKEN_CA tidak diberikan — banner token bilang alamatnya belum terbit, bukan menampilkan alamat palsu');
+
 if (!CA) console.error('  peringatan: out/keys.4663.json tidak terbaca — banner mint tanpa alamat kontrak');
 
-console.log('22 banner + 1 avatar ditulis');
+console.log('24 banner + 1 avatar ditulis');
