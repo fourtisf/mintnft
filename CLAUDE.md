@@ -49,11 +49,21 @@ Surfaces carry a top-edge highlight (`inset 0 1px 0 rgba(255,255,255,.045)`),
 elevation comes from shadow rather than coloured glow, and `--art` must match
 the SVG backdrop exactly so artwork shows no seam against its container.
 
-### Seven pages, these names
+### Eight pages, these names
 
-`Home · Signals · Hindsight · Triage · Custody · Mint · Method`, plus the call
-detail view. Do not rename them — Hindsight, Triage and Custody were chosen
-specifically to avoid copying a competitor's Quant Desk, Ops Room and Vault.
+`Home · Signals · Hindsight · Triage · Custody · Alpha · Mint · Method`, plus
+the call detail view. Do not rename them — Hindsight, Triage and Custody were
+chosen specifically to avoid copying a competitor's Quant Desk, Ops Room and
+Vault, and **Alpha** is the owner's word for the same reason: it is the one
+page a key opens, and naming it after somebody else's terminal would undo the
+choice the other three were made under.
+
+Alpha was added after the prototype was approved, so it is the one page whose
+arrangement is not in the original. Its **components are**: `pghead`, `box`,
+`sub`, and the Triage `rej` row, because a near miss is a rejection with the
+candidate still attached and should look like one. Composing what exists is
+not the same as inventing a design; adding a ninth page would be, and needs
+the same instruction this one had.
 
 Register became **Signals** on the owner's instruction. Only the page changed:
 the append-only *record* is still the register everywhere it is a record — the
@@ -191,6 +201,11 @@ node site/test-hang.mjs   # a host that accepts and never answers still reads
 node site/test-mint.mjs   # the mint panel: nothing deployed, a chain it cannot
                           # reach and an open mint all read differently, and the
                           # calldata it hands a wallet matches the compiled ABI
+node site/test-alpha.mjs  # the Alpha page draws only what the route handed it.
+                          # After a locked response no candidate the desk saw is
+                          # anywhere in the document — not hidden in it, not in
+                          # an attribute. And an engine nobody could reach never
+                          # reads as a wallet that failed to qualify
 ```
 
 If `parity.js` prints anything other than 666/666, stop and fix it before

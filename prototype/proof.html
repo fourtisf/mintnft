@@ -167,6 +167,34 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-
 .card h3{font-size:17px;margin-bottom:9px;letter-spacing:-.022em}
 .card p{font-size:13.8px;color:var(--tx-2);line-height:1.65}
 
+/* Alpha. Same vocabulary as the Triage rows it is the paid half of — a
+   near miss is a rejection with the candidate still attached, so it gets the
+   rejection's shape and one extra line for the rules. */
+.nm{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045);padding:14px 16px;margin-bottom:10px}
+.nm .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.nm .tk{font-weight:600;font-size:14px}
+.nm .sc{font-family:var(--mono);font-size:12.5px;color:var(--tx-2);font-variant-numeric:tabular-nums}
+.nm .sc b{color:var(--tx)}
+.nm .warn{font-family:var(--mono);font-size:11px;color:var(--dead)}
+.nm .rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.nm .r{font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:99px;
+  border:1px solid var(--border);color:var(--tx-3)}
+.nm .r.paid{border-color:rgba(126,138,255,.34);color:var(--accent)}
+/* No data is not a low score, and the page must never let the two look alike. */
+.nm .r.nodata{border-color:rgba(229,96,107,.3);color:var(--dead)}
+.lockbox{border:1px solid var(--border-hi);border-radius:var(--r);background:var(--surface);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 20px 44px -26px rgba(0,0,0,.95);
+  padding:38px 32px;text-align:center}
+.lockbox h3{font-size:19px;margin-bottom:10px}
+.lockbox p{font-size:14.5px;color:var(--tx-2);max-width:56ch;margin:0 auto 20px;line-height:1.65}
+.lockbox .rungs{display:flex;justify-content:center;gap:0;flex-wrap:wrap;margin-bottom:24px}
+.lockbox .rung{padding:0 22px;border-left:1px solid var(--border);text-align:center}
+.lockbox .rung:first-child{border-left:0}
+.lockbox .rung b{display:block;font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:-.032em}
+.lockbox .rung span{display:block;font-size:11.5px;color:var(--tx-3);margin-top:6px}
+.lockbox .rung.on b{color:var(--accent)}
+
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--border);border-radius:var(--r);
   overflow:hidden;background:var(--surface);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 20px 44px -26px rgba(0,0,0,.95)}
@@ -681,6 +709,7 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
     <a href="#" data-v="quant">Hindsight</a>
     <a href="#" data-v="ops">Triage</a>
     <a href="#" data-v="vault">Custody</a>
+    <a href="#" data-v="alpha">Alpha</a>
     <a href="#" data-v="mint">Mint</a>
     <a href="#" id="navMethod">Method</a>
   </div>
@@ -980,6 +1009,29 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
       <h3>Active gates</h3>
       <p class="sub">Hard vetoes. Any single failure kills a signal no matter how good the rest looks.</p>
       <div id="oGates"></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ═══════ ALPHA ═══════ -->
+<div id="v-alpha" class="hide"><div class="wrap-w">
+  <div class="pghead">
+    <h1>Alpha</h1>
+    <p>What the desk is looking at and has not called. Triage publishes what was refused; this is the same tick with the candidate still on it — the near misses that cleared every gate and lost only on the score, and which rules paid, which the market turned down, and which had no data to read at all.</p>
+  </div>
+  <div id="aLock"></div>
+  <div id="aBody" class="hide">
+    <div class="cols c2">
+      <div class="box" style="grid-column:1/-1">
+        <h3>Near misses</h3>
+        <p class="sub">Cleared all fourteen gates, then fell short of the threshold. Read <b>reachable</b> before the shortfall: a rule whose input the provider never sent could not have paid whatever the market did.</p>
+        <div id="aNear"></div>
+      </div>
+      <div class="box" style="grid-column:1/-1">
+        <h3>The tape</h3>
+        <p class="sub">Every candidate refused this window, with the gate and the figure it was refused on.</p>
+        <div id="aTape"></div>
+      </div>
     </div>
   </div>
 </div></div>
@@ -1867,11 +1919,12 @@ document.getElementById("collSeg").addEventListener("click",e=>{
 
 /* ═══════ nav + interactions ═══════ */
 function go(v,hash){
-  ["home","reg","quant","ops","vault","mint","call"].forEach(k=>document.getElementById("v-"+k).classList.toggle("hide",k!==v));
+  ["home","reg","quant","ops","vault","mint","alpha","call"].forEach(k=>document.getElementById("v-"+k).classList.toggle("hide",k!==v));
   document.getElementById("tkr").classList.toggle("hide",v!=="reg");
   document.body.style.paddingBottom=v==="reg"?"36px":"0";
   document.querySelectorAll("#navLinks a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   if(v==="quant"){renderQuant();renderSim()} if(v==="ops")renderOps(); if(v==="vault")renderVault();
+  if(v==="alpha")renderAlpha();
   if(hash){const t=document.querySelector(hash);if(t)setTimeout(()=>t.scrollIntoView({behavior:"smooth"}),40)}else scrollTo(0,0);
   setTimeout(reveal,60);
 }
@@ -2227,6 +2280,51 @@ const REJECTS=[
 const GATES=[["Liquidity floor","$15K"],["Age window","20m – 72h"],["Cap window","$30K – $2M"],
   ["Liquidity / cap","≥ 4%"],["Sell pressure","≤ 2.2× buys"],["Not vertical","5m ≤ +60%"],
   ["Has identity","socials or site"],["Sane quote","SOL / ETH / BNB / USDC"]];
+
+/* Alpha, on mock data. The site's copy of this draws only what /api/alpha
+   sends and decides nothing; here there is no route to send it, so the shapes
+   are written out — an unlocked reader, a near miss whose threshold was
+   reachable, and one whose threshold was not. */
+const A_NEAR=[
+  {symbol:"HOODLIFE",score:38,threshold:43,short:5,reachable:130,rules:[
+    {id:"volume_acceleration",state:"paid",pts:14},{id:"buy_pressure",state:"paid",pts:12},
+    {id:"depth",state:"paid",pts:12},{id:"trader_growth",state:"did not qualify",pts:0},
+    {id:"steady_climb",state:"did not qualify",pts:0},{id:"sweet_spot_age",state:"did not qualify",pts:0}]},
+  {symbol:"STAQ",score:30,threshold:76,short:46,reachable:48,rules:[
+    {id:"depth",state:"paid",pts:12},{id:"sweet_spot_age",state:"paid",pts:8},
+    {id:"size_conviction",state:"paid",pts:6},{id:"sustained_accumulation",state:"paid",pts:4},
+    {id:"volume_acceleration",state:"no data",pts:0},{id:"buy_pressure",state:"no data",pts:0},
+    {id:"trader_growth",state:"no data",pts:0},{id:"steady_climb",state:"no data",pts:0},
+    {id:"paid_attention",state:"no data",pts:0}]},
+];
+const A_TAPE=[
+  ["$MOONX","Pool $9.2K against a $15K floor","LIQ"],
+  ["$NVDA","NVDA is money or an instrument, not a bet","BASE"],
+  ["$AISHIB","412 sells against 96 buys on the hour","DUMP"],
+];
+
+function renderAlpha(){
+  const near=A_NEAR;
+  document.getElementById("aLock").innerHTML="";
+  document.getElementById("aBody").classList.remove("hide");
+  document.getElementById("aNear").innerHTML=near.map(n=>{
+    const unreachable=n.reachable<n.threshold;
+    return `<div class="nm">
+      <div class="top">
+        <span class="tk">$${n.symbol}</span>
+        <span class="sc">scored <b>${n.score}</b> of ${n.threshold} \u00b7 short ${n.short} \u00b7 reachable ${n.reachable}</span>
+        ${unreachable?`<span class="warn">threshold was out of reach for this candidate</span>`:""}
+      </div>
+      <div class="rules">${n.rules.map(r=>{
+        const cls=r.state==="paid"?"paid":r.state==="no data"?"nodata":"";
+        const val=r.state==="paid"?` +${r.pts}`:r.state==="no data"?" no data":" \u2014";
+        return `<span class="r ${cls}">${r.id}${val}</span>`;
+      }).join("")}</div>
+    </div>`}).join("");
+  document.getElementById("aTape").innerHTML=A_TAPE.map(([t,r,g])=>
+    `<div class="rej"><span class="tk">${t}</span><span class="rs">${r}</span>
+      <span class="tag">${g}</span></div>`).join("");
+}
 
 function renderOps(){
   document.getElementById("oJobs").innerHTML=JOBS.map(([n,d,iv,ago])=>

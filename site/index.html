@@ -37,6 +37,7 @@
     <a href="#" data-v="quant">Hindsight</a>
     <a href="#" data-v="ops">Triage</a>
     <a href="#" data-v="vault">Custody</a>
+    <a href="#" data-v="alpha">Alpha</a>
     <a href="#" data-v="mint">Mint</a>
     <a href="#" id="navMethod">Method</a>
   </div>
@@ -371,6 +372,29 @@
       <h3>Active gates</h3>
       <p class="sub">Hard vetoes. Any single failure kills a signal no matter how good the rest looks.</p>
       <div id="oGates"></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ═══════ ALPHA ═══════ -->
+<div id="v-alpha" class="hide"><div class="wrap-w">
+  <div class="pghead">
+    <h1>Alpha</h1>
+    <p>What the desk is looking at and has not called. Triage publishes what was refused; this is the same tick with the candidate still on it — the near misses that cleared every gate and lost only on the score, and which rules paid, which the market turned down, and which had no data to read at all.</p>
+  </div>
+  <div id="aLock"></div>
+  <div id="aBody" class="hide">
+    <div class="cols c2">
+      <div class="box" style="grid-column:1/-1">
+        <h3>Near misses</h3>
+        <p class="sub">Cleared all fourteen gates, then fell short of the threshold. Read <b>reachable</b> before the shortfall: a rule whose input the provider never sent could not have paid whatever the market did.</p>
+        <div id="aNear"></div>
+      </div>
+      <div class="box" style="grid-column:1/-1">
+        <h3>The tape</h3>
+        <p class="sub">Every candidate refused this window, with the gate and the figure it was refused on.</p>
+        <div id="aTape"></div>
+      </div>
     </div>
   </div>
 </div></div>

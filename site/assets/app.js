@@ -1439,7 +1439,7 @@ document.getElementById("collSeg").addEventListener("click",e=>{
    address, because a share post needed one.
    Method is an overlay rather than a view, so it rides on whatever is beneath
    it and takes its own path only while it is open. */
-const VIEW_PATH={home:"/",reg:"/signals",quant:"/hindsight",ops:"/triage",vault:"/custody",mint:"/mint"};
+const VIEW_PATH={home:"/",reg:"/signals",quant:"/hindsight",ops:"/triage",vault:"/custody",mint:"/mint",alpha:"/alpha"};
 /* /keys is not a redirect, it is an address that was published and cannot be
    withdrawn: contractURI() carries it on-chain, in a contract with no setter.
    Every wallet and marketplace that reads the collection reads that link. */
@@ -1449,11 +1449,15 @@ let VIEW="home";
 function go(v,hash,push=true){
   VIEW=v;
   if(v!=="call")pushUrl(push);
-  ["home","reg","quant","ops","vault","mint","call"].forEach(k=>document.getElementById("v-"+k).classList.toggle("hide",k!==v));
+  ["home","reg","quant","ops","vault","mint","alpha","call"].forEach(k=>document.getElementById("v-"+k).classList.toggle("hide",k!==v));
   document.getElementById("tkr").classList.toggle("hide",v!=="reg");
   document.body.style.paddingBottom=v==="reg"?"36px":"0";
   document.querySelectorAll("#navLinks a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
   if(v==="quant"){renderQuant();renderSim();renderLeaders();pullQuant()} if(v==="ops")renderOps();
+  /* Asked on every open rather than cached. The rung is a fact about the
+     chain right now, and a wallet that sold a key between two visits must
+     find the door shut on the second one. */
+  if(v==="alpha")pullAlpha();
   // Opening Custody re-reads the chain rather than showing a minute-old answer
   // about integrity, which is the one thing nobody should read stale.
   if(v==="vault"){renderVault();pullVerify()}
@@ -2000,6 +2004,84 @@ const GATE_LABEL={priceable:"Unmeasurable",liquidity_floor:"Liquidity",age_windo
 const SOURCE_LABEL={"dexscreener-profiles":"Dexscreener profiles","dexscreener-boosts":"Dexscreener boosts",
   "helius-pools":"Helius, new Solana pools","unattributed":"Unattributed"};
 const usdShort=n=>n>=1e6?"$"+(n/1e6).toFixed(0)+"M":n>=1e3?"$"+(n/1e3).toFixed(0)+"K":"$"+n;
+
+/* Alpha, drawn only from what the route actually sent.
+ *
+ * The page never decides who may see this: /api/alpha withholds by leaving the
+ * fields out, so `locked` here is a report of what came back and not a rule
+ * being enforced. If this function ever grows a branch that hides data it was
+ * given, the gate has moved into the browser and is gone.
+ */
+let ALPHA=null;
+async function pullAlpha(){
+  const lock=document.getElementById("aLock"), body=document.getElementById("aBody");
+  if(!lock)return;
+  if(!SESSION.token){
+    lock.innerHTML=lockbox({connect:true});
+    body.classList.add("hide");return;
+  }
+  try{
+    const r=await fetch(API+"/alpha",noStore());
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    ALPHA=await r.json();
+  }catch(e){
+    /* An engine we could not reach is not a wallet that failed to qualify, and
+       the reader must never be told the second when the first is true. */
+    ALPHA=null;
+    lock.innerHTML=`<div class="lockbox"><h3>Could not reach the desk</h3>
+      <p>The engine did not answer, so nothing is shown. This says nothing about what this wallet holds.</p></div>`;
+    body.classList.add("hide");return;
+  }
+  if(ALPHA.locked){lock.innerHTML=lockbox(ALPHA);body.classList.add("hide");return}
+  lock.innerHTML="";body.classList.remove("hide");
+  renderAlpha();
+}
+
+function lockbox(a){
+  if(a.connect)return `<div class="lockbox"><h3>Connect the wallet holding your keys</h3>
+    <p>Alpha is counted from the chain each time it is opened, so it needs a signed session to know which wallet to count.</p>
+    <button class="btn btn-p" id="alphaConnect">Connect</button></div>`;
+  const L=a.ladder??{};
+  const rung=(n,name)=>`<div class="rung${(a.keys??0)>=n?" on":""}"><b>${n}</b><span>${name}</span></div>`;
+  return `<div class="lockbox">
+    <h3>Alpha opens at ${esc(String(L[2]??3))} keys</h3>
+    <p>${esc(a.why??"")}</p>
+    <div class="rungs">${rung(L[1]??1,"Member")}${rung(L[2]??3,"Premium")}${rung(L[3]??5,"Desk")}</div>
+    <button class="btn btn-p" data-v="mint">Claim a key</button></div>`;
+}
+
+function renderAlpha(){
+  const a=ALPHA; if(!a)return;
+  const near=a.nearMiss??[];
+  document.getElementById("aNear").innerHTML = near.length
+    ? near.map(n=>{
+        /* A shortfall read against 134 is a different fact from the same
+           shortfall read against what was actually on offer, and this is the
+           only place a reader can tell them apart. */
+        const unreachable=n.reachable!=null&&n.threshold!=null&&n.reachable<n.threshold;
+        return `<div class="nm">
+        <div class="top">
+          <span class="tk">$${esc(n.symbol)}</span>
+          <span class="sc">scored <b>${n.score}</b> of ${n.threshold ?? "—"}${
+            n.short?` · short ${n.short}`:""}${
+            n.reachable!=null?` · reachable ${n.reachable}`:""}</span>
+          ${unreachable?`<span class="warn">threshold was out of reach for this candidate</span>`:""}
+        </div>
+        <div class="rules">${(n.rules??[]).map(r=>{
+          const cls=r.state==="paid"?"paid":r.state==="no data"?"nodata":"";
+          const val=r.state==="paid"?` +${r.pts}`:r.state==="no data"?" no data":" —";
+          return `<span class="r ${cls}">${esc(r.id)}${val}</span>`;
+        }).join("")}</div>
+      </div>`}).join("")
+    : `<p class="sub" style="margin:0">Nothing has cleared every gate and fallen short yet in this window.</p>`;
+
+  const tape=a.tape??[];
+  document.getElementById("aTape").innerHTML = tape.length
+    ? tape.map(r=>`<div class="rej"><span class="tk">$${esc(r.symbol)}</span>
+        <span class="rs">${esc(r.why)}</span>
+        <span class="tag">${esc(GATE_LABEL[r.gate]??r.gate)}</span></div>`).join("")
+    : `<p class="sub" style="margin:0">Nothing refused yet in this window.</p>`;
+}
 
 function renderOps(){
   document.getElementById("oJobs").innerHTML=JOBS.map(([n,d,iv,ago])=>
@@ -2733,6 +2815,11 @@ async function refreshSession(){
 }
 document.getElementById("connectBtn")?.addEventListener("click",()=>
   SESSION.token?signOut():connect());
+/* The lockbox is drawn after boot, so its button is bound by delegation rather
+   than by id — a listener attached at load would be attached to nothing. */
+document.addEventListener("click",e=>{
+  if(e.target.closest("#alphaConnect")){e.preventDefault();connect()}
+});
 if(!DEMO){
   try{
     const kept=JSON.parse(sessionStorage.getItem("nekara.session")||"null");
