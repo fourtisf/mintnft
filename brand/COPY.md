@@ -144,40 +144,30 @@ says otherwise. Copy that implies it buys the feed, the tier or the early leg
 is the first false thing on the account, on the one product that exists as an
 argument against exactly that.
 
-### 1 · launch
+### The post
+
+One post, the wide banner attached, the address in it. 270 characters with a
+real 42-character address — inside X's 280 with ten to spare, so nothing here
+can be trimmed without checking the count again.
 
 > $NEKARA is live.
 >
 > The token of a register that publishes every call with the conditions that
-> fired it — and cannot delete the ones that fail. Not policy: the schema
-> refuses updates and deletes outright.
+> fired it — and cannot delete the ones that fail. The schema refuses updates
+> and deletes outright.
 >
-> Robinhood Chain.
+> CA: `0x…`
+> nekara.xyz · t.me/nekarasignals
 
-*(212 characters. Post the wide banner with it.)*
+The placeholder is `0x…` and not a plausible-looking string of zeroes on
+purpose: pasted by accident it is obviously unfinished, where `0x0000…0000`
+is a real address someone can send to.
 
-Longer, if the account has the room:
+The address goes in the post rather than on the banner because a post can be
+deleted and reposted in the first minute and a banner cannot be corrected once
+it is on a timeline.
 
-> $NEKARA is live.
->
-> It is the token of a register that publishes every call it makes, with the
-> exact conditions that triggered it, then tracks it to win, miss or dead. The
-> failures stay up — the schema refuses updates and deletes as a database rule,
-> not as a promise.
->
-> Fourteen hard gates run before anything is scored.
-
-### 2 · the reply that carries the address
-
-The banner has no contract address on it on purpose: a banner cannot be
-corrected once it is on a timeline, and a reply can. Put it here.
-
-> CA: `…`
->
-> nekara.xyz
-> t.me/nekarasignals
-
-### 3 · follow-ups
+### Later, if you want them
 
 > Most of the work is refusal. Fourteen hard gates run before a score is even
 > computed — chain, liquidity floor, cap band, sell pressure, wash pattern,
@@ -200,7 +190,7 @@ corrected once it is on a timeline, and a reply can. Put it here.
 > 9.91 / 30.03 / 60.06 — because fixed counts and a probabilistic draw are two
 > claims that contradict each other.
 
-### 4 · Telegram
+### Telegram
 
 Shorter, and no banner headline to repeat:
 
