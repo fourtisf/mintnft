@@ -132,6 +132,88 @@ current market cap.
 
 ---
 
+## The token
+
+For `x5-token.png` (X) and `x5-token-square.png` (Telegram, Instagram).
+
+**What this copy may not say.** Nothing in the code gives `$NEKARA` a function.
+Latency is bought with a key — `bestTierOf` reads ProofKeys and `tgbot.js` asks
+it on every send — and the token is not in that path anywhere. So the token is
+the register's token and that is all it is until something in the repository
+says otherwise. Copy that implies it buys the feed, the tier or the early leg
+is the first false thing on the account, on the one product that exists as an
+argument against exactly that.
+
+### 1 · launch
+
+> $NEKARA is live.
+>
+> The token of a register that publishes every call with the conditions that
+> fired it — and cannot delete the ones that fail. Not policy: the schema
+> refuses updates and deletes outright.
+>
+> Robinhood Chain.
+
+*(212 characters. Post the wide banner with it.)*
+
+Longer, if the account has the room:
+
+> $NEKARA is live.
+>
+> It is the token of a register that publishes every call it makes, with the
+> exact conditions that triggered it, then tracks it to win, miss or dead. The
+> failures stay up — the schema refuses updates and deletes as a database rule,
+> not as a promise.
+>
+> Fourteen hard gates run before anything is scored.
+
+### 2 · the reply that carries the address
+
+The banner has no contract address on it on purpose: a banner cannot be
+corrected once it is on a timeline, and a reply can. Put it here.
+
+> CA: `…`
+>
+> nekara.xyz
+> t.me/nekarasignals
+
+### 3 · follow-ups
+
+> Most of the work is refusal. Fourteen hard gates run before a score is even
+> computed — chain, liquidity floor, cap band, sell pressure, wash pattern,
+> fading bid. Any single failure kills the signal however good the rest looks.
+
+> Robinhood Chain lists tokenised equities as ordinary ERC-20s. TSLA, NVDA, SPY
+> — real tickers, trading against USDG in the same pools, through the same
+> feeds. To a screener they are the same shape as a memecoin. A register calling
+> a 3% drift in NVDA a signal is a different product and a worse one, so the
+> desk refuses them before their market cap is ever measured.
+
+> The public channel is a tier, and it is the slowest one. Everything that
+> leaves for Telegram waits, measured from the moment the call was written. A
+> free channel that gets the call first is the business model given away on the
+> side.
+
+> 666 keys, one season. The tier is drawn from a seed nobody can grind: a
+> commitment made before the entropy exists, an Ethereum block hash the chain
+> cannot read, and every mint folded forward into it. Odds are published —
+> 9.91 / 30.03 / 60.06 — because fixed counts and a probabilistic draw are two
+> claims that contradict each other.
+
+### 4 · Telegram
+
+Shorter, and no banner headline to repeat:
+
+> **$NEKARA is live.**
+>
+> The register's token. Every call published with the conditions that fired it,
+> tracked to win, miss or dead, and no way to take the failures down.
+>
+> CA: `…`
+> nekara.xyz
+
+---
+
 ## Spare posts
 
 For the days after launch, when the thread is spent.
@@ -153,11 +235,18 @@ For the days after launch, when the thread is spent.
 
 ## Before you post
 
-**The numbers in the banners are mock data.** They come from the design
-prototype's seed — 412 scanned, 12 fired, 2.42×, −93.2%. The engine has been
-tested against fixtures and a simulated market, and has never run against live
-data. The copy above is written to describe how the register works and never
-to claim a track record, and it needs to stay that way until real calls exist.
+**The numbers in the scoreboard banners are mock data.** They come from the
+design prototype's seed — 412 scanned, 12 fired, 2.42×, −93.2% — and `CALLS` in
+`mkbanners.js` has to be edited and the banner re-rendered before either
+scoreboard goes anywhere.
+
+**The engine has fired real calls, and that is still not a track record.** It
+runs live on Robinhood Chain and the register holds calls it found itself. What
+it does not hold is enough settled ones for a hit rate, a median or a best peak
+to mean anything, and `/api/analytics/bands` wants about a hundred before it is
+worth reading. So the copy stays where it is: about how the register works,
+never about how it has done. The first number posted as performance is the
+first false thing on the account.
 Presenting those figures as performance would be the first false thing on the
 account, and this whole product is an argument against exactly that.
 
@@ -165,7 +254,9 @@ account, and this whole product is an argument against exactly that.
 wherever you want it — a reply on post 1 is the usual place. The contract is
 not out yet, so do not imply otherwise.
 
-**The site still says the key sale is open.** The Keys page reads
-"Phase 2 open · 412/666 minted · 0.08 ETH" with a Connect Wallet button, and no
-contract is deployed. Anyone arriving from post 1 can reach it. Fix that before
-the thread goes up.
+**The mint page is honest now, and it has to stay that way.** It reads
+"Mint not open", "0 / 666 minted", "Contract: not deployed", and all three
+phases "Not open" — because that is the chain's answer. `MINT_STATE` moves the
+banners when a phase opens; check `node contracts/keys.js state` before you
+move it. A banner that says mint now, next to a contract that reverts, is the
+one thing this product exists not to do.
