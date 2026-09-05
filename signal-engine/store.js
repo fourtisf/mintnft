@@ -154,6 +154,27 @@ export class FileStore {
     this.#flush();
     return row;
   }
+  /* Who was let into the alpha channel, so they can be let out again.
+     A channel membership is permanent until somebody revokes it, which is the
+     opposite of every other permission here — those are re-read from the chain
+     at the moment they are used. Without this list an invite would be a
+     one-time check granting indefinite access, and a wallet that sold its keys
+     would keep reading a channel it no longer holds. */
+  markAlphaInvited(chatId) {
+    const row = this.#subs()[chatId];
+    if (!row) return null;
+    row.alphaInvitedAt = new Date().toISOString();
+    this.#flush();
+    return row;
+  }
+  clearAlphaInvited(chatId) {
+    const row = this.#subs()[chatId];
+    if (!row) return null;
+    row.alphaInvitedAt = null;
+    this.#flush();
+    return row;
+  }
+
   /** A blocked bot is not an error to retry for ever; it is a subscriber gone. */
   deactivateSubscriber(chatId) {
     const row = this.#subs()[chatId];

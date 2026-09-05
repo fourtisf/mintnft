@@ -42,6 +42,7 @@ export function serve(store, {
   triage = null,
   cfg = null,
   holdings = new NoHoldings(),
+  alphaChat = null,
   keys = new KeysReader({ log: console.log }),
   log = console.log,
 } = {}) {
@@ -297,6 +298,38 @@ export function serve(store, {
           why: `Alpha opens at ${LADDER()[L_PREMIUM]} keys. This wallet holds ${held}.` });
       return json(res, 200, { ...base, locked: false,
         tape: triage.rejects, nearMiss: triage.nearMiss });
+    }
+
+    /* The invite, and the two refusals that matter more than it.
+     *
+     * A Telegram channel membership is permanent until somebody revokes it,
+     * which is the opposite of every other permission here — those are re-read
+     * from the chain at the moment they are used. So an invite is only issued
+     * to a wallet whose chat is already linked, because that link is the only
+     * way the sweep can find them again and take it back. An unlinked wallet is
+     * refused with the step it is missing, not handed a grant nobody can undo.
+     *
+     * Single-use and short-lived: a link that admits many is a link somebody
+     * forwards, and a link that never expires is the one-time check outliving
+     * its own answer. */
+    if (p === "/api/alpha/invite" && req.method === "POST") {
+      if (!alphaChat?.configured) return json(res, 503, { error: "the alpha channel is not wired on this instance" });
+      const { level, address, keys: held } = await levelOf(req);
+      if (!address) return json(res, 401, { error: "connect a wallet first" });
+      if (!holdings.configured)
+        return json(res, 403, { error: "The collection is not deployed on this instance, so no wallet's keys can be counted." });
+      if (level < L_PREMIUM)
+        return json(res, 403, { error: `The alpha channel opens at ${LADDER()[L_PREMIUM]} keys. This wallet holds ${held}.` });
+
+      const sub = await store.subscriberByAddress(address);
+      if (!sub) return json(res, 409, { error: "link", need: "telegram",
+        message: "Link this wallet to Telegram first — the channel can only take back a place it can find again." });
+
+      const link = await alphaChat.createInvite({ name: `alpha ${address.slice(0, 8)}` });
+      if (!link) return json(res, 502, { error: "Telegram would not issue a link" });
+      await store.markAlphaInvited(sub.chatId);
+      log(`[alpha] invite issued to ${address} (${held} keys)`);
+      return json(res, 200, { link, expiresInS: 900 });
     }
 
     if (p === "/api/triage") {

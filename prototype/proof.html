@@ -242,6 +242,18 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-
 /* A card, not a banner. Stretched to the article width it was a 1340px box
    holding a paragraph, and the empty half read as something that failed to
    load rather than as a door. */
+.join{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;
+  border:1px solid var(--border-hi);border-radius:var(--r);background:var(--surface);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 20px 44px -26px rgba(0,0,0,.95);
+  padding:20px 22px;margin-bottom:22px}
+.join b{display:block;font-size:15px;letter-spacing:-.02em;margin-bottom:5px}
+.join span{display:block;font-size:13.2px;color:var(--tx-2);line-height:1.6;max-width:66ch}
+.joinmsg{font-size:13px;margin:-10px 0 22px;padding:12px 16px;border-radius:var(--r);
+  border:1px solid var(--border);background:var(--surface-2);line-height:1.65}
+.joinmsg a{color:var(--accent);word-break:break-all}
+.joinmsg span{display:block;color:var(--tx-3);font-size:12px;margin-top:5px}
+.joinmsg.bad{border-color:rgba(229,96,107,.3)}
+
 .lockbox{max-width:620px;margin:0 auto;position:relative;overflow:hidden;
   border:1px solid var(--border-hi);border-radius:var(--r);background:var(--surface);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 24px 56px -28px rgba(0,0,0,1);
@@ -1093,6 +1105,7 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
   <div id="aBody" class="hide">
     <div class="alpha-hd" id="aHead"></div>
     <div class="alpha-band" id="aBand"></div>
+    <div id="aJoin"></div>
     <div class="cols c2">
       <div class="box" style="grid-column:1/-1">
         <h3>Near misses</h3>
@@ -2440,6 +2453,12 @@ function renderAlpha(){
       <span class="mn">3 keys · counted from the chain just now</span></div>
      <div class="mn">0x7f2a…4c41</div>`;
   document.getElementById("aBand").innerHTML=nmBand(near,134);
+  document.getElementById("aJoin").innerHTML=
+    `<div class="join"><div><b>Alpha channel</b>
+      <span>Calls the desk scores highest, in one Telegram channel. The link is
+      single-use and expires in fifteen minutes; the place is taken back when the
+      keys go.</span></div>
+      <button class="btn btn-p">Get my link</button></div>`;
   document.getElementById("aNear").innerHTML=near.map(n=>nmCard(n,134)).join("");
   document.getElementById("aTape").innerHTML=A_TAPE.map(([t,r,g])=>
     `<div class="rej"><span class="tk">${t}</span><span class="rs">${r}</span>

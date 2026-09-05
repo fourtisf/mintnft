@@ -366,6 +366,15 @@ CREATE TABLE tg_subscribers (
   -- False when the person blocked the bot. Kept rather than deleted so a
   -- re-/start is a reactivation and not a stranger.
   active      boolean NOT NULL DEFAULT true,
+
+  -- When this chat was let into the alpha channel, or null. A channel
+  -- membership is permanent until somebody revokes it, which is the opposite of
+  -- every other permission in this system — those are re-read from the chain at
+  -- the moment they are used. Without this the invite would be a one-time check
+  -- granting indefinite access, and a wallet that sold its keys would keep
+  -- reading a channel it no longer holds.
+  alpha_invited_at timestamptz,
+
   created_at  timestamptz NOT NULL DEFAULT now(),
   seen_at     timestamptz NOT NULL DEFAULT now()
 );

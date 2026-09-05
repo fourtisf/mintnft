@@ -18,7 +18,7 @@ import { serve } from "./api.js";
 import { attachFeed } from "./ws.js";
 import { publishAnchor } from "./anchor.js";
 import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
-import { ChainHoldings, NoHoldings } from "./holdings.js";
+import { ChainHoldings, NoHoldings, levelFor, LADDER, PREMIUM as HOLD_PREMIUM } from "./holdings.js";
 import { KeysReader } from "./keys.js";
 import { TIER_DELAY_S } from "./gating.js";
 import { Telegram, formatSignal, formatOutcome, formatProgress,
@@ -26,6 +26,10 @@ import { Telegram, formatSignal, formatOutcome, formatProgress,
 import { TelegramBot, LinkCodes } from "./tgbot.js";
 
 const HOT = 20_000, WARM = 300_000, DISCOVER = 60_000, ANCHOR = 86_400_000;
+/* Ten minutes. A membership that outlives its keys is worth money to the
+   holder for exactly as long as this, so it is the one number here that is a
+   promise rather than a cost — and it is cheap: one eth_call per invited chat. */
+const SWEEP = 600_000;
 
 /**
  * Postgres when DATABASE_URL is set, the file otherwise.
@@ -142,6 +146,40 @@ export function start({ store = new FileStore(), port = 8787,
   const bot = new TelegramBot({ token: process.env.TG_TOKEN, store, tierSource,
                                 codes: new LinkCodes(), delays, log,
                                 site: domain ?? "nekara.xyz" });
+
+  /**
+   * Take the place back when the keys go.
+   *
+   * Every other permission in this system is read from the chain at the moment
+   * it is used, so selling a key stops paying the seller on the next send. A
+   * channel membership cannot work that way — Telegram grants it once and keeps
+   * it until somebody revokes it — so the re-read has to be a sweep, and
+   * without this sweep the invite would be the stored tier that non-negotiable
+   * 7 exists to forbid, wearing a different hat.
+   *
+   * A holdings read that fails counts as *unknown*, and nobody is removed on an
+   * unknown. Removal is the destructive direction and an RPC outage must never
+   * drive it — a provider being down would otherwise empty the channel.
+   */
+  const sweepAlpha = async () => {
+    if (!alphaChat.configured || !holdings.configured) return;
+    for (const sub of await store.subscribers()) {
+      if (!sub.alphaInvitedAt || !sub.address) continue;
+      let count;
+      try { count = await holdings.countOf(sub.address); }
+      catch { continue; }
+      // countOf already answers 0 for a read it could not make, so ask again
+      // before acting on a zero: the difference between "sold them" and "the
+      // node was down" is the difference between a fair removal and an unfair
+      // one, and only one of them is reversible by the reader.
+      if (count === 0 && (await holdings.countOf(sub.address)) !== 0) continue;
+      if (levelFor(count) >= HOLD_PREMIUM) continue;
+      if (await alphaChat.removeMember(sub.chatId)) {
+        await store.clearAlphaInvited(sub.chatId);
+        log(`[alpha] removed ${sub.address} — holds ${count}, needs ${LADDER()[HOLD_PREMIUM]}`);
+      }
+    }
+  };
 
   const broadcast = (call, text, photo = null) => {
     channel(call, text, photo);
@@ -287,6 +325,7 @@ export function start({ store = new FileStore(), port = 8787,
     setInterval(() => hot().catch(e => log("hot failed", String(e))), HOT),
     setInterval(() => warm().catch(e => log("warm failed", String(e))), WARM),
     setInterval(() => anchor().catch(e => log("anchor failed", String(e))), ANCHOR),
+    setInterval(() => sweepAlpha().catch(e => log("alpha sweep failed", String(e))), SWEEP),
   ];
 
   /* setInterval waits a whole period before its first run, so a restart cost a
@@ -298,7 +337,7 @@ export function start({ store = new FileStore(), port = 8787,
 
   const keys = new KeysReader({ log });
   const server = serve(store, { port, secret, domain, tierSource, delays, triage,
-                                holdings, cfg: engine.cfg, keys, bot, log });
+                                holdings, alphaChat, cfg: engine.cfg, keys, bot, log });
   const feed = attachFeed(server, {
     log, delays,
     // The tier comes from the signed session and nothing else the client sends.
@@ -338,7 +377,7 @@ export function start({ store = new FileStore(), port = 8787,
   if (!publishAnchorTx) log("anchoring is not wired — /api/verify will report the register as unanchored");
   return { stop() { timers.forEach(clearInterval); queued.forEach(clearTimeout); queued.clear();
                     bot.stop(); feed.close(); server.close(); },
-           store, engine, triage, feed, server, refresh, bot };
+           store, engine, triage, feed, server, refresh, bot, sweepAlpha };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) start({ store: await openStore() });

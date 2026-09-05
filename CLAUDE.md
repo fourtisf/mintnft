@@ -175,6 +175,11 @@ node test-exit-alert.js   # the stop walked live and recorded and never
 node test-tgbot.js   # the alert bot: link codes, filters, and that a tier is
                      # read from the chain at send time rather than stored
 node test-mint.js    # what the mint panel is told, and what it is never told
+node test-alpha-invite.js   # the channel invite, and the sweep that makes it
+                     # honest: who is refused, why an unlinked wallet is refused
+                     # rather than served, that a wallet which sold its keys is
+                     # removed — and that a chain nobody could read removes
+                     # nobody, because an RPC outage must not empty the channel
 node test-alpha-channel.js  # the second Telegram channel: that it never posts before
                      # the public leg, which calls it carries, that one it never got
                      # cannot receive that call's milestones, and that a quiet channel
@@ -551,6 +556,18 @@ continuing. Everything else is recoverable; that one is not.
   working filter and a broken deploy print the same silence otherwise.
   Which call goes there is read off the row's frozen `score`, never remembered,
   so a restart cannot post a milestone to a channel that never got the call.
+- **A channel invite is a grant that outlives its own check, so it is swept.**
+  `POST /api/alpha/invite` issues a single-use, fifteen-minute link to a wallet
+  at the Premium rung — and only to one whose chat is already linked, because
+  that link is the only way `sweepAlpha` can find them again and take the place
+  back. An unlinked wallet is refused with the step it is missing rather than
+  handed a grant nobody can undo. Telegram keeps a membership until somebody
+  revokes it, which is the opposite of every other permission here; without the
+  sweep this would be the stored tier non-negotiable 7 forbids, wearing a hat.
+  The sweep runs every ten minutes and **removes nobody on a read it could not
+  make**: `countOf` answers 0 for a failure, so a zero is asked twice before it
+  is believed. Removal is the destructive direction and an RPC outage driving it
+  would empty the channel on a bad afternoon.
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.

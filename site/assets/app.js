@@ -2137,6 +2137,13 @@ function renderAlpha(){
       <span class="mn">${a.keys} ${a.keys===1?"key":"keys"} · counted from the chain just now</span></div>
      <div class="mn">${esc(SHORT(a.address??""))}</div>`;
   document.getElementById("aBand").innerHTML=nmBand(near,a.maxScore);
+  document.getElementById("aJoin").innerHTML=
+    `<div class="join"><div><b>Alpha channel</b>
+      <span>Calls the desk scores highest, in one Telegram channel. The link is
+      single-use and expires in fifteen minutes; the place is taken back when the
+      keys go.</span></div>
+      <button class="btn btn-p" id="aJoinBtn">Get my link</button></div>
+     <div class="joinmsg" id="aJoinMsg" hidden></div>`;
 
   document.getElementById("aNear").innerHTML = near.length
     ? near.map(n=>nmCard(n,a.maxScore)).join("")
@@ -2900,8 +2907,34 @@ document.getElementById("connectBtn")?.addEventListener("click",()=>
 /* The lockbox is drawn after boot, so its button is bound by delegation rather
    than by id — a listener attached at load would be attached to nothing. */
 document.addEventListener("click",e=>{
-  if(e.target.closest("#alphaConnect")){e.preventDefault();connect()}
+  if(e.target.closest("#alphaConnect")){e.preventDefault();connect();return}
+  if(e.target.closest("#aJoinBtn")){e.preventDefault();joinAlpha()}
 });
+
+/* The route decides, and it decides again on the next request — this only
+   reports. The reply for a wallet that has not linked Telegram is a step to
+   take rather than a refusal, so it is printed as one. */
+async function joinAlpha(){
+  const btn=document.getElementById("aJoinBtn"), msg=document.getElementById("aJoinMsg");
+  if(!btn||!msg)return;
+  btn.disabled=true;btn.textContent="Asking…";
+  const show=(cls,html)=>{msg.hidden=false;msg.className="joinmsg "+cls;msg.innerHTML=html;
+    btn.disabled=false;btn.textContent="Get my link"};
+  try{
+    const r=await fetch(API+"/alpha/invite",{method:"POST",signal:AbortSignal.timeout(10000),
+      headers:SESSION.token?{authorization:"Bearer "+SESSION.token}:{}});
+    const b=await r.json().catch(()=>({}));
+    if(r.ok&&b.link)return show("ok",
+      `<a href="${esc(b.link)}" target="_blank" rel="noopener">${esc(b.link)}</a>
+       <span>Single use, and it expires in ${Math.round((b.expiresInS??900)/60)} minutes.</span>`);
+    if(b.need==="telegram")return show("bad",
+      `${esc(b.message??"")} <a href="#" data-v="mint" data-hash="#alerts">Link it on Mint →</a>`);
+    show("bad",esc(b.error??"Could not get a link."));
+  }catch{
+    /* An engine we could not reach is not a wallet that failed to qualify. */
+    show("bad","The desk did not answer. This says nothing about what this wallet holds.");
+  }
+}
 if(!DEMO){
   try{
     const kept=JSON.parse(sessionStorage.getItem("nekara.session")||"null");

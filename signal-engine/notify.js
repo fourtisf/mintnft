@@ -188,6 +188,50 @@ export class Telegram {
    * picture is the presentation and the text is the record, and a card the
    * renderer could not draw must never cost a subscriber the call.
    */
+  /**
+   * A single-use, short-lived invite.
+   *
+   * `member_limit: 1` because a link that admits many is a link somebody
+   * forwards, and the point of issuing it per wallet is that it is per wallet.
+   * The expiry is the second half of the same thought: a link that never dies
+   * is a permanent grant handed out on a check made once.
+   */
+  async createInvite({ expireSeconds = 900, name = "alpha" } = {}) {
+    if (!this.configured) return null;
+    const r = await this.#call("createChatInviteLink", {
+      chat_id: this.chatId, name,
+      member_limit: 1,
+      expire_date: Math.floor(Date.now() / 1000) + expireSeconds,
+    });
+    return r?.invite_link ?? null;
+  }
+
+  /**
+   * Ban then unban, which is Telegram's way of saying remove. Left banned, the
+   * wallet could never rejoin after buying keys again — a revocation that
+   * outlives the reason for it, which is the same fault as a grant that does.
+   */
+  async removeMember(userId) {
+    if (!this.configured) return false;
+    const banned = await this.#post("banChatMember", { chat_id: this.chatId, user_id: userId });
+    if (!banned) return false;
+    await this.#post("unbanChatMember", { chat_id: this.chatId, user_id: userId, only_if_banned: true });
+    return true;
+  }
+
+  /** Like #post, but hands back what Telegram answered rather than a boolean. */
+  async #call(method, body) {
+    try {
+      const r = await this.fetch(`https://api.telegram.org/bot${this.token}/${method}`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j?.ok) { this.log(`[telegram] ${method} failed`, j?.description ?? r.status); return null; }
+      return j.result;
+    } catch (e) { this.log(`[telegram] ${method} error`, String(e)); return null; }
+  }
+
   async send(text, photo = null) {
     if (!this.configured) { this.log("[telegram] not configured, skipping"); return false; }
     if (photo && text.length <= CAPTION_MAX) {

@@ -380,6 +380,19 @@ export class PgStore {
       [chatId, JSON.stringify(filters ?? {})]);
     return rows[0] ? rowToSub(rows[0]) : null;
   }
+  /* Mirrors FileStore. The column is added by an ALTER in schema.sql rather
+     than a migration file, because this table is operational state and losing
+     it costs a re-invite, not a record. */
+  async markAlphaInvited(chatId) {
+    const { rows } = await this.pool.query(
+      "UPDATE tg_subscribers SET alpha_invited_at = now() WHERE chat_id = $1 RETURNING *", [chatId]);
+    return rows[0] ? rowToSub(rows[0]) : null;
+  }
+  async clearAlphaInvited(chatId) {
+    const { rows } = await this.pool.query(
+      "UPDATE tg_subscribers SET alpha_invited_at = NULL WHERE chat_id = $1 RETURNING *", [chatId]);
+    return rows[0] ? rowToSub(rows[0]) : null;
+  }
   async deactivateSubscriber(chatId) {
     const { rows } = await this.pool.query(
       "UPDATE tg_subscribers SET active = false WHERE chat_id = $1 RETURNING *", [chatId]);
@@ -438,6 +451,7 @@ function rowToSub(r) {
   return { chatId: Number(r.chat_id), address: r.address ?? null,
            linkedAt: r.linked_at ? new Date(r.linked_at).toISOString() : null,
            filters: r.filters ?? {}, active: r.active,
+           alphaInvitedAt: r.alpha_invited_at ? new Date(r.alpha_invited_at).toISOString() : null,
            createdAt: new Date(r.created_at).toISOString(),
            seenAt: new Date(r.seen_at).toISOString() };
 }
