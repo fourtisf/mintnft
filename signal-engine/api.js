@@ -19,7 +19,6 @@ import { proofFor } from "./anchor.js";
 import { NonceStore, issueSession, readSession, verifySiwe, StaticTierSource } from "./auth.js";
 import { NoHoldings, levelFor, LADDER, LEVEL_NAME, PUBLIC as L_PUBLIC, PREMIUM as L_PREMIUM } from "./holdings.js";
 import { SIGNALS } from "./rules.js";
-import { TIER_NAME } from "./tgbot.js";
 import { KeysReader } from "./keys.js";
 
 const readBody = req => new Promise((resolve, reject) => {
@@ -183,7 +182,9 @@ export function serve(store, {
       await store.linkSubscriber(v.chatId, claims.addr);
       // Read now for the reply only. Delivery reads it again at send time.
       const tier = await tierSource.bestTierOf(claims.addr);
-      bot.say(v.chatId, `Linked to \`${claims.addr}\`\\. You are on ${TIER_NAME[tier]}\\.`);
+      // Not awaited: the browser is told it is linked whether or not Telegram
+      // answers, and this reads the chain a second time for the alpha rung.
+      bot.afterLink(v.chatId, claims.addr, tier).catch(() => {});
       return json(res, 200, { linked: true, tier });
     }
 

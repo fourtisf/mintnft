@@ -227,32 +227,88 @@ export class TelegramBot {
    * the join is what binds it, exactly as on the site.
    */
   async alpha(chatId) {
-    if (!this.alphaChat?.configured)
+    const g = await this.alphaFor(chatId);
+    if (g.state === "off")
       return this.say(chatId, "The alpha channel is not set up on this desk\\.");
-    const sub = await this.store.subscriber(chatId);
-    if (!sub?.address)
+    if (g.state === "unlinked")
       return this.say(chatId, "Link the wallet holding your keys first — send `/link`\\.");
-    if (!this.holdings?.configured)
+    if (g.state === "uncounted")
       return this.say(chatId, "The collection is not deployed yet, so no wallet's keys can be counted\\.");
-
-    const held = await this.holdings.countOf(sub.address);
-    if (held < this.alphaRung)
+    if (g.state === "short")
       return this.say(chatId, [
-        `The alpha channel opens at *${this.alphaRung}* keys\\. This wallet holds *${held}*\\.`,
+        `The alpha channel opens at *${this.alphaRung}* keys\\. This wallet holds *${g.held}*\\.`,
         "",
         `Keys are at ${esc("https://" + this.site + "/mint")}`,
       ].join("\n"));
-
-    const link = await this.alphaChat.createInvite({ name: `alpha ${sub.address.slice(0, 8)}` });
-    if (!link) return this.say(chatId, "Telegram would not issue a link\\. Try again in a minute\\.");
-    await this.store.markAlphaInvited(chatId, link);
-    this.log(`[alpha] invite issued to ${sub.address} via bot (${held} keys)`);
+    if (g.state === "refused")
+      return this.say(chatId, "Telegram would not issue a link\\. Try again in a minute\\.");
     return this.say(chatId, [
-      `${esc(link)}`,
+      `${esc(g.link)}`,
       "",
       "Single use, and it expires in fifteen minutes\\.",
       "The place is taken back when the keys go — the desk re\\-reads them every ten minutes\\.",
     ].join("\n"));
+  }
+
+  /**
+   * Whether this chat may have an alpha link, and the link itself if so.
+   *
+   * Split out from `alpha` because the command and the message that follows a
+   * link reach the same decision and only word it differently. Two copies of a
+   * permission rule are two rules that drift, and the one that drifts is
+   * always the one nobody is looking at.
+   */
+  async alphaFor(chatId) {
+    if (!this.alphaChat?.configured) return { state: "off" };
+    const sub = await this.store.subscriber(chatId);
+    if (!sub?.address) return { state: "unlinked" };
+    if (!this.holdings?.configured) return { state: "uncounted" };
+
+    const held = await this.holdings.countOf(sub.address);
+    if (held < this.alphaRung) return { state: "short", held };
+
+    const link = await this.alphaChat.createInvite({ name: `alpha ${sub.address.slice(0, 8)}` });
+    if (!link) return { state: "refused", held };
+    await this.store.markAlphaInvited(chatId, link);
+    this.log(`[alpha] invite issued to ${sub.address} via bot (${held} keys)`);
+    return { state: "granted", held, link };
+  }
+
+  /**
+   * What the bot says the instant a wallet is linked.
+   *
+   * Linking is the first moment the desk knows what this chat holds, so it is
+   * the moment the alpha link is due. Leaving it to be discovered behind
+   * `/alpha` hides something the holder has already bought, and a holder who
+   * never finds the command reads the channel as a thing that was never
+   * delivered.
+   *
+   * One message rather than two: a tier line and an alpha line arriving a beat
+   * apart read as the second correcting the first. And a wallet short of the
+   * rung is told the number rather than nothing, because silence here is
+   * indistinguishable from a bot that is broken.
+   */
+  async afterLink(chatId, address, tier) {
+    const head = `Linked to \`${address}\`\\. You are on ${TIER_NAME[tier] ?? TIER_NAME[0]}\\.`;
+    const g = await this.alphaFor(chatId);
+    const tail = {
+      off: [],
+      unlinked: [],
+      uncounted: ["The collection is not deployed yet, so no wallet's keys can be counted for the alpha channel\\."],
+      short: [
+        `The *alpha channel* opens at *${this.alphaRung}* keys\\. This wallet holds *${g.held}*\\.`,
+        `Keys are at ${esc("https://" + this.site + "/mint")}, and \`/alpha\` asks again\\.`,
+      ],
+      refused: ["Your keys reach the *alpha channel*, but Telegram would not issue a link just now\\. Send `/alpha` to try again\\."],
+      granted: [
+        "Your keys reach the *alpha channel*:", "",
+        esc(g.link),
+        "",
+        "Single use, and it expires in fifteen minutes\\.",
+        "The place is taken back when the keys go — the desk re\\-reads them every ten minutes\\.",
+      ],
+    }[g.state] ?? [];
+    return this.say(chatId, tail.length ? [head, "", ...tail].join("\n") : head);
   }
 
   async status(chatId) {

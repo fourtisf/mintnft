@@ -582,6 +582,13 @@ continuing. Everything else is recoverable; that one is not.
   drift. The bot is not what issues a link from the site: `api.js` calls
   Telegram over HTTP with the same token, and the polling loop only ever hears
   about the *join*.
+  **The link is handed over the moment `/link` succeeds**, not left behind a
+  command. Linking is the first instant the desk can count what this chat holds,
+  so it is when the grant is due; `afterLink` sends the tier line and the alpha
+  standing as one message, and a wallet short of the rung is told the two numbers
+  rather than nothing, because silence there is indistinguishable from a bot that
+  is broken. Both it and `/alpha` decide through `alphaFor`, which is the split
+  the rule above demands — one decision, two wordings.
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.

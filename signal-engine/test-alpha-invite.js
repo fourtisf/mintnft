@@ -267,6 +267,79 @@ head("/alpha di DM menjawab dengan aturan yang sama");
   ok(c4.issued.length === 0, "dan tidak ada link");
 }
 
+/* ═══════ the message that follows a link ═══════
+   `/alpha` only helps somebody who knows the command exists. Linking is the
+   first moment the desk can count this chat's keys at all, so it is the moment
+   the link is due — and a wallet short of the rung has to be told the number,
+   because a silence there is indistinguishable from a bot that is broken. */
+head("pesan setelah /link menyerahkan link alpha-nya sendiri");
+{
+  const say = [];
+  const fetchImpl = async (url, init) => {
+    const m = url.split("/").pop(), b = JSON.parse(init.body);
+    if (m === "sendMessage") say.push(b.text);
+    return { json: async () => ({ ok: true, result: {} }) };
+  };
+  const mkBot = (store, { holdings, alphaChat }) => new TelegramBot({ token: "T", store,
+    tierSource: { bestTierOf: async () => 1 }, holdings, alphaChat, alphaRung: 3,
+    fetchImpl, log: () => {} });
+
+  /* Driven through the route rather than the method, because the wiring is the
+     thing that was missing: `afterLink` existing and never being called reads
+     exactly like the bug this closes. */
+  const link = async (port, { counts, chan }) => {
+    rmSync(DATA, { force: true });
+    const store = new FileStore(DATA);
+    store.addSubscriber(CHAT);
+    const bot = mkBot(store, { holdings: holdStub(counts), alphaChat: chan.tg });
+    const code = bot.codes.issue(CHAT);
+    const srv = serve(store, { port, secret: SECRET, bot, log: () => {},
+                               tierSource: { bestTierOf: async () => 1 },
+                               holdings: holdStub(counts), alphaChat: chan.tg });
+    await new Promise(r => setTimeout(r, 60));
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/api/tg/link`, {
+        method: "POST", headers: { authorization: `Bearer ${tok()}` },
+        body: JSON.stringify({ code }),
+      });
+      const body = await r.json();
+      // The reply is not awaited by the route, so give it a beat to land.
+      await new Promise(r2 => setTimeout(r2, 60));
+      return { status: r.status, body, store };
+    } finally { srv.close(); }
+  };
+
+  const c1 = chanStub();
+  say.length = 0;
+  let r = await link(8815, { counts: [3], chan: c1 });
+  ok(r.status === 200 && r.body.linked === true, "penautannya berhasil");
+  ok(say.length === 1, "satu pesan, bukan dua — dua terbaca seperti yang kedua meralat yang pertama");
+  ok(/Tier I/.test(say[0] ?? ""), "tier-nya tetap disebut");
+  ok(say[0]?.replace(/\\(.)/g, "$1").includes(LINK),
+    "dan link alpha-nya ikut, tanpa perlu tahu perintah /alpha");
+  ok(c1.issued.length === 1, "satu link terbit");
+  ok(r.store.subscriber(CHAT).alphaInviteLink === LINK,
+    "dan tercatat, jadi penyapunya bisa mengambilnya kembali");
+
+  const c2 = chanStub();
+  say.length = 0;
+  r = await link(8816, { counts: [1], chan: c2 });
+  ok(say.length === 1 && /Tier I/.test(say[0] ?? ""), "kurang key: tier-nya tetap disebut");
+  ok(/opens at \*3\*/.test(say[0] ?? "") && /holds \*1\*/.test(say[0] ?? ""),
+    "dan angkanya dikatakan — diam di sini tidak bisa dibedakan dari bot yang rusak");
+  ok(!say[0]?.replace(/\\(.)/g, "$1").includes(LINK), "tanpa link");
+  ok(c2.issued.length === 0, "dan tidak ada yang terbit");
+
+  /* A desk with no alpha channel says nothing about one, rather than telling a
+     reader they fell short of a thing that does not exist. */
+  const c3 = { issued: [], removed: [], tg: { configured: false,
+    createInvite: async () => { throw new Error("must not be asked"); } } };
+  say.length = 0;
+  r = await link(8817, { counts: [9], chan: c3 });
+  ok(say.length === 1 && /Tier I/.test(say[0] ?? ""), "channel alpha mati: tetap ada konfirmasi tautan");
+  ok(!/alpha/i.test(say[0] ?? ""), "dan tidak menyebut channel yang tidak ada");
+}
+
 rmSync(DATA, { force: true });
 console.log(failures ? `\n${failures} GAGAL` : "\nsemua lolos");
 process.exit(failures ? 1 : 0);
