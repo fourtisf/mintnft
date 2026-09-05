@@ -68,35 +68,15 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .col:first-child{padding-left:0;border-left:0}
 .band{border-top:1px solid rgba(255,255,255,.09);border-bottom:1px solid rgba(255,255,255,.09)}
 
-/* Ground, in four layers. Flat black is the cheapest thing a dark layout can
-   do, and one texture over it is still a texture — depth comes from several
-   very faint ones that disagree about scale and direction. Every opacity here
-   is under .06 on purpose: read them one at a time and each is invisible.
-
-   .rosette is the device on a share certificate — concentric hairlines struck
-   from one centre. It is emitted by MEDALLION rather than placed by hand, so
-   it shares the artwork's centre wherever the layout puts it; a rosette a few
-   pixels off centre reads as a mistake and nothing else. */
-.rosette{position:absolute;pointer-events:none;border-radius:50%;opacity:.062;
+/* The device on a share certificate: concentric hairlines struck from one
+   centre. MEDALLION emits it rather than the layout placing it, so it shares
+   the artwork's centre wherever it lands — a rosette a few pixels off centre
+   reads as a mistake and nothing else. It sits at .03 because the ground under
+   it is now the collection, and two patterns arguing is one too many. */
+.rosette{position:absolute;pointer-events:none;border-radius:50%;opacity:.03;
  background:repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.5) 0 1px,transparent 1px 9px);
  -webkit-mask-image:radial-gradient(circle,transparent 15%,#000 32%,#000 60%,transparent 82%);
  mask-image:radial-gradient(circle,transparent 15%,#000 32%,#000 60%,transparent 82%)}
-/* an octave finer than .guil, and crossing it at a different angle. One pitch
-   reads as a pattern; two read as a surface */
-.weave{position:absolute;inset:0;pointer-events:none;opacity:.038;
- background:
-  repeating-linear-gradient(63deg,rgba(255,255,255,.5) 0 1px,transparent 1px 7px),
-  repeating-linear-gradient(-63deg,rgba(255,255,255,.36) 0 1px,transparent 1px 7px);
- -webkit-mask-image:linear-gradient(100deg,#000 6%,rgba(0,0,0,.35) 52%,transparent 78%);
- mask-image:linear-gradient(100deg,#000 6%,rgba(0,0,0,.35) 52%,transparent 78%)}
-/* raking light, the way it falls across brushed metal */
-.rake{position:absolute;inset:-20%;pointer-events:none;
- background:linear-gradient(102deg,transparent 17%,rgba(255,255,255,.030) 30%,transparent 41%,
-   transparent 57%,rgba(255,255,255,.017) 67%,transparent 76%)}
-/* a floor to sit on, and the hairline where it meets the field. Without it the
-   medallion floats in a void of one value */
-.floor{position:absolute;left:0;right:0;bottom:0;pointer-events:none;
- background:linear-gradient(180deg,transparent,rgba(255,255,255,.040) 78%,rgba(255,255,255,.028))}
 </style>`;
 
 /* The plate that frames every premium layout: a hairline inset a fixed margin
@@ -742,6 +722,29 @@ const SPECS = [
 ];
 
 /* concentric hairlines and a turned halo, drawn once for both sizes */
+/* The ground is the collection itself — the same tiles the Mint page lays out,
+   from the same renderer, not a screenshot of it. A colour field behind a key
+   is a backdrop somebody picked; the keys behind it are the thing being sold.
+   Rows are offset half a pitch so the grid reads as a wall rather than as a
+   table, and the whole thing bleeds past the trim on every side so no tile is
+   cut in a way that looks like a mistake. */
+const keyWall = (w, h, tile) => {
+  const gap = Math.round(tile * .07), pitch = tile + gap;
+  const cols = Math.ceil(w / pitch) + 2, rows = Math.ceil(h / pitch) + 2;
+  let id = 101, rowsHtml = '';
+  for (let r = 0; r < rows; r++) {
+    const dx = (r % 2 ? -pitch * .5 : 0) - pitch * .5;
+    rowsHtml += `<div style="position:absolute;left:${dx}px;top:${r * pitch - pitch * .55}px;
+      display:flex;gap:${gap}px">${
+      Array.from({ length: cols }, () => `<div style="width:${tile}px;height:${tile}px;flex-shrink:0;
+        border-radius:${Math.round(tile * .075)}px;overflow:hidden;border:1px solid rgba(255,255,255,.06)">
+        <svg viewBox="0 0 600 600" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"
+          style="display:block">${keyBody(id++)}</svg></div>`).join('')}</div>`;
+  }
+  return `<div style="position:absolute;inset:0;overflow:hidden;
+    filter:brightness(1.72) saturate(1.08)">${rowsHtml}</div>`;
+};
+
 const MEDALLION = d => `
 <div style="position:relative;width:${d}px;height:${d}px;flex-shrink:0">
   <div class="rosette" style="inset:${-d * 1.5}px"></div>
@@ -784,14 +787,22 @@ const token = (w, h) => {
   const sq = h > 1000;
   const d = sq ? 336 : 430;
   return page(w, h, `
+${keyWall(w, h, sq ? 168 : 186)}
+${sq
+  ? `<div style="position:absolute;inset:0;background:
+      radial-gradient(86% 64% at 50% 30%,rgba(8,9,11,.06) 10%,rgba(8,9,11,.62) 54%,rgba(8,9,11,.93))"></div>
+     <div style="position:absolute;inset:0;background:
+      linear-gradient(180deg,rgba(8,9,11,.88),transparent 21%,transparent 36%,
+      rgba(8,9,11,.88) 56%,rgba(8,9,11,.975) 70%,rgba(8,9,11,.99))"></div>`
+  : `<div style="position:absolute;inset:0;background:
+      linear-gradient(90deg,rgba(8,9,11,.97) 25%,rgba(8,9,11,.86) 42%,rgba(8,9,11,.34) 66%,rgba(8,9,11,.52))"></div>
+     <div style="position:absolute;inset:0;background:
+      linear-gradient(180deg,rgba(8,9,11,.86),transparent 21%,transparent 55%,
+      rgba(8,9,11,.80) 73%,rgba(8,9,11,.96) 84%,rgba(8,9,11,.985))"></div>`}
 <div style="position:absolute;inset:0;background:
-  radial-gradient(128% 96% at 86% -12%,rgba(124,88,224,.17),transparent 58%),
-  radial-gradient(116% 84% at 2% 110%,rgba(56,84,186,.13),transparent 60%)"></div>
-<div class="keylight" style="opacity:.7"></div>
-<div class="weave"></div>
-<div class="guil" style="opacity:.05"></div>
-<div class="rake"></div>
-<div class="floor" style="height:${sq ? 300 : 250}px"></div>
+  radial-gradient(128% 96% at 86% -12%,rgba(124,88,224,.15),transparent 58%),
+  radial-gradient(116% 84% at 2% 110%,rgba(56,84,186,.12),transparent 60%)"></div>
+<div class="keylight" style="opacity:.5"></div>
 
 <div style="position:absolute;inset:0;padding:${sq ? '64px 72px 58px' : '66px 84px 62px'};
   display:flex;flex-direction:column;align-items:${sq ? 'center' : 'stretch'};

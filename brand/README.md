@@ -158,6 +158,19 @@ banner: a hit rate printed here is a number that was true the day it rendered.
 wrong until it is re-rendered, which is the same rule as the artwork and
 `parity.js`.
 
-The key it draws is chosen, not defaulted. Key 3 renders Verdant, and a green
-figure behind a blue-to-violet wordmark is two brands in one frame; `TOKEN_KEY`
-is an Azure one, and its tier is blanked like every other key on a banner.
+**The ground is the collection.** `keyWall` lays the same tiles the Mint page
+lays out, drawn from the site's own renderer through jsdom rather than from a
+screenshot of it, offset half a pitch per row and bleeding past the trim on
+every side so no tile is cut in a way that looks like a mistake. A colour field
+behind a key is a backdrop somebody picked; the keys behind it are the thing
+being sold.
+
+They are drawn on `--art`, which is very nearly black, so the wall carries a
+brightness lift — under any scrim at all an unlifted wall reads as nothing. The
+scrim is then shaped rather than spread evenly: heaviest exactly where the mono
+type sits, because a spec line over a bright tile is a line nobody reads.
+
+The hero key is chosen, not defaulted. Key 3 renders Verdant, and a green figure
+behind a blue-to-violet wordmark is two brands in one frame; `TOKEN_KEY` is an
+Azure one. Every key on the wall and the hero alike goes through `keyBody`, so
+the tier is blanked on all of them.

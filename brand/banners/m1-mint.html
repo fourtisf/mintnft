@@ -62,35 +62,15 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .col:first-child{padding-left:0;border-left:0}
 .band{border-top:1px solid rgba(255,255,255,.09);border-bottom:1px solid rgba(255,255,255,.09)}
 
-/* Ground, in four layers. Flat black is the cheapest thing a dark layout can
-   do, and one texture over it is still a texture — depth comes from several
-   very faint ones that disagree about scale and direction. Every opacity here
-   is under .06 on purpose: read them one at a time and each is invisible.
-
-   .rosette is the device on a share certificate — concentric hairlines struck
-   from one centre. It is emitted by MEDALLION rather than placed by hand, so
-   it shares the artwork's centre wherever the layout puts it; a rosette a few
-   pixels off centre reads as a mistake and nothing else. */
-.rosette{position:absolute;pointer-events:none;border-radius:50%;opacity:.062;
+/* The device on a share certificate: concentric hairlines struck from one
+   centre. MEDALLION emits it rather than the layout placing it, so it shares
+   the artwork's centre wherever it lands — a rosette a few pixels off centre
+   reads as a mistake and nothing else. It sits at .03 because the ground under
+   it is now the collection, and two patterns arguing is one too many. */
+.rosette{position:absolute;pointer-events:none;border-radius:50%;opacity:.03;
  background:repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.5) 0 1px,transparent 1px 9px);
  -webkit-mask-image:radial-gradient(circle,transparent 15%,#000 32%,#000 60%,transparent 82%);
  mask-image:radial-gradient(circle,transparent 15%,#000 32%,#000 60%,transparent 82%)}
-/* an octave finer than .guil, and crossing it at a different angle. One pitch
-   reads as a pattern; two read as a surface */
-.weave{position:absolute;inset:0;pointer-events:none;opacity:.038;
- background:
-  repeating-linear-gradient(63deg,rgba(255,255,255,.5) 0 1px,transparent 1px 7px),
-  repeating-linear-gradient(-63deg,rgba(255,255,255,.36) 0 1px,transparent 1px 7px);
- -webkit-mask-image:linear-gradient(100deg,#000 6%,rgba(0,0,0,.35) 52%,transparent 78%);
- mask-image:linear-gradient(100deg,#000 6%,rgba(0,0,0,.35) 52%,transparent 78%)}
-/* raking light, the way it falls across brushed metal */
-.rake{position:absolute;inset:-20%;pointer-events:none;
- background:linear-gradient(102deg,transparent 17%,rgba(255,255,255,.030) 30%,transparent 41%,
-   transparent 57%,rgba(255,255,255,.017) 67%,transparent 76%)}
-/* a floor to sit on, and the hairline where it meets the field. Without it the
-   medallion floats in a void of one value */
-.floor{position:absolute;left:0;right:0;bottom:0;pointer-events:none;
- background:linear-gradient(180deg,transparent,rgba(255,255,255,.040) 78%,rgba(255,255,255,.028))}
 </style><style>body{width:1600px;height:900px}</style>
 <div class="aur"></div><div class="dots"></div>
 <div style="position:absolute;inset:0;padding:54px 74px 46px;display:flex;flex-direction:column">
