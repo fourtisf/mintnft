@@ -79,8 +79,11 @@ head("terbuka");
   const a = await boot({ alpha: UNLOCKED });
   ok(a.text().includes(SECRET_TICKER), "kandidatnya digambar ketika rute mengirimnya");
   ok(a.text().includes("reachable 48"), "dengan berapa poin yang sebenarnya tersedia");
-  ok(/out of reach/.test(a.text()),
+  ok(/only 48 was ever on offer/.test(a.text()),
     "dan diberi tahu bahwa ambangnya memang mustahil untuk kandidat itu");
+  ok(/fires at 76/.test(a.text()), "dengan ambangnya ditandai di trek-nya sendiri");
+  ok(a.html().includes("track unreachable"),
+    "dan trek-nya ditandai tak terjangkau, bukan cuma angkanya yang beda");
   ok(a.html().includes("nodata"), "rule tanpa data ditandai berbeda dari rule yang tidak memenuhi");
   ok(a.text().includes(SECRET_TAPE), "tape-nya ikut tergambar");
 }

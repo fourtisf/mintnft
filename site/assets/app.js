@@ -2050,29 +2050,77 @@ function lockbox(a){
     <button class="btn btn-p" data-v="mint">Claim a key</button></div>`;
 }
 
+const ESC=esc;
+/* One near miss, drawn against the track it was actually scored on.
+ *
+ * `reachable` is the end of that track for this candidate: points from rules
+ * whose input the provider never sent were never on offer, so a bar drawn to
+ * the maximum would say a candidate came close when nothing could have. When
+ * the threshold mark sits past the reachable end the track says so in the
+ * colour that means "we could not read this", not the one that means "the
+ * market said no" — that distinction is the whole reason this page exists.
+ */
+function nmCard(n, maxScore){
+  const max=Math.max(maxScore??134, n.threshold??0);
+  const pct=v=>Math.max(0,Math.min(100,(v/max)*100));
+  const unreachable=n.reachable!=null&&n.threshold!=null&&n.reachable<n.threshold;
+  const byState=st=>(n.rules??[]).filter(r=>r.state===st);
+  const grp=(title,rows,cls,fmt)=>`<div class="grp ${cls}">
+    <div class="h">${title}</div>
+    <div class="rules">${rows.length?rows.map(fmt).join(""):`<span class="none">none</span>`}</div></div>`;
+  return `<div class="nm">
+    <div class="top">
+      <span class="tk">$${ESC(n.symbol)}</span>
+      <span class="sc">scored <b>${n.score}</b> of ${n.threshold??"—"}${n.short?` · short ${n.short}`:""}</span>
+      ${unreachable?`<span class="warn">only ${n.reachable} was ever on offer</span>`:""}
+    </div>
+    <div class="track${unreachable?" unreachable":""}">
+      ${n.reachable!=null?`<i class="reach" style="width:${pct(n.reachable)}%"></i>`:""}
+      <i class="got" style="width:${pct(n.score)}%"></i>
+      ${n.threshold!=null?`<i class="thr" style="left:${pct(n.threshold)}%"></i>`:""}
+    </div>
+    <div class="axis">
+      <span class="lo">0</span>
+      ${n.reachable!=null&&Math.abs(pct(n.reachable)-pct(n.threshold??0))>13&&pct(n.reachable)<92
+        ?`<span class="ar" style="left:${pct(n.reachable)}%">reachable ${n.reachable}</span>`:""}
+      ${n.threshold!=null?`<span class="at" style="left:${pct(n.threshold)}%">fires at ${n.threshold}</span>`:""}
+      <span class="hi">${max}</span>
+    </div>
+    <div class="cols3">
+      ${grp("Paid",byState("paid"),"",r=>`<span class="r paid">${ESC(r.id)} +${r.pts}</span>`)}
+      ${grp("Did not qualify",byState("did not qualify"),"",r=>`<span class="r">${ESC(r.id)}</span>`)}
+      ${grp("No data",byState("no data"),"nodata",r=>`<span class="r nodata">${ESC(r.id)}</span>`)}
+    </div>
+  </div>`;
+}
+
+/* The band. The third figure is the headline of this page: a candidate whose
+   threshold was unreachable was not refused by the market, it was refused by a
+   field the provider does not publish for this chain, and a desk reading that
+   number as a quiet market would tune the wrong thing. */
+function nmBand(near,maxScore){
+  const unreach=near.filter(n=>n.reachable!=null&&n.threshold!=null&&n.reachable<n.threshold).length;
+  const best=near.length?Math.max(...near.map(n=>n.score)):null;
+  return `<div><div class="v">${near.length}</div><div class="k">Near misses this window</div></div>
+    <div><div class="v">${best??"—"}</div><div class="k">Best score, gates cleared</div></div>
+    <div><div class="v${unreach?" bad":""}">${unreach}</div><div class="k">Threshold was unreachable</div></div>`;
+}
+
 function renderAlpha(){
   const a=ALPHA; if(!a)return;
   const near=a.nearMiss??[];
+
+  /* Standing, stated rather than implied — and it says when the count was taken,
+     because that is the claim: a rung is a fact about the chain at this moment,
+     not a badge the session carries around. */
+  document.getElementById("aHead").innerHTML=
+    `<div class="who"><span class="lvl">${esc(a.levelName??"")}</span>
+      <span class="mn">${a.keys} ${a.keys===1?"key":"keys"} · counted from the chain just now</span></div>
+     <div class="mn">${esc(SHORT(a.address??""))}</div>`;
+  document.getElementById("aBand").innerHTML=nmBand(near,a.maxScore);
+
   document.getElementById("aNear").innerHTML = near.length
-    ? near.map(n=>{
-        /* A shortfall read against 134 is a different fact from the same
-           shortfall read against what was actually on offer, and this is the
-           only place a reader can tell them apart. */
-        const unreachable=n.reachable!=null&&n.threshold!=null&&n.reachable<n.threshold;
-        return `<div class="nm">
-        <div class="top">
-          <span class="tk">$${esc(n.symbol)}</span>
-          <span class="sc">scored <b>${n.score}</b> of ${n.threshold ?? "—"}${
-            n.short?` · short ${n.short}`:""}${
-            n.reachable!=null?` · reachable ${n.reachable}`:""}</span>
-          ${unreachable?`<span class="warn">threshold was out of reach for this candidate</span>`:""}
-        </div>
-        <div class="rules">${(n.rules??[]).map(r=>{
-          const cls=r.state==="paid"?"paid":r.state==="no data"?"nodata":"";
-          const val=r.state==="paid"?` +${r.pts}`:r.state==="no data"?" no data":" —";
-          return `<span class="r ${cls}">${esc(r.id)}${val}</span>`;
-        }).join("")}</div>
-      </div>`}).join("")
+    ? near.map(n=>nmCard(n,a.maxScore)).join("")
     : `<p class="sub" style="margin:0">Nothing has cleared every gate and fallen short yet in this window.</p>`;
 
   const tape=a.tape??[];

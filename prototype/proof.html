@@ -169,20 +169,75 @@ h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-
 
 /* Alpha. Same vocabulary as the Triage rows it is the paid half of — a
    near miss is a rejection with the candidate still attached, so it gets the
-   rejection's shape and one extra line for the rules. */
+   rejection's shape and the room a candidate needs. */
+.alpha-hd{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  padding:14px 18px;margin-bottom:22px;border:1px solid var(--border);border-radius:var(--r);
+  background:var(--surface);box-shadow:inset 0 1px 0 rgba(255,255,255,.045)}
+.alpha-hd .who{display:flex;align-items:center;gap:12px}
+.alpha-hd .lvl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);padding:4px 10px;border-radius:99px;border:1px solid rgba(126,138,255,.3)}
+.alpha-hd .mn{font-family:var(--mono);font-size:11.5px;color:var(--tx-3)}
+.alpha-band{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;background:var(--surface);margin-bottom:22px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 20px 44px -26px rgba(0,0,0,.95)}
+.alpha-band>div{padding:20px 22px;border-left:1px solid var(--border)}
+.alpha-band>div:first-child{border-left:0}
+.alpha-band .v{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.035em;
+  font-variant-numeric:tabular-nums;line-height:1}
+.alpha-band .v.bad{color:var(--dead)}
+.alpha-band .k{font-size:12px;color:var(--tx-3);margin-top:10px}
+
 .nm{border:1px solid var(--border);border-radius:var(--r);background:var(--surface);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.045);padding:14px 16px;margin-bottom:10px}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 1px 2px rgba(0,0,0,.5),
+    0 18px 40px -22px rgba(0,0,0,.95);padding:18px 20px;margin-bottom:12px}
 .nm .top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.nm .tk{font-weight:600;font-size:14px}
+.nm .tk{font-weight:600;font-size:15.5px;letter-spacing:-.02em}
 .nm .sc{font-family:var(--mono);font-size:12.5px;color:var(--tx-2);font-variant-numeric:tabular-nums}
 .nm .sc b{color:var(--tx)}
-.nm .warn{font-family:var(--mono);font-size:11px;color:var(--dead)}
-.nm .rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.nm .warn{font-family:var(--mono);font-size:10.5px;color:var(--dead);
+  padding:2px 8px;border-radius:99px;border:1px solid rgba(229,96,107,.32)}
+
+/* The score against the track it is actually scored on. Three marks: what it
+   scored, how far it could have gone at all, and where the threshold sits. A
+   candidate whose reachable end stops short of the threshold line could not
+   have fired whatever the market did, and that has to be visible rather than
+   arithmetic the reader performs — the numbers alone read as "nearly made it"
+   in exactly the case where nothing was ever on offer. */
+.nm .track{position:relative;height:6px;border-radius:99px;background:rgba(255,255,255,.05);
+  margin:16px 0 8px;overflow:visible}
+.nm .track .reach{position:absolute;left:0;top:0;bottom:0;border-radius:99px;
+  background:rgba(255,255,255,.10)}
+.nm .track .got{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--grad)}
+.nm .track .thr{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--tx-2);border-radius:2px}
+.nm .track.unreachable .thr{background:var(--dead)}
+/* Labels sit under the mark they name. Centred in a flex row they float free
+   of the thing they describe, which on this chart is the difference between a
+   number and a caption for nothing. */
+.nm .axis{position:relative;height:15px;font-family:var(--mono);font-size:10.5px;
+  color:var(--tx-3);font-variant-numeric:tabular-nums}
+.nm .axis span{position:absolute;top:0;white-space:nowrap}
+.nm .axis .lo{left:0}
+.nm .axis .hi{right:0}
+.nm .axis .at{transform:translateX(-50%);color:var(--tx-2)}
+.nm .axis .ar{transform:translateX(-50%)}
+.nm .track.unreachable+.axis .at{color:var(--dead)}
+
+/* Grouped, not one wrap. Reading a suffix on every pill to learn which of three
+   states it is in is the reader doing the sorting the page should have done. */
+.nm .cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:16px}
+.nm .grp .h{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--tx-3);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.nm .grp.nodata .h{color:var(--dead);border-bottom-color:rgba(229,96,107,.22)}
+.nm .rules{display:flex;flex-wrap:wrap;gap:6px}
 .nm .r{font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:99px;
   border:1px solid var(--border);color:var(--tx-3)}
 .nm .r.paid{border-color:rgba(126,138,255,.34);color:var(--accent)}
 /* No data is not a low score, and the page must never let the two look alike. */
 .nm .r.nodata{border-color:rgba(229,96,107,.3);color:var(--dead)}
+.nm .grp .none{font-family:var(--mono);font-size:10.5px;color:var(--tx-3);opacity:.5}
+@media(max-width:820px){.alpha-band,.nm .cols3{grid-template-columns:1fr}
+  .alpha-band>div{border-left:0;border-top:1px solid var(--border)}
+  .alpha-band>div:first-child{border-top:0}}
 .lockbox{border:1px solid var(--border-hi);border-radius:var(--r);background:var(--surface);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 20px 44px -26px rgba(0,0,0,.95);
   padding:38px 32px;text-align:center}
@@ -1021,6 +1076,8 @@ footer{border-top:1px solid var(--border);padding:34px 0;display:flex;justify-co
   </div>
   <div id="aLock"></div>
   <div id="aBody" class="hide">
+    <div class="alpha-hd" id="aHead"></div>
+    <div class="alpha-band" id="aBand"></div>
     <div class="cols c2">
       <div class="box" style="grid-column:1/-1">
         <h3>Near misses</h3>
@@ -2303,24 +2360,72 @@ const A_TAPE=[
   ["$AISHIB","412 sells against 96 buys on the hour","DUMP"],
 ];
 
+const ESC=s=>s;
+/* One near miss, drawn against the track it was actually scored on.
+ *
+ * `reachable` is the end of that track for this candidate: points from rules
+ * whose input the provider never sent were never on offer, so a bar drawn to
+ * the maximum would say a candidate came close when nothing could have. When
+ * the threshold mark sits past the reachable end the track says so in the
+ * colour that means "we could not read this", not the one that means "the
+ * market said no" — that distinction is the whole reason this page exists.
+ */
+function nmCard(n, maxScore){
+  const max=Math.max(maxScore??134, n.threshold??0);
+  const pct=v=>Math.max(0,Math.min(100,(v/max)*100));
+  const unreachable=n.reachable!=null&&n.threshold!=null&&n.reachable<n.threshold;
+  const byState=st=>(n.rules??[]).filter(r=>r.state===st);
+  const grp=(title,rows,cls,fmt)=>`<div class="grp ${cls}">
+    <div class="h">${title}</div>
+    <div class="rules">${rows.length?rows.map(fmt).join(""):`<span class="none">none</span>`}</div></div>`;
+  return `<div class="nm">
+    <div class="top">
+      <span class="tk">$${ESC(n.symbol)}</span>
+      <span class="sc">scored <b>${n.score}</b> of ${n.threshold??"—"}${n.short?` · short ${n.short}`:""}</span>
+      ${unreachable?`<span class="warn">only ${n.reachable} was ever on offer</span>`:""}
+    </div>
+    <div class="track${unreachable?" unreachable":""}">
+      ${n.reachable!=null?`<i class="reach" style="width:${pct(n.reachable)}%"></i>`:""}
+      <i class="got" style="width:${pct(n.score)}%"></i>
+      ${n.threshold!=null?`<i class="thr" style="left:${pct(n.threshold)}%"></i>`:""}
+    </div>
+    <div class="axis">
+      <span class="lo">0</span>
+      ${n.reachable!=null&&Math.abs(pct(n.reachable)-pct(n.threshold??0))>13&&pct(n.reachable)<92
+        ?`<span class="ar" style="left:${pct(n.reachable)}%">reachable ${n.reachable}</span>`:""}
+      ${n.threshold!=null?`<span class="at" style="left:${pct(n.threshold)}%">fires at ${n.threshold}</span>`:""}
+      <span class="hi">${max}</span>
+    </div>
+    <div class="cols3">
+      ${grp("Paid",byState("paid"),"",r=>`<span class="r paid">${ESC(r.id)} +${r.pts}</span>`)}
+      ${grp("Did not qualify",byState("did not qualify"),"",r=>`<span class="r">${ESC(r.id)}</span>`)}
+      ${grp("No data",byState("no data"),"nodata",r=>`<span class="r nodata">${ESC(r.id)}</span>`)}
+    </div>
+  </div>`;
+}
+
+/* The band. The third figure is the headline of this page: a candidate whose
+   threshold was unreachable was not refused by the market, it was refused by a
+   field the provider does not publish for this chain, and a desk reading that
+   number as a quiet market would tune the wrong thing. */
+function nmBand(near,maxScore){
+  const unreach=near.filter(n=>n.reachable!=null&&n.threshold!=null&&n.reachable<n.threshold).length;
+  const best=near.length?Math.max(...near.map(n=>n.score)):null;
+  return `<div><div class="v">${near.length}</div><div class="k">Near misses this window</div></div>
+    <div><div class="v">${best??"—"}</div><div class="k">Best score, gates cleared</div></div>
+    <div><div class="v${unreach?" bad":""}">${unreach}</div><div class="k">Threshold was unreachable</div></div>`;
+}
+
 function renderAlpha(){
   const near=A_NEAR;
   document.getElementById("aLock").innerHTML="";
   document.getElementById("aBody").classList.remove("hide");
-  document.getElementById("aNear").innerHTML=near.map(n=>{
-    const unreachable=n.reachable<n.threshold;
-    return `<div class="nm">
-      <div class="top">
-        <span class="tk">$${n.symbol}</span>
-        <span class="sc">scored <b>${n.score}</b> of ${n.threshold} \u00b7 short ${n.short} \u00b7 reachable ${n.reachable}</span>
-        ${unreachable?`<span class="warn">threshold was out of reach for this candidate</span>`:""}
-      </div>
-      <div class="rules">${n.rules.map(r=>{
-        const cls=r.state==="paid"?"paid":r.state==="no data"?"nodata":"";
-        const val=r.state==="paid"?` +${r.pts}`:r.state==="no data"?" no data":" \u2014";
-        return `<span class="r ${cls}">${r.id}${val}</span>`;
-      }).join("")}</div>
-    </div>`}).join("");
+  document.getElementById("aHead").innerHTML=
+    `<div class="who"><span class="lvl">Premium</span>
+      <span class="mn">3 keys · counted from the chain just now</span></div>
+     <div class="mn">0x7f2a…4c41</div>`;
+  document.getElementById("aBand").innerHTML=nmBand(near,134);
+  document.getElementById("aNear").innerHTML=near.map(n=>nmCard(n,134)).join("");
   document.getElementById("aTape").innerHTML=A_TAPE.map(([t,r,g])=>
     `<div class="rej"><span class="tk">${t}</span><span class="rs">${r}</span>
       <span class="tag">${g}</span></div>`).join("");

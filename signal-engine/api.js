@@ -18,6 +18,7 @@ import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
 import { NonceStore, issueSession, readSession, verifySiwe, StaticTierSource } from "./auth.js";
 import { NoHoldings, levelFor, LADDER, LEVEL_NAME, PUBLIC as L_PUBLIC, PREMIUM as L_PREMIUM } from "./holdings.js";
+import { SIGNALS } from "./rules.js";
 import { TIER_NAME } from "./tgbot.js";
 import { KeysReader } from "./keys.js";
 
@@ -283,6 +284,10 @@ export function serve(store, {
         // Never null-as-zero: an unconfigured contract is not a holder of none.
         verified: holdings.configured,
         threshold: cfg?.scoreToFire ?? null,
+        // The page draws a score against a track, and a track needs its own end.
+        // Sent rather than assumed: a weight change moves it, and a bar drawn to
+        // a stale maximum misreports every candidate on the page.
+        maxScore: SIGNALS.reduce((n, r) => n + r.max, 0),
       };
       if (!holdings.configured)
         return json(res, 200, { ...base, locked: true,
