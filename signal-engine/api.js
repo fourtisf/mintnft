@@ -17,6 +17,7 @@ import { readFileSync, statSync } from "node:fs";
 import { filterForTier, visibleTo, TIER_DELAY_S } from "./gating.js";
 import { proofFor } from "./anchor.js";
 import { NonceStore, issueSession, readSession, verifySiwe, StaticTierSource } from "./auth.js";
+import { NoHoldings, levelFor, LADDER, LEVEL_NAME, PUBLIC as L_PUBLIC, PREMIUM as L_PREMIUM } from "./holdings.js";
 import { TIER_NAME } from "./tgbot.js";
 import { KeysReader } from "./keys.js";
 
@@ -39,6 +40,7 @@ export function serve(store, {
   bot = null,
   triage = null,
   cfg = null,
+  holdings = new NoHoldings(),
   keys = new KeysReader({ log: console.log }),
   log = console.log,
 } = {}) {
@@ -59,6 +61,19 @@ export function serve(store, {
   const tierOf = req => {
     const raw = (req.headers.authorization ?? "").replace(/^Bearer /i, "");
     return readSession(raw, secret)?.tier ?? 0;
+  };
+
+  /* The only place a holdings level is decided, and it asks the chain rather
+     than the token. The session carries a tier because latency has to be
+     resolved on a hot path; a level is read per request because it costs one
+     eth_call and because a key sold mid-session must stop opening the door on
+     the next request, not when the JWT happens to expire. */
+  const levelOf = async req => {
+    const raw = (req.headers.authorization ?? "").replace(/^Bearer /i, "");
+    const claims = readSession(raw, secret);
+    if (!claims) return { level: L_PUBLIC, address: null, keys: 0 };
+    const count = await holdings.countOf(claims.addr);
+    return { level: levelFor(count), address: claims.addr, keys: count };
   };
 
   /* Social platforms do not render SVG previews, so the card that exists to be
@@ -247,6 +262,38 @@ export function serve(store, {
 
     // What the screener refused, and the thresholds it refused against. Public:
     // a filter nobody can inspect is a claim, not a filter.
+    /* The paid half of triage. Public /api/triage answers what the desk did;
+       this answers what it is doing, on the candidates it has not called.
+
+       Nothing here is filtered in the browser. A reader below the rung gets a
+       body with no tape and no near misses in it — not a full body they are
+       asked not to look at, which is the same mistake as gating latency in the
+       UI and lasts exactly as long as it takes to open devtools.
+
+       It also says what it could not establish. A desk with no collection
+       deployed cannot verify anyone's holdings, and that has to read as "we
+       cannot check" rather than as a refusal the reader will take for a
+       verdict on their wallet. */
+    if (p === "/api/alpha") {
+      if (!triage) return json(res, 503, { error: "triage is not wired on this instance" });
+      const { level, address, keys: held } = await levelOf(req);
+      const base = {
+        level, levelName: LEVEL_NAME[level], keys: held, address,
+        ladder: LADDER(),
+        // Never null-as-zero: an unconfigured contract is not a holder of none.
+        verified: holdings.configured,
+        threshold: cfg?.scoreToFire ?? null,
+      };
+      if (!holdings.configured)
+        return json(res, 200, { ...base, locked: true,
+          why: "The collection is not deployed on this instance, so no wallet's keys can be counted." });
+      if (level < L_PREMIUM)
+        return json(res, 200, { ...base, locked: true,
+          why: `Alpha opens at ${LADDER()[L_PREMIUM]} keys. This wallet holds ${held}.` });
+      return json(res, 200, { ...base, locked: false,
+        tape: triage.rejects, nearMiss: triage.nearMiss });
+    }
+
     if (p === "/api/triage") {
       if (!triage) return json(res, 503, { error: "triage is not wired on this instance" });
       const s = triage.snapshot();

@@ -18,6 +18,7 @@ import { serve } from "./api.js";
 import { attachFeed } from "./ws.js";
 import { publishAnchor } from "./anchor.js";
 import { readSession, StaticTierSource, ChainTierSource } from "./auth.js";
+import { ChainHoldings, NoHoldings } from "./holdings.js";
 import { KeysReader } from "./keys.js";
 import { TIER_DELAY_S } from "./gating.js";
 import { Telegram, formatSignal, formatOutcome, formatProgress,
@@ -65,6 +66,15 @@ export function start({ store = new FileStore(), port = 8787,
                           ? new ChainTierSource({ rpcUrl: process.env.KEYS_RPC || process.env.BASE_RPC,
                                                   contract: process.env.KEYS_CONTRACT, log })
                           : new StaticTierSource(),
+                        /* Keys held, which is the second axis: the drawn tier buys speed,
+                           the count buys features. Same contract, same rule as above — no
+                           collection deployed means nobody is above the bottom rung, never
+                           a rung nobody can verify. */
+                        holdings = process.env.KEYS_CONTRACT
+                                   && (process.env.KEYS_RPC || process.env.BASE_RPC)
+                          ? new ChainHoldings({ rpcUrl: process.env.KEYS_RPC || process.env.BASE_RPC,
+                                                contract: process.env.KEYS_CONTRACT, log })
+                          : new NoHoldings(),
                         // The paid ladder is the promise and stays where it is: Tier III as
                         // it fires, II at +5s, I at +10s. The public delay is the one number
                         // here that is a product decision rather than a commitment — with no
@@ -261,7 +271,7 @@ export function start({ store = new FileStore(), port = 8787,
 
   const keys = new KeysReader({ log });
   const server = serve(store, { port, secret, domain, tierSource, delays, triage,
-                                cfg: engine.cfg, keys, bot, log });
+                                holdings, cfg: engine.cfg, keys, bot, log });
   const feed = attachFeed(server, {
     log, delays,
     // The tier comes from the signed session and nothing else the client sends.

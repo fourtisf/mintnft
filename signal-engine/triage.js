@@ -11,8 +11,11 @@
  * same answer for a few hundred bytes, and it rolls without a sweep.
  */
 
+import { SIGNALS, provided, CONFIG } from "./rules.js";
+
 const HOURS = 24;
 const REJECTS_KEPT = 40;
+const NEAR_KEPT = 30;
 
 const hourOf = t => Math.floor(t / 3600e3);
 
@@ -22,6 +25,13 @@ export class Triage {
     this.buckets = new Map();   // hour -> counts
     this.rejects = [];          // most recent first
     this.scores = [];           // scores of candidates that cleared every gate
+    /* The near misses themselves, not just their scores. A candidate that
+       cleared all fourteen gates and lost only on the threshold is the one
+       thing here a reader could act on: the desk has already refused everything
+       it refuses, and what is left is a judgement about a number. Keeping the
+       identity and the per-rule breakdown is what makes that readable instead
+       of a distribution nobody can check. Gated — this is the paid half. */
+    this.nearMiss = [];
     this.startedAt = now();
   }
 
@@ -93,6 +103,7 @@ export class Triage {
       // candidates clustered at 40 look identical from the counts alone.
       this.scores.push({ at: this.now(), score: ev.score });
       if (this.scores.length > 500) this.scores.shift();
+      this.#near(pair, ev);
     }
     this.rejects.unshift({
       at: this.now(),
@@ -104,6 +115,55 @@ export class Triage {
       gate: gate ?? "score",
     });
     if (this.rejects.length > REJECTS_KEPT) this.rejects.length = REJECTS_KEPT;
+  }
+
+  /**
+   * One near miss, with which rules paid and which did not — and, for those,
+   * whether the market said no or the provider sent no such field.
+   *
+   * That split is the scoring half of the rule that a check which did not run
+   * must never read as a check that passed. A rule scoring zero because
+   * Dexscreener publishes no five-minute block for this chain is not the same
+   * fact as a rule scoring zero because the market did not move, and a reader
+   * deciding whether 38 is close to 43 needs to know which of the two they are
+   * looking at. `evaluate` is deliberately not changed to carry this: its
+   * `reasons` array is written into the register and inside the hash, and a
+   * field added there rewrites what every future row hashes to.
+   */
+  #near(pair, ev) {
+    const paid = new Map((ev.reasons ?? []).map(r => [r.id, r]));
+    const rules = SIGNALS.map(s => {
+      const r = paid.get(s.id);
+      if (r) return { id: s.id, pts: r.pts, why: r.why, state: "paid" };
+      const missing = (s.needs ?? []).filter(pth => !provided(pair, pth));
+      return missing.length
+        ? { id: s.id, pts: 0, state: "no data", missing }
+        : { id: s.id, pts: 0, state: "did not qualify" };
+    });
+    /* Points that were on the table for this candidate at all. A rule whose
+       input the provider never sent could not have paid whatever the market
+       did, so a shortfall has to be read against what was reachable rather
+       than against the maximum — 38 against a threshold of 43 is a near miss
+       if 130 points were live and a different thing entirely if 58 of them
+       were never on offer. */
+    const reachable = rules.reduce((n, r) => n + (r.state === "no data" ? 0 : (SIGNALS.find(s => s.id === r.id)?.max ?? 0)), 0);
+    this.nearMiss.unshift({
+      at: this.now(),
+      symbol: pair?.baseToken?.symbol ?? "?",
+      name: pair?.baseToken?.name ?? null,
+      address: pair?.baseToken?.address ?? null,
+      pairAddress: pair?.pairAddress ?? null,
+      chain: pair?.chainId ?? "?",
+      score: ev.score,
+      short: Math.max(0, CONFIG.scoreToFire - ev.score),
+      reachable,
+      threshold: CONFIG.scoreToFire,
+      liquidityUsd: pair?.liquidity?.usd ?? null,
+      priceUsd: pair?.priceUsd ?? null,
+      rules,
+      noData: rules.filter(r => r.state === "no data").map(r => r.id),
+    });
+    if (this.nearMiss.length > NEAR_KEPT) this.nearMiss.length = NEAR_KEPT;
   }
 
   /** Totals across the retained window, plus the gates doing the killing. */

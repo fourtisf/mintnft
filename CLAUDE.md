@@ -165,6 +165,11 @@ node test-exit-alert.js   # the stop walked live and recorded and never
 node test-tgbot.js   # the alert bot: link codes, filters, and that a tier is
                      # read from the chain at send time rather than stored
 node test-mint.js    # what the mint panel is told, and what it is never told
+node test-alpha.js   # the holdings ladder and the gate over it: that a body below
+                     # the rung has no tape in it rather than a tape it is asked
+                     # not to look at, that the count comes from the chain and not
+                     # from the session, and that a dead RPC reads as the bottom
+                     # rung rather than promoting anyone
 node test-pg.js      # the Postgres driver, if TEST_DATABASE_URL is set; skips loudly otherwise
 node simulate.js --pg postgres://…/nekara   # the same simulation, over Postgres
 
@@ -482,6 +487,33 @@ continuing. Everything else is recoverable; that one is not.
 
   The startup log prints which chains are in force, so it is never inferred from
   silence. `CHAINS=` empty opens it back up to everything.
+- **A key's drawn tier buys speed; the number of keys held buys features.** Two
+  axes, deliberately. `bestTierOf` returns the *best* tier held, so ten Tier I
+  keys open exactly what one opens — which left nobody a reason to mint a
+  second, and 666 keys that sell to 666 people is a different number from 666
+  keys that sell. The count ladder fixes that without touching latency, because
+  latency is the one axis that is zero-sum: several hundred holders acting on a
+  $25K token are the market, and whoever enters first sells to whoever enters
+  second (gap 5). A rung over the reject tape and the near-miss list costs no
+  holder anything — my reading them takes nothing from yours.
+  `holdings.js` counts through `tokensOfOwner` **per request**, never from the
+  session: a key sold after sign-in has to stop opening the door on the next
+  request rather than when the JWT expires, the same rule as non-negotiable 7.
+  `HOLD_MEMBER` / `HOLD_PREMIUM` / `HOLD_DESK` default to 1/3/5 and are settable
+  because those are a reasoned guess, not a measurement. **They may be raised
+  for a later season and never lowered on a live one** — dropping a rung after
+  people bought to reach it sells under the holders who showed up first, the
+  same reason `setPrices` refuses a falling ladder.
+- **`/api/alpha` is the paid half of Triage, and it is gated in the route.** A
+  reader below the rung gets a body with no `tape` and no `nearMiss` key in it
+  at all — not a full body marked locked, which is the browser-side gating
+  mistake wearing different clothes. `triage.js` keeps the near misses
+  themselves rather than only their scores, with a per-rule split of *paid* /
+  *did not qualify* / **no data**, and `reachable` beside `short`: 38 against a
+  threshold of 43 is a near miss when 130 points were live and a different thing
+  entirely when 58 of them were never on offer. `evaluate` is deliberately not
+  changed to carry that split — its `reasons` array is written into the register
+  and inside the hash.
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.
