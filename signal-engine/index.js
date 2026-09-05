@@ -13,7 +13,7 @@ import { Engine } from "./engine.js";
 import { Triage } from "./triage.js";
 import { FileStore } from "./store.js";
 import { applyObservation } from "./scorer.js";
-import { linksOf, SIGNALS } from "./rules.js";
+import { linksOf, SIGNALS, CONFIG } from "./rules.js";
 import { serve } from "./api.js";
 import { attachFeed } from "./ws.js";
 import { publishAnchor } from "./anchor.js";
@@ -84,7 +84,23 @@ export function start({ store = new FileStore(), port = 8787,
                         // Anchoring is off until a publisher is wired. It is never faked.
                         publishAnchorTx = null,
                         telegram = new Telegram({ token: process.env.TG_TOKEN,
-                                                  chatId: process.env.TG_CHAT, log }) } = {}) {
+                                                  chatId: process.env.TG_CHAT, log }),
+                        /* A second channel, and what makes it different is *what* goes in
+                           it rather than *when*.
+
+                           A Telegram channel cannot ask who is reading it. Post to one
+                           early and everybody holding the invite link is ahead of every
+                           key holder who paid for seconds — the ladder handed to whoever
+                           forwards a link. So it rides the same clock as the public
+                           channel and carries only the top of the desk's own output. */
+                        alphaChat = new Telegram({ token: process.env.TG_TOKEN,
+                                                   chatId: process.env.TG_ALPHA_CHAT, log }),
+                        /* Above the desk's own bar rather than a number of its own,
+                           because "alpha" means better than what the desk already calls
+                           and the desk's bar moves. Settable absolutely when a measured
+                           number replaces the reasoned one. */
+                        alphaMinScore = Number(process.env.ALPHA_MIN_SCORE
+                                               ?? CONFIG.scoreToFire + 12) } = {}) {
   const delays = { ...TIER_DELAY_S,
     0: Number.isFinite(publicDelayS) && publicDelayS >= 0 ? Math.floor(publicDelayS) : TIER_DELAY_S[0] };
   const triage = new Triage();
@@ -101,13 +117,19 @@ export function start({ store = new FileStore(), port = 8787,
    * With PUBLIC_DELAY_S=0 this is a straight send, which is what it should be
    * while no key has been sold and there is no one to be ahead of. */
   const queued = new Set();
-  const channel = (call, text, photo = null) => {
-    if (!telegram.configured) return;
+  const channelTo = (tg, call, text, photo = null) => {
+    if (!tg.configured) return;
     const due = Date.parse(call.firedAt) + delays[0] * 1000 - Date.now();
-    if (due <= 0) return void telegram.send(text, photo);
-    const t = setTimeout(() => { queued.delete(t); telegram.send(text, photo); }, due);
+    if (due <= 0) return void tg.send(text, photo);
+    const t = setTimeout(() => { queued.delete(t); tg.send(text, photo); }, due);
     queued.add(t);
   };
+  const channel = (call, text, photo = null) => channelTo(telegram, call, text, photo);
+
+  /* Read off the row rather than remembered. The score is frozen on the call
+     and inside the hash, so a restart cannot post a milestone to a channel that
+     never got the call it belongs to — and no list has to be kept in step. */
+  const inAlpha = call => alphaChat.configured && (call.score ?? 0) >= alphaMinScore;
 
   /* Two audiences, one clock.
    *
@@ -123,6 +145,7 @@ export function start({ store = new FileStore(), port = 8787,
 
   const broadcast = (call, text, photo = null) => {
     channel(call, text, photo);
+    if (inAlpha(call)) channelTo(alphaChat, call, text, photo);
     bot.fanout(call, text, { photo });
   };
 
@@ -142,6 +165,10 @@ export function start({ store = new FileStore(), port = 8787,
       // and the value frozen on the row cannot drift apart.
       triage.fired(sig.sourceRef);
       log(`[FIRED] #${call.seq} ${sig.symbol} score ${sig.score} — ${sig.reasons[0]}`);
+      /* A quiet alpha channel and a broken one look identical from the outside,
+         so every call it does not get is a line saying which it was. */
+      if (alphaChat.configured && !inAlpha(call))
+        log(`[alpha] #${call.seq} held back — scored ${sig.score}, alpha wants ${alphaMinScore}`);
       /* Only the call itself carries a card. The progress updates and the
          outcome have their own cards on the site and their own moment; a
          channel where every message is a picture is a channel where the
@@ -288,6 +315,9 @@ export function start({ store = new FileStore(), port = 8787,
      process. A threshold nothing can reach and a quiet market produce the same
      silence, so the threshold in force belongs in the log beside the rest. */
   log(`[score] fires at ${engine.cfg.scoreToFire} of ${SIGNALS.reduce((a, s) => a + s.max, 0)} — SCORE_TO_FIRE moves it`);
+  log(alphaChat.configured
+    ? `[alpha] channel on, carrying calls scoring ${alphaMinScore} or better — ALPHA_MIN_SCORE moves it`
+    : "[alpha] channel off — TG_ALPHA_CHAT is unset");
   log(engine.cfg.chains?.length
     ? `[chains] firing on ${engine.cfg.chains.join(", ")} — set CHAINS= to lift it`
     : "[chains] no restriction — every chain discovery returns can fire");

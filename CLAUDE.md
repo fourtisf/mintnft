@@ -175,6 +175,10 @@ node test-exit-alert.js   # the stop walked live and recorded and never
 node test-tgbot.js   # the alert bot: link codes, filters, and that a tier is
                      # read from the chain at send time rather than stored
 node test-mint.js    # what the mint panel is told, and what it is never told
+node test-alpha-channel.js  # the second Telegram channel: that it never posts before
+                     # the public leg, which calls it carries, that one it never got
+                     # cannot receive that call's milestones, and that a quiet channel
+                     # says why
 node test-alpha.js   # the holdings ladder and the gate over it: that a body below
                      # the rung has no tape in it rather than a tape it is asked
                      # not to look at, that the count comes from the chain and not
@@ -529,6 +533,24 @@ continuing. Everything else is recoverable; that one is not.
   entirely when 58 of them were never on offer. `evaluate` is deliberately not
   changed to carry that split — its `reasons` array is written into the register
   and inside the hash.
+- **The alpha channel is a filter, never a head start.** `TG_ALPHA_CHAT` is a
+  second Telegram channel carrying only calls scoring `ALPHA_MIN_SCORE` or
+  better, and it rides `delays[0]` exactly like the public one. A channel cannot
+  ask who is reading it, so posting to one early would put everybody holding the
+  invite link ahead of every key holder who paid for seconds — non-negotiable 8
+  with a longer fuse. What separates it is what goes in it, not when.
+  Membership of that channel is not a tier and must never be sold as one: the
+  paid ladder is the DM fanout in `tgbot.js`, where a wallet can actually be
+  read.
+  `ALPHA_MIN_SCORE` defaults to `scoreToFire + 12` rather than a number of its
+  own, because "alpha" means better than what the desk already calls and the
+  desk's bar moves. **Whether anything reaches it is a separate question from
+  whether it is set**: the best call this desk has fired scored 47, so a
+  threshold in the sixties means an empty channel. Every fired call the channel
+  does not get logs `[alpha] … held back — scored N, alpha wants M`, because a
+  working filter and a broken deploy print the same silence otherwise.
+  Which call goes there is read off the row's frozen `score`, never remembered,
+  so a restart cannot post a milestone to a channel that never got the call.
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.
