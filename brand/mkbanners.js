@@ -67,6 +67,36 @@ h1,h2{font-family:var(--display);font-weight:600;letter-spacing:-.032em;line-hei
 .col{flex:1;padding-left:26px;border-left:1px solid rgba(255,255,255,.09)}
 .col:first-child{padding-left:0;border-left:0}
 .band{border-top:1px solid rgba(255,255,255,.09);border-bottom:1px solid rgba(255,255,255,.09)}
+
+/* Ground, in four layers. Flat black is the cheapest thing a dark layout can
+   do, and one texture over it is still a texture — depth comes from several
+   very faint ones that disagree about scale and direction. Every opacity here
+   is under .06 on purpose: read them one at a time and each is invisible.
+
+   .rosette is the device on a share certificate — concentric hairlines struck
+   from one centre. It is emitted by MEDALLION rather than placed by hand, so
+   it shares the artwork's centre wherever the layout puts it; a rosette a few
+   pixels off centre reads as a mistake and nothing else. */
+.rosette{position:absolute;pointer-events:none;border-radius:50%;opacity:.062;
+ background:repeating-radial-gradient(circle at 50% 50%,rgba(255,255,255,.5) 0 1px,transparent 1px 9px);
+ -webkit-mask-image:radial-gradient(circle,transparent 15%,#000 32%,#000 60%,transparent 82%);
+ mask-image:radial-gradient(circle,transparent 15%,#000 32%,#000 60%,transparent 82%)}
+/* an octave finer than .guil, and crossing it at a different angle. One pitch
+   reads as a pattern; two read as a surface */
+.weave{position:absolute;inset:0;pointer-events:none;opacity:.038;
+ background:
+  repeating-linear-gradient(63deg,rgba(255,255,255,.5) 0 1px,transparent 1px 7px),
+  repeating-linear-gradient(-63deg,rgba(255,255,255,.36) 0 1px,transparent 1px 7px);
+ -webkit-mask-image:linear-gradient(100deg,#000 6%,rgba(0,0,0,.35) 52%,transparent 78%);
+ mask-image:linear-gradient(100deg,#000 6%,rgba(0,0,0,.35) 52%,transparent 78%)}
+/* raking light, the way it falls across brushed metal */
+.rake{position:absolute;inset:-20%;pointer-events:none;
+ background:linear-gradient(102deg,transparent 17%,rgba(255,255,255,.030) 30%,transparent 41%,
+   transparent 57%,rgba(255,255,255,.017) 67%,transparent 76%)}
+/* a floor to sit on, and the hairline where it meets the field. Without it the
+   medallion floats in a void of one value */
+.floor{position:absolute;left:0;right:0;bottom:0;pointer-events:none;
+ background:linear-gradient(180deg,transparent,rgba(255,255,255,.040) 78%,rgba(255,255,255,.028))}
 </style>`;
 
 /* The plate that frames every premium layout: a hairline inset a fixed margin
@@ -714,6 +744,7 @@ const SPECS = [
 /* concentric hairlines and a turned halo, drawn once for both sizes */
 const MEDALLION = d => `
 <div style="position:relative;width:${d}px;height:${d}px;flex-shrink:0">
+  <div class="rosette" style="inset:${-d * 1.5}px"></div>
   <div style="position:absolute;inset:${-d * .30}px;border-radius:50%;opacity:.16;
     background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.55) 0 .3deg,transparent .3deg 1.5deg);
     -webkit-mask-image:radial-gradient(circle,transparent 44%,#000 58%,transparent 78%);
@@ -753,8 +784,14 @@ const token = (w, h) => {
   const sq = h > 1000;
   const d = sq ? 336 : 430;
   return page(w, h, `
-<div class="keylight" style="opacity:.85"></div>
-<div class="guil" style="opacity:.045"></div>
+<div style="position:absolute;inset:0;background:
+  radial-gradient(128% 96% at 86% -12%,rgba(124,88,224,.17),transparent 58%),
+  radial-gradient(116% 84% at 2% 110%,rgba(56,84,186,.13),transparent 60%)"></div>
+<div class="keylight" style="opacity:.7"></div>
+<div class="weave"></div>
+<div class="guil" style="opacity:.05"></div>
+<div class="rake"></div>
+<div class="floor" style="height:${sq ? 300 : 250}px"></div>
 
 <div style="position:absolute;inset:0;padding:${sq ? '64px 72px 58px' : '66px 84px 62px'};
   display:flex;flex-direction:column;align-items:${sq ? 'center' : 'stretch'};
