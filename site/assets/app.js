@@ -2013,12 +2013,27 @@ const usdShort=n=>n>=1e6?"$"+(n/1e6).toFixed(0)+"M":n>=1e3?"$"+(n/1e3).toFixed(0
  * given, the gate has moved into the browser and is gone.
  */
 let ALPHA=null;
+
+/* Hiding is not removing. `.hide` leaves every card in the document where
+   devtools finds it, so a reader who signs out — or whose next read comes back
+   locked — would still be holding the tape they are no longer entitled to. The
+   containers are emptied, and the class is only what stops the empty frame
+   showing. */
+function alphaBlank(){
+  ALPHA=null;
+  document.getElementById("aBody")?.classList.add("hide");
+  for(const id of ["aHead","aBand","aNear","aTape"]){
+    const el=document.getElementById(id); if(el)el.innerHTML="";
+  }
+}
+
 async function pullAlpha(){
-  const lock=document.getElementById("aLock"), body=document.getElementById("aBody");
+  const lock=document.getElementById("aLock");
   if(!lock)return;
   if(!SESSION.token){
+    alphaBlank();
     lock.innerHTML=lockbox({connect:true});
-    body.classList.add("hide");return;
+    return;
   }
   try{
     const r=await fetch(API+"/alpha",noStore());
@@ -2027,13 +2042,13 @@ async function pullAlpha(){
   }catch(e){
     /* An engine we could not reach is not a wallet that failed to qualify, and
        the reader must never be told the second when the first is true. */
-    ALPHA=null;
+    alphaBlank();
     lock.innerHTML=`<div class="lockbox"><div class="guil"></div><h3>Could not reach the desk</h3>
       <p>The engine did not answer, so nothing is shown. This says nothing about what this wallet holds.</p></div>`;
-    body.classList.add("hide");return;
+    return;
   }
-  if(ALPHA.locked){lock.innerHTML=lockbox(ALPHA);body.classList.add("hide");return}
-  lock.innerHTML="";body.classList.remove("hide");
+  if(ALPHA.locked){const a=ALPHA;alphaBlank();lock.innerHTML=lockbox(a);return}
+  lock.innerHTML="";document.getElementById("aBody").classList.remove("hide");
   renderAlpha();
 }
 
@@ -2797,9 +2812,24 @@ function saveSession(){
     else sessionStorage.removeItem("nekara.session");
   }catch{}
 }
+/* A session change is a change to what this reader may see, so a page gated on
+   it has to be re-read rather than left showing the answer to the old question.
+   Signing in on the Alpha page used to leave "connect your wallet" on screen
+   until the reader navigated away and back.
+
+   On the way out it blanks first and reads second. Re-fetching alone would
+   leave a signed-out reader looking at their tape for as long as the network
+   takes, which is the gate failing open for the duration. */
+function sessionChanged(){
+  if(VIEW!=="alpha")return;
+  alphaBlank();
+  const lock=document.getElementById("aLock"); if(lock)lock.innerHTML="";
+  pullAlpha();
+}
+
 function signOut(){
   SESSION.token=null;SESSION.tier=0;SESSION.address=null;
-  saveSession();paintSession();
+  saveSession();paintSession();sessionChanged();
   // Drop the socket so it rejoins as public: keeping a Tier III room open after
   // signing out would hand the reader latency they no longer hold.
   reconnect();
@@ -2839,7 +2869,7 @@ async function connect(){
     const body=await r.json().catch(()=>({}));
     if(!r.ok)return signInError(body.error??"Refused");
     SESSION.token=body.token;SESSION.tier=body.tier??0;SESSION.address=body.address??address;
-    saveSession();paintSession();
+    saveSession();paintSession();sessionChanged();
     reconnect();          // rejoin on the room this token allows
     pullLive();
   }catch(e){

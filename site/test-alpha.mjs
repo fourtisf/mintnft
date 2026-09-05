@@ -67,7 +67,8 @@ async function boot({ alpha, fails = false, session = true } = {}) {
     throw new Error("offline");
   };
 
-  win.eval(readFileSync(join(ROOT, "site", "assets", "app.js"), "utf8"));
+  win.eval(readFileSync(join(ROOT, "site", "assets", "app.js"), "utf8")
+    + ";globalThis.__t={SESSION,paintSession,sessionChanged};");
   await sleep(60);
   doc.querySelector('[data-v="alpha"]').click();
   await sleep(120);
@@ -118,6 +119,32 @@ head("belum connect");
   ok(!a.asked.some(u => u.includes("/api/alpha")),
     "dan rutenya tidak dipanggil sama sekali tanpa sesi");
   ok(!a.html().includes(SECRET_TICKER), "jadi tidak mungkin ada data yang bocor");
+}
+
+/* The bug this was written for: connecting while already standing on the page.
+   pullAlpha only ran on navigation, so a reader who signed in here kept looking
+   at "connect your wallet" until they left and came back — and, the direction
+   that matters more, a reader who signed out kept looking at their tape. */
+head("sesi berubah sementara pembaca sedang di halaman ini");
+{
+  const a = await boot({ alpha: UNLOCKED, session: false });
+  ok(/Connect the wallet/.test(a.text()), "mulai belum connect");
+
+  // sign in, exactly as connect() does at the end
+  const t = a.win.__t;
+  Object.assign(t.SESSION, { token: "t", tier: 0, address: "0x" + "11".repeat(20) });
+  t.paintSession(); t.sessionChanged();
+  await sleep(120);
+  ok(a.text().includes(SECRET_TICKER),
+    "connect langsung membuka halamannya, tanpa perlu pindah halaman dan kembali");
+
+  // and back out again
+  Object.assign(t.SESSION, { token: null, tier: 0, address: null });
+  t.paintSession(); t.sessionChanged();
+  ok(!a.html().includes(SECRET_TICKER),
+    "sign out mengosongkan layar seketika, bukan setelah fetch-nya selesai");
+  await sleep(120);
+  ok(!a.html().includes(SECRET_TICKER), "dan tetap kosong sesudahnya");
 }
 
 head("engine tidak terjangkau");
