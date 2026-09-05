@@ -217,6 +217,52 @@ head("kemajuan keluar sekali per tonggak, dan stop-nya tidak keluar sama sekali"
   eng.stop();
 }
 
+/* Same split again, one message further down. The outcome of a call that is
+   dead by the time it settles was removed from the channel on the owner's
+   instruction — "WIN · DEAD" on one line is the end of a story nobody
+   subscribed to hear. The rule behind it was not removed, and this is where
+   the two are held apart: the row still settles, still carries its verdict and
+   its isDead mark, and still counts in the denominator. Only the message is
+   gone. */
+head("yang mati dicatat, tidak diumumkan");
+{
+  rmSync(DATA, { force: true });
+  const store = new FileStore(DATA);
+  // Fired more than a day ago, so the very next observation settles it.
+  const dead = newCall(store, new Date(Date.now() - 26 * 3600e3).toISOString());
+  const eng = start({ store, api, port: PORT + 3, log: () => {}, telegram, publicDelayS: 0 });
+
+  sent.length = 0;
+  pairs = [pair(ENTRY * 0.02)];        // 2% of entry — under the 10% dead line
+  await eng.refresh(store.liveCalls());
+
+  const m = store.mark(dead.seq);
+  ok(m.state === "settled", "call-nya tetap settle seperti biasa");
+  ok(m.isDead, "dan tetap ditandai mati di dalam register");
+  ok(m.verdict === "miss", `dengan verdict-nya utuh (${m.verdict})`);
+  ok(!sent.some(t => /DEAD/.test(t)), "tapi tidak ada pesan DEAD yang keluar ke channel");
+  ok(!sent.some(t => /MISS|WIN/.test(t)), "tidak ada outcome apa pun untuk call yang mati");
+  eng.stop();
+}
+
+head("yang settle tanpa mati tetap diumumkan");
+{
+  rmSync(DATA, { force: true });
+  const store = new FileStore(DATA);
+  const alive = newCall(store, new Date(Date.now() - 26 * 3600e3).toISOString());
+  const eng = start({ store, api, port: PORT + 4, log: () => {}, telegram, publicDelayS: 0 });
+
+  sent.length = 0;
+  pairs = [pair(ENTRY * 0.7)];         // down, but nowhere near the dead line
+  await eng.refresh(store.liveCalls());
+
+  const m = store.mark(alive.seq);
+  ok(m.state === "settled" && !m.isDead, "settle dan tidak mati");
+  ok(sent.some(t => /MISS/.test(t)),
+    "outcome-nya tetap keluar — yang disaring cuma yang mati, bukan yang kalah");
+  eng.stop();
+}
+
 head("saluran publik menunggu jatahnya");
 {
   rmSync(DATA, { force: true });

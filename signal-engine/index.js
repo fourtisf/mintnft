@@ -200,9 +200,25 @@ export function start({ store = new FileStore(), port = 8787,
           log(`[${milestoneOf(after.peakX)}X] #${c.seq} $${c.symbol} at ${after.nowX.toFixed(2)}x`);
           broadcast(c, formatProgress({ ...c, ...after }));
         }
-        // Post the outcome when a call settles — wins and losses alike.
-        if (before.state === "live" && after.state === "settled")
-          broadcast(c, formatOutcome({ ...c, ...after }));
+        /* The outcome when a call settles — but not for one that is dead by
+           then. Removed from the channel on the owner's instruction: the
+           channel carries the call and how far it ran, and "WIN · DEAD" on one
+           line is the end of a story nobody subscribed to hear.
+
+           Suppressed, never dropped, and the distinction is the whole product.
+           The row still settles with its verdict and isDead exactly as before,
+           the Signals page and the CSV still carry it, and hit rate is still
+           wins over every call including this one. Deleting a message is the
+           easiest way to quietly delete a rule, so the operator still gets the
+           line — the same split the exit alert already lives under, and
+           test-exit-alert.js asserts both halves so they cannot be confused
+           later. */
+        if (before.state === "live" && after.state === "settled") {
+          if (after.isDead)
+            log(`[DEAD] #${c.seq} $${c.symbol} settled ${after.verdict} at ${after.nowX.toFixed(2)}x — recorded, not announced`);
+          else
+            broadcast(c, formatOutcome({ ...c, ...after }));
+        }
       }
     }
   }

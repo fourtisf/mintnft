@@ -433,7 +433,14 @@ continuing. Everything else is recoverable; that one is not.
   channel where the picture stops meaning anything.
 - **The channel carries the call, then how far it ran. Nothing else.** The exit
   alert was removed on the owner's instruction, and so was the `Stop` row on the
-  outcome card. **The rule was not removed**: the poller still walks the trailing
+  outcome card. **A call that is dead when it settles is not announced either**,
+  same instruction and same split: the row settles with its verdict and its
+  `isDead` mark, the Signals page and the CSV carry it, hit rate still counts it
+  in the denominator, and an operator still gets a `[DEAD]` line — only the
+  message is gone. `WIN · DEAD` on one line is the end of a story nobody
+  subscribed to hear. `test-exit-alert.js` asserts both halves, and that a
+  settled *miss* which is not dead still goes out, so "quiet about the dead" can
+  never drift into "quiet about the losses". **The rule was not removed**: the poller still walks the trailing
   stop forward, still freezes the fill on the mark, and the Hindsight table and
   the call page still read it — an `[EXIT]` line still goes to the log, because
   an operator watching a fill is not the same as broadcasting one. Deleting a
