@@ -2028,7 +2028,7 @@ async function pullAlpha(){
     /* An engine we could not reach is not a wallet that failed to qualify, and
        the reader must never be told the second when the first is true. */
     ALPHA=null;
-    lock.innerHTML=`<div class="lockbox"><h3>Could not reach the desk</h3>
+    lock.innerHTML=`<div class="lockbox"><div class="guil"></div><h3>Could not reach the desk</h3>
       <p>The engine did not answer, so nothing is shown. This says nothing about what this wallet holds.</p></div>`;
     body.classList.add("hide");return;
   }
@@ -2038,12 +2038,12 @@ async function pullAlpha(){
 }
 
 function lockbox(a){
-  if(a.connect)return `<div class="lockbox"><h3>Connect the wallet holding your keys</h3>
+  if(a.connect)return `<div class="lockbox"><div class="guil"></div><h3>Connect the wallet holding your keys</h3>
     <p>Alpha is counted from the chain each time it is opened, so it needs a signed session to know which wallet to count.</p>
     <button class="btn btn-p" id="alphaConnect">Connect</button></div>`;
   const L=a.ladder??{};
   const rung=(n,name)=>`<div class="rung${(a.keys??0)>=n?" on":""}"><b>${n}</b><span>${name}</span></div>`;
-  return `<div class="lockbox">
+  return `<div class="lockbox"><div class="guil"></div>
     <h3>Alpha opens at ${esc(String(L[2]??3))} keys</h3>
     <p>${esc(a.why??"")}</p>
     <div class="rungs">${rung(L[1]??1,"Member")}${rung(L[2]??3,"Premium")}${rung(L[3]??5,"Desk")}</div>
