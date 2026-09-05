@@ -145,6 +145,10 @@ export function start({ store = new FileStore(), port = 8787,
    * settings in which the free channel arrives before a paid subscriber. */
   const bot = new TelegramBot({ token: process.env.TG_TOKEN, store, tierSource,
                                 codes: new LinkCodes(), delays, log,
+                                /* The same three things the route reads, so `/alpha` in a DM
+                                   and the button on the site answer with one set of rules
+                                   rather than two copies that drift. */
+                                holdings, alphaChat, alphaRung: LADDER()[HOLD_PREMIUM],
                                 site: domain ?? "nekara.xyz" });
 
   /**

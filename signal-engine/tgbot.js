@@ -78,6 +78,7 @@ export const COMMANDS = [
   ["start",   "subscribe to alerts"],
   ["link",    "link the wallet holding your key"],
   ["status",  "your tier and how far behind"],
+  ["alpha",   "a link to the alpha channel, if your keys reach it"],
   ["filters", "chain, score and market cap filters"],
   ["unlink",  "back to the public leg"],
   ["stop",    "stop everything"],
@@ -107,8 +108,10 @@ export class TelegramBot {
    * @param {object} o.delays         tier -> seconds, the same table ws.js uses
    */
   constructor({ token, store, tierSource, codes = new LinkCodes(), delays = TIER_DELAY_S,
+                holdings = null, alphaChat = null, alphaRung = 3,
                 fetchImpl = globalThis.fetch, log = console.log, site = "nekara.xyz" } = {}) {
-    Object.assign(this, { token, store, tierSource, codes, delays, log, site });
+    Object.assign(this, { token, store, tierSource, codes, delays, log, site,
+                          holdings, alphaChat, alphaRung });
     this.fetch = fetchImpl;
     this.offset = 0;
     this.running = false;
@@ -206,8 +209,50 @@ export class TelegramBot {
       return this.say(chatId, "Unlinked\\. You are on the public leg\\.");
     }
     if (cmd === "/status") return this.status(chatId);
+    if (cmd === "/alpha") return this.alpha(chatId);
     if (cmd === "/filters") return this.filters(chatId, rest);
     return this.say(chatId, "Unknown command\\. Send `/help`\\.");
+  }
+
+  /**
+   * The alpha channel link, asked for from inside Telegram.
+   *
+   * The same three refusals the route makes, in the same order, because they
+   * are the same rules and a second copy of them would drift: no link without a
+   * linked wallet, none without the keys, and the count read from the chain
+   * now rather than from anything remembered.
+   *
+   * The chat asking is the chat that gets the link, so there is no forwarding
+   * step in between — but Telegram still cannot bind a link to an account, so
+   * the join is what binds it, exactly as on the site.
+   */
+  async alpha(chatId) {
+    if (!this.alphaChat?.configured)
+      return this.say(chatId, "The alpha channel is not set up on this desk\\.");
+    const sub = await this.store.subscriber(chatId);
+    if (!sub?.address)
+      return this.say(chatId, "Link the wallet holding your keys first — send `/link`\\.");
+    if (!this.holdings?.configured)
+      return this.say(chatId, "The collection is not deployed yet, so no wallet's keys can be counted\\.");
+
+    const held = await this.holdings.countOf(sub.address);
+    if (held < this.alphaRung)
+      return this.say(chatId, [
+        `The alpha channel opens at *${this.alphaRung}* keys\\. This wallet holds *${held}*\\.`,
+        "",
+        `Keys are at ${esc("https://" + this.site + "/mint")}`,
+      ].join("\n"));
+
+    const link = await this.alphaChat.createInvite({ name: `alpha ${sub.address.slice(0, 8)}` });
+    if (!link) return this.say(chatId, "Telegram would not issue a link\\. Try again in a minute\\.");
+    await this.store.markAlphaInvited(chatId, link);
+    this.log(`[alpha] invite issued to ${sub.address} via bot (${held} keys)`);
+    return this.say(chatId, [
+      `${esc(link)}`,
+      "",
+      "Single use, and it expires in fifteen minutes\\.",
+      "The place is taken back when the keys go — the desk re\\-reads them every ten minutes\\.",
+    ].join("\n"));
   }
 
   async status(chatId) {

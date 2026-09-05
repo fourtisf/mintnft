@@ -576,6 +576,12 @@ continuing. Everything else is recoverable; that one is not.
   so `allowed_updates` has to name the message types too or they stop arriving)
   and binds the account that used the link to the wallet it was issued for. An
   invite that was never used removes nobody and is simply dropped.
+  **`/alpha` in a DM answers with the same rules**, from `tgbot.js` — the site's
+  button and the bot command read the same `holdings`, the same rung and the
+  same channel, because two copies of a permission rule are two rules that
+  drift. The bot is not what issues a link from the site: `api.js` calls
+  Telegram over HTTP with the same token, and the polling loop only ever hears
+  about the *join*.
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.

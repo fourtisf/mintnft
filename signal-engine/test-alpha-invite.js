@@ -22,6 +22,7 @@ import { FileStore } from "./store.js";
 import { serve } from "./api.js";
 import { issueSession } from "./auth.js";
 import { start } from "./index.js";
+import { TelegramBot, COMMANDS } from "./tgbot.js";
 
 const DATA = "./data/alpha-invite-test.json";
 const SECRET = "test-secret";
@@ -199,6 +200,71 @@ head("join lewat link itu mengaitkan akunnya");
   ok(store.subscriber(CHAT).alphaUserId === JOINED, "dan akunnya tersimpan");
   ok(store.bindAlphaMember("https://t.me/+someoneelse", 5) === null,
     "link yang bukan kita terbitkan tidak mengaitkan apa pun");
+}
+
+/* ═══════ the same rules, asked for from inside Telegram ═══════ */
+head("/alpha di DM menjawab dengan aturan yang sama");
+{
+  const say = [];
+  const fetchImpl = async (url, init) => {
+    const m = url.split("/").pop(), b = JSON.parse(init.body);
+    if (m === "sendMessage") { say.push(b.text); return { json: async () => ({ ok: true, result: {} }) }; }
+    return { json: async () => ({ ok: true, result: {} }) };
+  };
+  const mk = (store, { holdings, alphaChat }) => new TelegramBot({ token: "T", store,
+    tierSource: { bestTierOf: async () => 0 }, holdings, alphaChat, alphaRung: 3,
+    fetchImpl, log: () => {} });
+
+  ok(COMMANDS.some(([c]) => c === "alpha"),
+    "perintahnya terdaftar, jadi muncul di menu \"/\" dan bukan rahasia");
+
+  rmSync(DATA, { force: true });
+  let store = new FileStore(DATA);
+  store.addSubscriber(CHAT);                       // subscribed, wallet not linked
+  const c1 = chanStub();
+  say.length = 0;
+  await mk(store, { holdings: holdStub([5]), alphaChat: c1.tg }).alpha(CHAT);
+  ok(/\/link/.test(say[0] ?? ""), "belum menautkan dompet: diarahkan ke /link");
+  ok(c1.issued.length === 0, "dan tidak ada link yang terbit");
+
+  rmSync(DATA, { force: true });
+  store = new FileStore(DATA);
+  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR);
+  const c2 = chanStub();
+  say.length = 0;
+  await mk(store, { holdings: holdStub([1]), alphaChat: c2.tg }).alpha(CHAT);
+  ok(/opens at \*3\*/.test(say[0] ?? "") && /holds \*1\*/.test(say[0] ?? ""),
+    "key kurang: disebutkan berapa syaratnya dan berapa yang dipegang");
+  ok(c2.issued.length === 0, "dan tetap tidak ada link");
+
+  rmSync(DATA, { force: true });
+  store = new FileStore(DATA);
+  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR);
+  const c3 = chanStub();
+  say.length = 0;
+  await mk(store, { holdings: holdStub([3]), alphaChat: c3.tg }).alpha(CHAT);
+  /* MarkdownV2 rejects an unescaped "." or "+", and a rejected message is a
+     holder who asked and got nothing. So the link goes out escaped and has to
+     survive unescaping — asserting on the raw string would have passed only in
+     the case Telegram refuses. */
+  ok(!say[0]?.includes(LINK), "link mentah tidak dikirim — MarkdownV2 akan menolak seluruh pesannya");
+  ok(say[0]?.replace(/\\(.)/g, "$1").includes(LINK),
+    "key cukup: link-nya dikirim ke chat itu juga, ter-escape dan utuh");
+  ok(/fifteen minutes/.test(say[0] ?? ""), "dengan umurnya dinyatakan");
+  ok(store.subscriber(CHAT).alphaInviteLink === LINK,
+    "dan dicatat sama seperti lewat situs — penyapunya satu, bukan dua");
+
+  /* The desk with no collection deployed cannot count anybody, and that is a
+     fact about the desk rather than a verdict on the reader's wallet. */
+  rmSync(DATA, { force: true });
+  store = new FileStore(DATA);
+  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR);
+  const c4 = chanStub();
+  say.length = 0;
+  await mk(store, { holdings: { configured: false, countOf: async () => 0 }, alphaChat: c4.tg }).alpha(CHAT);
+  ok(/not deployed/.test(say[0] ?? ""),
+    "koleksi belum ada: dikatakan soal desk-nya, bukan soal dompet pembacanya");
+  ok(c4.issued.length === 0, "dan tidak ada link");
 }
 
 rmSync(DATA, { force: true });
