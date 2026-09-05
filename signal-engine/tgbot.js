@@ -318,14 +318,40 @@ export class TelegramBot {
   /* ─────────── the polling loop ─────────── */
 
   async poll() {
-    const updates = await this.call("getUpdates", { offset: this.offset, timeout: 25, limit: 50 });
+    /* chat_member is not in Telegram's default set, so a bot that does not ask
+       for it never learns who joined — and a channel whose joins are invisible
+       cannot have its membership taken back. Asking for it means listing the
+       ones we already rely on too: an allowed_updates that names one type
+       silently stops delivering the rest. */
+    const updates = await this.call("getUpdates", { offset: this.offset, timeout: 25, limit: 50,
+      allowed_updates: ["message", "edited_message", "chat_member"] });
     for (const u of updates) {
       this.offset = Math.max(this.offset, u.update_id + 1);
-      try { await this.handle(u.message ?? u.edited_message); }
+      try {
+        if (u.chat_member) await this.onChatMember(u.chat_member);
+        else await this.handle(u.message ?? u.edited_message);
+      }
       catch (e) { this.log(`[tg] handling update ${u.update_id} failed — ${String(e)}`); }
     }
     this.codes.sweep();
     return updates.length;
+  }
+
+  /**
+   * Someone joined a chat this bot administers. The only one that matters is a
+   * join through a link we issued: it says which Telegram account to remove
+   * when that wallet stops holding keys, and it is the only moment Telegram
+   * ever tells us. A join through any other link is somebody the owner let in
+   * by hand, and not ours to take back.
+   */
+  async onChatMember(ev) {
+    const status = ev.new_chat_member?.status;
+    if (status !== "member" && status !== "restricted") return;
+    const link = ev.invite_link?.invite_link;
+    const userId = ev.new_chat_member?.user?.id;
+    if (!link || !userId) return;
+    const row = await this.store.bindAlphaMember(link, userId);
+    if (row) this.log(`[alpha] ${row.address} joined as ${userId}`);
   }
 
   /** Its own name, or null. Null means the site shows no link at all — a link

@@ -174,7 +174,18 @@ export function start({ store = new FileStore(), port = 8787,
       // one, and only one of them is reversible by the reader.
       if (count === 0 && (await holdings.countOf(sub.address)) !== 0) continue;
       if (levelFor(count) >= HOLD_PREMIUM) continue;
-      if (await alphaChat.removeMember(sub.chatId)) {
+      /* The account that walked through the door, not the one handed the key.
+         Telegram cannot bind a link to an account — `member_limit: 1` admits
+         whoever clicks first — so a link that was forwarded put somebody else
+         in the channel, and banning the holder who never joined would remove
+         the wrong person and leave the right one reading. Until the join is
+         seen there is nobody to remove, and the invite is simply dropped. */
+      if (!sub.alphaUserId) {
+        await store.clearAlphaInvited(sub.chatId);
+        log(`[alpha] invite to ${sub.address} expired unused — holds ${count}`);
+        continue;
+      }
+      if (await alphaChat.removeMember(sub.alphaUserId)) {
         await store.clearAlphaInvited(sub.chatId);
         log(`[alpha] removed ${sub.address} — holds ${count}, needs ${LADDER()[HOLD_PREMIUM]}`);
       }

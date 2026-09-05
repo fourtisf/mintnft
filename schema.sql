@@ -375,6 +375,14 @@ CREATE TABLE tg_subscribers (
   -- reading a channel it no longer holds.
   alpha_invited_at timestamptz,
 
+  -- The link issued, and the account that actually used it. Telegram cannot
+  -- bind an invite to one account -- member_limit 1 admits whoever clicks
+  -- first -- so a forwarded link seats somebody the invite was not for.
+  -- Banning the holder who never joined would remove the wrong person and
+  -- leave the right one reading, so the join is what says who to remove.
+  alpha_invite_link text UNIQUE,
+  alpha_user_id    bigint,
+
   created_at  timestamptz NOT NULL DEFAULT now(),
   seen_at     timestamptz NOT NULL DEFAULT now()
 );

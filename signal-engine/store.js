@@ -160,17 +160,31 @@ export class FileStore {
      at the moment they are used. Without this list an invite would be a
      one-time check granting indefinite access, and a wallet that sold its keys
      would keep reading a channel it no longer holds. */
-  markAlphaInvited(chatId) {
+  markAlphaInvited(chatId, link = null) {
     const row = this.#subs()[chatId];
     if (!row) return null;
     row.alphaInvitedAt = new Date().toISOString();
+    row.alphaInviteLink = link;
     this.#flush();
     return row;
   }
   clearAlphaInvited(chatId) {
     const row = this.#subs()[chatId];
     if (!row) return null;
-    row.alphaInvitedAt = null;
+    row.alphaInvitedAt = null; row.alphaInviteLink = null; row.alphaUserId = null;
+    this.#flush();
+    return row;
+  }
+
+  /* Who walked through the door, which is not necessarily who was handed the
+     key. Telegram cannot issue a link bound to one account — `member_limit: 1`
+     is the closest it gets, and that admits whoever clicks first. So the join
+     itself is what says who to remove later; without it a forwarded link puts
+     a stranger in the channel and the sweep bans the holder who never joined. */
+  bindAlphaMember(link, userId) {
+    const row = Object.values(this.#subs()).find(x => x.alphaInviteLink === link);
+    if (!row) return null;
+    row.alphaUserId = userId;
     this.#flush();
     return row;
   }

@@ -327,7 +327,7 @@ export function serve(store, {
 
       const link = await alphaChat.createInvite({ name: `alpha ${address.slice(0, 8)}` });
       if (!link) return json(res, 502, { error: "Telegram would not issue a link" });
-      await store.markAlphaInvited(sub.chatId);
+      await store.markAlphaInvited(sub.chatId, link);
       log(`[alpha] invite issued to ${address} (${held} keys)`);
       return json(res, 200, { link, expiresInS: 900 });
     }

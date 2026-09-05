@@ -27,6 +27,8 @@ const DATA = "./data/alpha-invite-test.json";
 const SECRET = "test-secret";
 const ADDR = "0x" + "22".repeat(20);
 const CHAT = 4242;
+const JOINED = 99001;      // the Telegram account that actually walked in
+const LINK = "https://t.me/+abc123";
 
 let failures = 0;
 const ok = (c, m) => { console.log(`  ${c ? "ok   " : "GAGAL"}  ${m}`); if (!c) failures++; };
@@ -35,7 +37,7 @@ const head = t => console.log(`\n${t}`);
 const chanStub = () => {
   const issued = [], removed = [];
   return { issued, removed, tg: { configured: true,
-    createInvite: async o => { issued.push(o); return "https://t.me/+abc123"; },
+    createInvite: async o => { issued.push(o); return LINK; },
     removeMember: async id => { removed.push(id); return true; },
     send: async () => true } };
 };
@@ -102,6 +104,9 @@ head("dompet yang memenuhi syarat dan sudah tertaut");
     ok(r.body.expiresInS === 900, "yang kedaluwarsa, bukan berlaku selamanya");
     ok(store.subscriber(CHAT).alphaInvitedAt,
       "dan dicatat siapa yang dimasukkan — tanpa itu tidak ada yang bisa dikeluarkan");
+    ok(store.subscriber(CHAT).alphaInviteLink === LINK,
+      "berikut link-nya, karena link itu yang nanti mengaitkan siapa yang benar-benar masuk");
+    ok(c.issued[0].name.includes("alpha"), "dan setiap permintaan membuat link barunya sendiri");
   });
 }
 
@@ -110,14 +115,16 @@ head("penyapu mengambil kembali tempatnya");
 {
   rmSync(DATA, { force: true });
   const store = new FileStore(DATA);
-  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR); store.markAlphaInvited(CHAT);
+  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR);
+  store.markAlphaInvited(CHAT, LINK); store.bindAlphaMember(LINK, JOINED);
   const c = chanStub();
   const eng = start({ store, port: 8815, log: () => {}, alphaChat: c.tg,
                       holdings: holdStub([0, 0]),   // asked twice, sold both times
                       api: { latestProfiles: async () => [], latestBoosts: async () => [],
                              topBoosts: async () => [], pairsForToken: async () => [], tokensBatch: async () => [] } });
   await eng.sweepAlpha();
-  ok(c.removed[0] === CHAT, "dompet yang menjual key-nya dikeluarkan");
+  ok(c.removed[0] === JOINED,
+    "yang dikeluarkan akun yang benar-benar masuk, bukan chat yang dikirimi link-nya");
   ok(store.subscriber(CHAT).alphaInvitedAt === null,
     "dan catatannya dibersihkan, jadi penyapu berikutnya tidak mengeluarkan orang yang sama lagi");
   eng.stop();
@@ -127,7 +134,8 @@ head("rantai yang tidak terbaca tidak mengeluarkan siapa pun");
 {
   rmSync(DATA, { force: true });
   const store = new FileStore(DATA);
-  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR); store.markAlphaInvited(CHAT);
+  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR);
+  store.markAlphaInvited(CHAT, LINK); store.bindAlphaMember(LINK, JOINED);
   const c = chanStub();
   /* countOf answers 0 for a read it could not make, so the sweep asks twice.
      A node that is down once and up the next moment must not cost a place. */
@@ -146,7 +154,8 @@ head("yang masih memenuhi syarat tidak diganggu");
 {
   rmSync(DATA, { force: true });
   const store = new FileStore(DATA);
-  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR); store.markAlphaInvited(CHAT);
+  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR);
+  store.markAlphaInvited(CHAT, LINK); store.bindAlphaMember(LINK, JOINED);
   const c = chanStub();
   const eng = start({ store, port: 8817, log: () => {}, alphaChat: c.tg,
                       holdings: holdStub([4]),
@@ -155,6 +164,41 @@ head("yang masih memenuhi syarat tidak diganggu");
   await eng.sweepAlpha();
   ok(c.removed.length === 0, "empat key masih di atas Premium, jadi tidak disentuh");
   eng.stop();
+}
+
+/* The hole the join binding exists to close: `member_limit: 1` admits whoever
+   clicks, so a forwarded link seats somebody the invite was not for. Banning
+   the holder who never joined would remove the wrong person and leave the right
+   one reading. */
+head("link yang belum pernah dipakai tidak mengeluarkan siapa pun");
+{
+  rmSync(DATA, { force: true });
+  const store = new FileStore(DATA);
+  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR);
+  store.markAlphaInvited(CHAT, LINK);          // issued, never joined
+  const c = chanStub();
+  const eng = start({ store, port: 8818, log: () => {}, alphaChat: c.tg,
+                      holdings: holdStub([0, 0]),
+                      api: { latestProfiles: async () => [], latestBoosts: async () => [],
+                             topBoosts: async () => [], pairsForToken: async () => [], tokensBatch: async () => [] } });
+  await eng.sweepAlpha();
+  ok(c.removed.length === 0,
+    "tidak ada yang dibanned — chat yang dikirimi link bukan tentu yang masuk");
+  ok(store.subscriber(CHAT).alphaInvitedAt === null,
+    "undangannya dilepas, jadi ia tidak terus dilihat penyapu setiap sepuluh menit");
+  eng.stop();
+}
+
+head("join lewat link itu mengaitkan akunnya");
+{
+  rmSync(DATA, { force: true });
+  const store = new FileStore(DATA);
+  store.addSubscriber(CHAT); store.linkSubscriber(CHAT, ADDR); store.markAlphaInvited(CHAT, LINK);
+  ok(store.bindAlphaMember(LINK, JOINED)?.chatId === CHAT,
+    "join dikaitkan lewat link-nya, bukan lewat tebakan siapa yang mengklik");
+  ok(store.subscriber(CHAT).alphaUserId === JOINED, "dan akunnya tersimpan");
+  ok(store.bindAlphaMember("https://t.me/+someoneelse", 5) === null,
+    "link yang bukan kita terbitkan tidak mengaitkan apa pun");
 }
 
 rmSync(DATA, { force: true });

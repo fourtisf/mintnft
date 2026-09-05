@@ -568,6 +568,14 @@ continuing. Everything else is recoverable; that one is not.
   make**: `countOf` answers 0 for a failure, so a zero is asked twice before it
   is believed. Removal is the destructive direction and an RPC outage driving it
   would empty the channel on a bad afternoon.
+  **Telegram cannot bind a link to an account.** `member_limit: 1` admits
+  whoever clicks first, so a forwarded link seats somebody the invite was not
+  for — and banning the holder who never joined would remove the wrong person
+  and leave the right one reading. The join is what says who to remove:
+  `tgbot.js` asks for `chat_member` updates (**not** in Telegram's default set,
+  so `allowed_updates` has to name the message types too or they stop arriving)
+  and binds the account that used the link to the wallet it was issued for. An
+  invite that was never used removes nobody and is simply dropped.
 - Multi-caller schema from day one. The house desk is `callers.id = 1`. This is
   what lets the product run as one desk today and as a referee later with no
   migration.

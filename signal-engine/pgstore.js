@@ -383,14 +383,22 @@ export class PgStore {
   /* Mirrors FileStore. The column is added by an ALTER in schema.sql rather
      than a migration file, because this table is operational state and losing
      it costs a re-invite, not a record. */
-  async markAlphaInvited(chatId) {
+  async markAlphaInvited(chatId, link = null) {
     const { rows } = await this.pool.query(
-      "UPDATE tg_subscribers SET alpha_invited_at = now() WHERE chat_id = $1 RETURNING *", [chatId]);
+      `UPDATE tg_subscribers SET alpha_invited_at = now(), alpha_invite_link = $2,
+       alpha_user_id = NULL WHERE chat_id = $1 RETURNING *`, [chatId, link]);
     return rows[0] ? rowToSub(rows[0]) : null;
   }
   async clearAlphaInvited(chatId) {
     const { rows } = await this.pool.query(
-      "UPDATE tg_subscribers SET alpha_invited_at = NULL WHERE chat_id = $1 RETURNING *", [chatId]);
+      `UPDATE tg_subscribers SET alpha_invited_at = NULL, alpha_invite_link = NULL,
+       alpha_user_id = NULL WHERE chat_id = $1 RETURNING *`, [chatId]);
+    return rows[0] ? rowToSub(rows[0]) : null;
+  }
+  async bindAlphaMember(link, userId) {
+    const { rows } = await this.pool.query(
+      "UPDATE tg_subscribers SET alpha_user_id = $2 WHERE alpha_invite_link = $1 RETURNING *",
+      [link, userId]);
     return rows[0] ? rowToSub(rows[0]) : null;
   }
   async deactivateSubscriber(chatId) {
@@ -452,6 +460,8 @@ function rowToSub(r) {
            linkedAt: r.linked_at ? new Date(r.linked_at).toISOString() : null,
            filters: r.filters ?? {}, active: r.active,
            alphaInvitedAt: r.alpha_invited_at ? new Date(r.alpha_invited_at).toISOString() : null,
+           alphaInviteLink: r.alpha_invite_link ?? null,
+           alphaUserId: r.alpha_user_id === null || r.alpha_user_id === undefined ? null : Number(r.alpha_user_id),
            createdAt: new Date(r.created_at).toISOString(),
            seenAt: new Date(r.seen_at).toISOString() };
 }
