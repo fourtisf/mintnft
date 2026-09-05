@@ -75,8 +75,10 @@ async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
   win.Element.prototype.scrollIntoView = function () {};
   win.WebSocket = class { constructor() { setTimeout(() => this.onerror?.({}), 0); } close() {} };
 
+  const fetched = [];
   win.fetch = async u => {
     const p = String(u);
+    fetched.push(p);
     if (p.includes("/api/keys/state")) return { ok: true, json: async () => ({ ...identity, state }) };
     if (p.includes("/api/keys")) return { ok: true, json: async () => identity };
     throw new Error("offline");     // every other route is out of scope here
@@ -107,7 +109,8 @@ async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
   });
   if (wallet) win.ethereum = makeProvider(null);
 
-  win.eval(readFileSync(join(ROOT, "site", "assets", "app.js"), "utf8"));
+  win.eval(readFileSync(join(ROOT, "site", "assets", "app.js"), "utf8")
+    + ";globalThis.__t={SESSION,paintSession,sessionChanged};");
   // Extensions answer the page's eip6963:requestProvider after it is listening,
   // which is exactly here.
   for (const a of announce) {
@@ -126,7 +129,7 @@ async function boot({ identity = IDENTITY, state = baseState(), chainId = CHAIN,
   const el = id => doc.getElementById(id);
   const txt = id => (el(id)?.textContent ?? "").trim();
   return {
-    win, doc, el, txt, sent, asked,
+    win, doc, el, txt, sent, asked, fetched,
     pick: () => el("walletPick"),
     options: () => [...doc.querySelectorAll("#wpickList .wopt")],
     btn: () => el("mintBtn"),
@@ -452,6 +455,36 @@ head("alamat halaman");
   const other = await boot({ url: "http://localhost/custody", navigate: false });
   ok(shown(other.doc).join() === "v-vault",
     "dan alamat lain tetap ke halamannya sendiri — bukan mint karena kebetulan");
+}
+
+/* Two connect buttons for one wallet.
+ *
+ * The mint panel reads MINT.wallet ?? SESSION.address, but it only read it at
+ * boot. Signing in on the header therefore left the panel still asking for a
+ * wallet, and the reader was made to connect a second time for an address the
+ * page already had — the page failing to tell itself something it knew.
+ *
+ * And the price: a closed phase has none, and the contract answers 0. Printed
+ * as 0.0000 that reads as free, which is the one thing a mint panel must never
+ * say by accident.
+ */
+head("satu dompet, satu kali connect");
+{
+  const a = await boot({ wallet: false, state: baseState({ phase: 0, phaseName: "closed",
+    price: "0", unitPrice: "0", canMint: undefined }) });
+  ok(/Connect a wallet/.test(a.btn().textContent),
+    "sebelum ada sesi, panel memang meminta dompet");
+  ok(a.txt("unitPrice") === "\u2014",
+    "dan fase tertutup tidak berharga 0.0000 — angka itu terbaca gratis");
+  ok(a.txt("total") === "\u2014", "begitu juga totalnya");
+
+  a.fetched.length = 0;
+  const t = a.win.__t;
+  Object.assign(t.SESSION, { token: "t", tier: 0, address: WALLET });
+  t.paintSession(); t.sessionChanged();
+  await sleep(140);
+  ok(a.fetched.some(u => u.includes("/api/keys/state") && u.includes("address=" + WALLET)),
+    "sign-in di header langsung membaca ulang panel mint dengan alamat itu");
 }
 
 console.log(`\n${failures ? failures + " GAGAL" : "semua lolos"}`);

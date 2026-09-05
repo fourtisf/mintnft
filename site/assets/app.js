@@ -1152,8 +1152,12 @@ function syncMint(){
 
   const unit=st?wei(st.unitPrice??st.price):wei("1700000000000000");
   document.getElementById("qVal").textContent=qty;
-  document.getElementById("unitPrice").textContent=eth(unit);
-  document.getElementById("total").textContent=eth(dueFor(st,qty,unit))+" ETH";
+  /* A closed phase has no price, and the contract answers 0 for it. Printed as
+     0.0000 that reads as free, which is the one thing a mint panel must never
+     say by accident — so a price nobody can pay is a dash. */
+  const noPrice=st&&unit===0n;
+  document.getElementById("unitPrice").textContent=noPrice?"—":eth(unit);
+  document.getElementById("total").textContent=noPrice?"—":eth(dueFor(st,qty,unit))+" ETH";
   document.getElementById("qMinus").disabled=qty<=1;
   document.getElementById("qPlus").disabled=qty>=max;
 
@@ -2832,6 +2836,12 @@ function saveSession(){
    leave a signed-out reader looking at their tape for as long as the network
    takes, which is the gate failing open for the duration. */
 function sessionChanged(){
+  /* The mint panel reads MINT.wallet ?? SESSION.address, but it only read it
+     at boot — so signing in on the header left it still asking for a wallet,
+     and the reader was made to connect a second time for an address the page
+     already had. Two connect buttons for one wallet is the page failing to
+     tell itself something it knows. */
+  loadMintState();
   if(VIEW!=="alpha")return;
   alphaBlank();
   const lock=document.getElementById("aLock"); if(lock)lock.innerHTML="";
