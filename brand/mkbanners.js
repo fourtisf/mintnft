@@ -689,50 +689,132 @@ fs.writeFileSync('brand/banners/x4-mint-live-square.html', mint(1080, 1080));
 
 /* ── token ─────────────────────────────────────────────────────────────── */
 
-const token = (w, h) => page(w, h, `
-<div style="position:absolute;inset:0;overflow:hidden">
-  <div style="position:absolute;left:${h > 1000 ? '50%' : '73%'};top:${h > 1000 ? '38%' : '50%'};
-    transform:translate(-50%,-50%);width:${h > 1000 ? 940 : 1010}px;height:${h > 1000 ? 940 : 1010}px;opacity:.62">
-    <svg viewBox="0 0 600 600" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">${keyBody(3)}</svg>
-  </div>
-</div>
-${h > 1000
-  ? `<div style="position:absolute;inset:0;background:
-      radial-gradient(105% 88% at 50% 40%,rgba(8,9,11,.34) 14%,rgba(8,9,11,.88) 58%,rgba(8,9,11,.99))"></div>`
-  : `<div style="position:absolute;inset:0;background:
-      linear-gradient(90deg,rgba(8,9,11,.985) 26%,rgba(8,9,11,.86) 46%,rgba(8,9,11,.42) 74%,rgba(8,9,11,.62))"></div>
-     <div style="position:absolute;inset:0;background:
-      linear-gradient(0deg,rgba(8,9,11,.92),transparent 34%,transparent 72%,rgba(8,9,11,.86))"></div>`}
-<div class="keylight" style="opacity:.75"></div><div class="guil" style="opacity:.035"></div>
+/* The first version put the wordmark in the top-left third and let the key run
+   off the right edge behind a flat scrim, which left the middle of the frame
+   empty and turned the artwork to mud. Three things fix it and they are the
+   whole difference:
 
-<div style="position:absolute;inset:0;padding:${h > 1000 ? 92 : 84}px ${h > 1000 ? 72 : 92}px ${h > 1000 ? 84 : 76}px;
-  display:flex;flex-direction:column;text-align:${h > 1000 ? 'center' : 'left'};
-  align-items:${h > 1000 ? 'center' : 'flex-start'}">
+   - the key is composed as a medallion — concentric hairlines and an
+     engine-turned halo around it — so it reads as an engraved instrument
+     rather than a texture someone forgot to crop
+   - the palette is chosen, not defaulted. Key 3 renders Verdant, and a green
+     figure behind a blue-to-violet wordmark is two brands in one frame
+   - the empty middle carries a spec band. Four facts, all structural and all
+     checkable — nothing that moves, because a banner cannot be corrected once
+     it is on a timeline */
+
+const TOKEN_KEY = 5;          // Azure · Hood · Visor · Ring — agrees with --grad
+const SPECS = [
+  ['Robinhood Chain', 'chain id 4663'],
+  ['Append-only', 'no call is ever deleted'],
+  ['14 hard vetoes', 'before anything is scored'],
+  ['666 keys', 'season 1, odds published'],
+];
+
+/* concentric hairlines and a turned halo, drawn once for both sizes */
+const MEDALLION = d => `
+<div style="position:relative;width:${d}px;height:${d}px;flex-shrink:0">
+  <div style="position:absolute;inset:${-d * .30}px;border-radius:50%;opacity:.16;
+    background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.55) 0 .3deg,transparent .3deg 1.5deg);
+    -webkit-mask-image:radial-gradient(circle,transparent 44%,#000 58%,transparent 78%);
+    mask-image:radial-gradient(circle,transparent 44%,#000 58%,transparent 78%)"></div>
+  <div style="position:absolute;inset:${-d * .175}px;border-radius:50%;
+    border:1px dashed rgba(255,255,255,.085)"></div>
+  <div style="position:absolute;inset:${-d * .075}px;border-radius:50%;
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 0 0 1px rgba(0,0,0,.55) inset"></div>
+  <div style="position:absolute;inset:0;border-radius:50%;overflow:hidden;
+    border:1px solid rgba(255,255,255,.15);
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.07),0 50px 110px -34px rgba(0,0,0,1)">
+    <svg viewBox="50 12 500 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"
+      style="display:block;filter:brightness(1.42) contrast(1.04)">${keyBody(TOKEN_KEY)}</svg>
+    <div style="position:absolute;inset:0;
+      background:radial-gradient(76% 62% at 50% 34%,rgba(110,123,255,.16),transparent 68%)"></div>
+    <div style="position:absolute;inset:0;
+      background:radial-gradient(112% 100% at 50% 26%,transparent 40%,rgba(8,9,11,.72))"></div>
+  </div>
+</div>`;
+
+const specCell = (a, b, fs1, fs2) => `<div class="col" style="text-align:left">
+  <div style="font-family:var(--display);font-weight:600;font-size:${fs1}px;letter-spacing:-.022em">${a}</div>
+  <div class="mono" style="font-size:${fs2}px;margin-top:7px;letter-spacing:.01em">${b}</div>
+</div>`;
+
+/* one row of four on the wide frame, two rows of two on the square — four
+   columns across 936px would set the mono line at a size nobody reads */
+const specBand = (rows, fs1, fs2) => `
+<div class="band" style="width:100%;padding:${fs1 > 15 ? 22 : 19}px 0">
+  ${rows.map((r, i) => `<div style="display:flex;${i ? 'margin-top:20px' : ''}">
+    ${r.map(([a, b]) => specCell(a, b, fs1, fs2)).join('')}
+  </div>`).join('')}
+</div>`;
+
+const token = (w, h) => {
+  const sq = h > 1000;
+  const d = sq ? 336 : 430;
+  return page(w, h, `
+<div class="keylight" style="opacity:.85"></div>
+<div class="guil" style="opacity:.045"></div>
+
+<div style="position:absolute;inset:0;padding:${sq ? '64px 72px 58px' : '66px 84px 62px'};
+  display:flex;flex-direction:column;align-items:${sq ? 'center' : 'stretch'};
+  text-align:${sq ? 'center' : 'left'}">
+
   <div style="display:flex;align-items:center;justify-content:space-between;gap:40px;width:100%">
     <div style="display:flex;align-items:center;gap:10px">
       <span style="width:8px;height:8px;border-radius:50%;background:var(--win);
         box-shadow:0 0 0 5px rgba(62,207,142,.12)"></span>
       <span class="eyebrow" style="color:var(--win)">Live now</span>
     </div>
-    <div class="wm">${MARK}<span style="font-size:${h > 1000 ? 34 : 32}px">Nekara</span></div>
+    <div class="wm">${MARK}<span style="font-size:${sq ? 32 : 31}px">Nekara</span></div>
   </div>
 
-  <div style="margin:auto 0">
+  ${sq ? `
+  <div style="margin:auto 0;display:flex;flex-direction:column;align-items:center">
+    ${MEDALLION(d)}
+    <div class="mono" style="font-size:12px;letter-spacing:.24em;text-transform:uppercase;
+      color:var(--tx-2);margin-top:${d * .21}px">Nekara Keys · Season 1</div>
     <div style="font-family:var(--display);font-weight:600;letter-spacing:-.045em;
-      font-size:${h > 1000 ? 142 : 126}px;line-height:1;
+      font-size:100px;line-height:1;margin-top:22px;
       text-shadow:0 24px 70px rgba(0,0,0,.9)" class="grad-tx">$NEKARA</div>
-    <p style="font-size:${h > 1000 ? 21 : 20}px;line-height:1.6;color:var(--tx-2);
-      max-width:${h > 1000 ? 780 : 620}px;margin:${h > 1000 ? 28 : 26}px ${h > 1000 ? 'auto' : '0'} 0">The token of a register that publishes every call it makes, with the conditions that fired it, and cannot delete the ones that fail.</p>
-  </div>
+    <p style="font-size:19px;line-height:1.6;color:var(--tx-2);max-width:700px;margin-top:20px">
+      The register's own token. Every call it makes is published with the conditions
+      that fired it — including the ones that failed.</p>
+  </div>`
+  : `
+  <div style="margin:auto 0;display:flex;align-items:center;gap:74px;width:100%">
+    <div style="flex:1;min-width:0">
+      <div style="font-family:var(--display);font-weight:600;letter-spacing:-.045em;
+        font-size:132px;line-height:1;text-shadow:0 24px 70px rgba(0,0,0,.9)" class="grad-tx">$NEKARA</div>
+      <div class="rule-l" style="width:220px;margin:30px 0 26px"></div>
+      <p style="font-size:20.5px;line-height:1.62;color:var(--tx-2);max-width:600px">
+        The register's own token. Every call it makes is published with the conditions
+        that fired it — including the ones that failed.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+      ${MEDALLION(d)}
+      <div class="mono" style="font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;
+        color:var(--tx-2);margin-top:${d * .215}px">Nekara Keys · Season 1</div>
+    </div>
+  </div>`}
 
-  <div style="display:flex;align-items:center;justify-content:${h > 1000 ? 'center' : 'flex-start'};gap:18px;width:100%">
-    <div style="padding:14px 28px;border-radius:var(--r);background:var(--grad);
-      font-family:var(--display);font-weight:600;font-size:19px;color:#fff">nekara.xyz</div>
-    <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
+  ${specBand(sq ? [SPECS.slice(0, 2), SPECS.slice(2)] : [SPECS], sq ? 18 : 17, sq ? 12.5 : 12)}
+
+  <div style="display:flex;align-items:center;justify-content:${sq ? 'center' : 'space-between'};
+    gap:18px;width:100%;margin-top:${sq ? 24 : 26}px">
+    <div style="display:flex;align-items:center;gap:18px">
+      <div style="padding:14px 28px;border-radius:var(--r);background:var(--grad);
+        font-family:var(--display);font-weight:600;font-size:19px;color:#fff;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 10px 26px -10px rgba(91,124,250,.7)">nekara.xyz</div>
+      <div class="mono" style="font-size:15px">t.me/nekarasignals</div>
+    </div>
+    ${sq ? '' : `<div class="mono" style="font-size:12.5px;letter-spacing:.2em;text-transform:uppercase">
+      Signals · Hindsight · Triage · Custody</div>`}
   </div>
 </div>
-${PLATE(h > 1000 ? 40 : 38)}
+${PLATE(sq ? 40 : 38)}
 <div class="grain"></div>`);
+};
 
 fs.writeFileSync('brand/banners/x5-token.html', token(1600, 900));
 fs.writeFileSync('brand/banners/x5-token-square.html', token(1080, 1080));

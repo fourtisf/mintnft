@@ -132,3 +132,32 @@ these are the prototype's seed, not real ones** — edit `CALLS` in
 |---|---|---|
 | `s1-scoreboard.png` | 1600×900 | X |
 | `s2-scoreboard-square.png` | 1080×1080 | Telegram and Instagram |
+
+## Launch set (X)
+
+Four announcements, each 1600×900 for X and 1080×1080 for Telegram and
+Instagram. They share one frame — a hairline plate with registration marks, an
+engine-turned ground, key light from the upper right — so a timeline shows one
+account rather than four templates.
+
+| File | Size | Where it goes |
+|---|---|---|
+| `x1-live.png` / `x2-live-square.png` | 1600×900 / 1080×1080 | the desk is live |
+| `x3-launch.png` / `x3-launch-square.png` | 1600×900 / 1080×1080 | launch |
+| `x4-mint-live.png` / `x4-mint-live-square.png` | 1600×900 / 1080×1080 | phase 1 mint |
+| `x5-token.png` / `x5-token-square.png` | 1600×900 / 1080×1080 | the token |
+
+`x5-token` carries no contract address on purpose. A banner cannot be corrected
+once it is on a timeline, and the ticker is the part that does not change; the
+address goes in the post, where a reply can fix it.
+
+Its four facts are structural — chain id, append-only, the gate count, the
+season size — and every one of them is checkable. Nothing that moves goes on a
+banner: a hit rate printed here is a number that was true the day it rendered.
+**`14 hard vetoes` is `GATES.length`.** Add or remove a gate and this banner is
+wrong until it is re-rendered, which is the same rule as the artwork and
+`parity.js`.
+
+The key it draws is chosen, not defaulted. Key 3 renders Verdant, and a green
+figure behind a blue-to-violet wordmark is two brands in one frame; `TOKEN_KEY`
+is an Azure one, and its tier is blanked like every other key on a banner.
