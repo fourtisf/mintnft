@@ -2058,9 +2058,13 @@ function lockbox(a){
     <button class="btn btn-p" id="alphaConnect">Connect</button></div>`;
   const L=a.ladder??{};
   const rung=(n,name)=>`<div class="rung${(a.keys??0)>=n?" on":""}"><b>${n}</b><span>${name}</span></div>`;
+  /* The route's `why` is one complete sentence because it has to stand alone
+     for anything reading the API. The page has a heading, so printing it whole
+     underneath said "Alpha opens at 3 keys" twice; the count is what is left. */
+  const held=`This wallet holds ${a.keys ?? 0}.`;
   return `<div class="lockbox"><div class="guil"></div>
     <h3>Alpha opens at ${esc(String(L[2]??3))} keys</h3>
-    <p>${esc(a.why??"")}</p>
+    <p>${esc(a.verified===false?(a.why??""):held)}</p>
     <div class="rungs">${rung(L[1]??1,"Member")}${rung(L[2]??3,"Premium")}${rung(L[3]??5,"Desk")}</div>
     <button class="btn btn-p" data-v="mint">Claim a key</button></div>`;
 }
