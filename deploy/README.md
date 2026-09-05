@@ -40,6 +40,27 @@ From your laptop, in the repo:
 Node 20 or newer. `node --version` on the box; the engine uses global `fetch`,
 which 18 has behind a flag and 20 has outright.
 
+### Updating a box that is already running
+
+From `/opt/nekara-src` on the VPS, and **both excludes are the point**:
+
+    git -C /opt/nekara-src fetch --depth 1 origin main
+    git -C /opt/nekara-src reset --hard FETCH_HEAD
+    rsync -a --exclude data --exclude node_modules \
+      /opt/nekara-src/signal-engine/ /opt/nekara/signal-engine/
+    systemctl restart nekara-engine
+
+`data/` and `node_modules/` are both in `.gitignore`, so neither is in the
+clone. An `rsync --delete` without those excludes therefore deletes the
+register and the installed dependencies — the engine stops booting and the
+only copy of the calls is last night's 03:00 backup. `--depth 1` also makes
+the clone shallow, which is why this fetches and resets rather than pulling:
+`git pull` there fails with "divergent branches" and the rsync on the next
+line runs anyway, against the old tree.
+
+`bash /opt/nekara/deploy/golive.sh` does all of this correctly and is safe to
+re-run; the commands above are what it does, for when only the engine moved.
+
 ## 2 · Preflight, before anything writes
 
     cd /opt/nekara/signal-engine && node preflight.js --rounds 3
